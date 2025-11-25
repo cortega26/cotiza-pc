@@ -52,7 +52,7 @@ export function checkPsuPowerSufficiency(psu, cpu, gpu, extraHeadroomW = 75) {
   const gpuTdp = toNumber(gpu.tdp_w) || 0;
   const estimated_load_w = cpuTdp + gpuTdp + extraHeadroomW;
   const suggestedByGpu = toNumber(gpu.suggested_psu_w);
-  const recommended_min_psu_w = Math.ceil(Math.max(estimated_load_w * 1.3, suggestedByGpu || 0));
+  const recommended_min_psu_w = Math.ceil(Math.max(estimated_load_w * 1.5, suggestedByGpu || 0));
   const wattage = toNumber(psu.wattage_w);
   if (!wattage) return { status: "unknown", reason: "PSU sin wattage" };
   if (wattage >= recommended_min_psu_w) return { status: "ok", estimated_load_w, recommended_min_psu_w };
