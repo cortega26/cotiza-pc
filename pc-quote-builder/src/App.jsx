@@ -103,11 +103,25 @@ const getInitialBuilder = () => {
 const isRowEmpty = (row) =>
   !row.category && !row.product && !row.store && !row.offerPrice && !row.regularPrice && !row.notes;
 
+const extractCpuFamily = (cpu) => {
+  const name = (cpu.name || "").toLowerCase();
+  if (name.includes("core ultra")) return "Core Ultra";
+  const intel = name.match(/core\\s+i(\\d)/);
+  if (intel) return `Core i${intel[1]}`;
+  if (name.includes("pentium")) return "Pentium";
+  if (name.includes("celeron")) return "Celeron";
+  const ryzen = name.match(/ryzen\\s+(\\d)/);
+  if (ryzen) return `Ryzen ${ryzen[1]}`;
+  if (name.includes("threadripper")) return "Threadripper";
+  return "Otros";
+};
+
 const mapProcessedToCatalog = (processed) => {
   const cpus =
     processed.cpus?.map((cpu) => ({
       id: cpu.id,
       name: cpu.name,
+      brand: cpu.brand || "",
       socket: cpu.socket,
       memoryType: cpu.memory_support?.types?.[0] || cpu.memory_type || "",
       tdp: cpu.tdp_w,
@@ -290,7 +304,7 @@ const getOptionsForStep = (key, selection, catalog) => {
     case "cpuId":
       return cpus;
     case "moboId":
-      if (!selection.cpu) return motherboards;
+      if (!selection.cpu || !selection.cpu.socket) return motherboards;
       return motherboards.filter((m) => m.socket === selection.cpu.socket);
     case "ramId": {
       const memoryType = selection.cpu?.memoryType || selection.mobo?.memoryType;
@@ -320,6 +334,8 @@ function App() {
   const [quotes, setQuotes] = useState(getInitialQuotes);
   const [activeQuoteId, setActiveQuoteId] = useState("");
   const [builder, setBuilder] = useState(getInitialBuilder);
+  const [cpuBrand, setCpuBrand] = useState("");
+  const [cpuFamily, setCpuFamily] = useState("");
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
   const [catalog, setCatalog] = useState(DEFAULT_CATALOG);
@@ -341,6 +357,16 @@ function App() {
   const gpus = useMemo(() => catalog.gpus || [], [catalog]);
   const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
+  const cpuFamilies = useMemo(() => {
+    const map = new Map();
+    cpus.forEach((cpu) => {
+      const brand = cpu.brand || "Desconocido";
+      const family = extractCpuFamily(cpu);
+      if (!map.has(brand)) map.set(brand, new Set());
+      map.get(brand).add(family);
+    });
+    return map;
+  }, [cpus]);
 
   const selection = useMemo(
     () => ({
@@ -524,6 +550,9 @@ function App() {
     setBuilder((prev) => {
       const next = { ...prev, [key]: cleanValue };
       if (key === "cpuId") {
+        const selectedCpu = cpus.find((c) => c.id === cleanValue);
+        setCpuBrand(selectedCpu?.brand || "");
+        setCpuFamily(selectedCpu ? extractCpuFamily(selectedCpu) : "");
         const cpu = cpus.find((c) => c.id === cleanValue);
         const mobo = motherboards.find((m) => m.id === next.moboId);
         const ram = ramKits.find((r) => r.id === next.ramId);
@@ -996,13 +1025,15 @@ function App() {
                   const hint =
                     step.key === "moboId"
                       ? selection.cpu
-                        ? `Filtrando placas ${selection.cpu.socket}.`
+                        ? selection.cpu.socket
+                          ? `Filtrando placas ${selection.cpu.socket}.`
+                          : "CPU sin socket en datos; mostrando todas."
                         : "Elige CPU para filtrar socket."
-                      : step.key === "ramId"
-                      ? selection.cpu || selection.mobo
-                        ? `Mostrando RAM ${selection.cpu?.memoryType || selection.mobo?.memoryType}.`
-                        : "Elige CPU/placa para filtrar RAM."
-                      : step.key === "caseId"
+                    : step.key === "ramId"
+                    ? selection.cpu || selection.mobo
+                      ? `Mostrando RAM ${selection.cpu?.memoryType || selection.mobo?.memoryType}.`
+                      : "Elige CPU/placa para filtrar RAM."
+                    : step.key === "caseId"
                       ? selection.gpu || selection.mobo
                         ? "Filtrado por largo de GPU y factor de forma."
                         : "Elige GPU/placa para validar espacio."
@@ -1012,27 +1043,79 @@ function App() {
 
                   return (
                     <div key={step.key} className={"builder-choice" + (isActive ? " active" : "")}>
-                      <label className="field">
-                        <span>{step.label}</span>
-                        <TypeaheadSelect
-                          options={options}
-                          value={value}
-                          onChange={(id) => handleBuilderChange(step.key, id)}
-                          placeholder={`Selecciona ${step.label}`}
-                          getOptionLabel={(opt) => opt.name}
-                          renderOption={(opt) => {
-                            if (step.key === "cpuId") return `${opt.name} · ${opt.socket || "?"} · ${opt.tdp || "?"}W`;
-                            if (step.key === "moboId")
-                              return `${opt.name} · ${opt.socket || "?"} · ${opt.formFactor || "-"}`;
-                            if (step.key === "ramId") return `${opt.name}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
-                            if (step.key === "gpuId")
-                              return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm`;
-                            if (step.key === "psuId") return `${opt.name} · ${opt.wattage || "?"}W`;
-                            if (step.key === "caseId") return `${opt.name} · GPU ${opt.maxGpuLength || "-"}mm`;
-                            return opt.name;
-                          }}
-                        />
-                      </label>
+                      {step.key === "cpuId" ? (
+                        <>
+                          <label className="field">
+                            <span>Marca CPU</span>
+                            <select
+                              value={cpuBrand}
+                              onChange={(e) => {
+                                setCpuBrand(e.target.value);
+                                setCpuFamily("");
+                                handleBuilderChange("cpuId", "");
+                              }}
+                            >
+                              <option value="">Todas</option>
+                              {[...cpuFamilies.keys()].map((brand) => (
+                                <option key={brand} value={brand}>
+                                  {brand}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>Línea</span>
+                            <select
+                              value={cpuFamily}
+                              onChange={(e) => {
+                                setCpuFamily(e.target.value);
+                                handleBuilderChange("cpuId", "");
+                              }}
+                            >
+                              <option value="">Todas</option>
+                              {cpuBrand &&
+                                Array.from(cpuFamilies.get(cpuBrand) || []).map((fam) => (
+                                  <option key={fam} value={fam}>
+                                    {fam}
+                                  </option>
+                                ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>{step.label}</span>
+                            <TypeaheadSelect
+                              options={options
+                                .filter((opt) => (!cpuBrand || opt.brand === cpuBrand))
+                                .filter((opt) => (!cpuFamily || extractCpuFamily(opt) === cpuFamily))}
+                              value={value}
+                              onChange={(id) => handleBuilderChange(step.key, id)}
+                              placeholder={`Selecciona ${step.label}`}
+                              getOptionLabel={(opt) => opt.name}
+                              renderOption={(opt) => `${opt.name} · ${opt.socket || "?"} · ${opt.tdp || "?"}W`}
+                            />
+                          </label>
+                        </>
+                      ) : (
+                        <label className="field">
+                          <span>{step.label}</span>
+                          <TypeaheadSelect
+                            options={options}
+                            value={value}
+                            onChange={(id) => handleBuilderChange(step.key, id)}
+                            placeholder={`Selecciona ${step.label}`}
+                            getOptionLabel={(opt) => opt.name}
+                            renderOption={(opt) => {
+                              if (step.key === "moboId") return `${opt.name} · ${opt.socket || "?"} · ${opt.formFactor || "-"}`;
+                              if (step.key === "ramId") return `${opt.name}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
+                              if (step.key === "gpuId")
+                                return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm`;
+                              if (step.key === "psuId") return `${opt.name} · ${opt.wattage || "?"}W`;
+                              if (step.key === "caseId") return `${opt.name} · GPU ${opt.maxGpuLength || "-"}mm`;
+                              return opt.name;
+                            }}
+                          />
+                        </label>
+                      )}
                       <p className="field-hint">{hint}</p>
                     </div>
                   );

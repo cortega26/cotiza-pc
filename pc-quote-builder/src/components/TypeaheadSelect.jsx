@@ -9,7 +9,7 @@ function TypeaheadSelect({
   placeholder = "",
   getOptionLabel = defaultGetOptionLabel,
   renderOption,
-  maxItems = 15,
+  maxItems = 50,
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
