@@ -1,43 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import localCatalog from "./data/catalog.json";
 
-const cpus = [
-  { id: "r5-5600", name: "AMD Ryzen 5 5600", socket: "AM4", memoryType: "DDR4", tdp: 65, notes: "PCIe 4.0" },
-  { id: "r7-5800x3d", name: "AMD Ryzen 7 5800X3D", socket: "AM4", memoryType: "DDR4", tdp: 105, notes: "Ideal gaming" },
-  { id: "i5-12400f", name: "Intel Core i5-12400F", socket: "LGA1700", memoryType: "DDR4", tdp: 65, notes: "12th gen" },
-  { id: "i5-13600k", name: "Intel Core i5-13600K", socket: "LGA1700", memoryType: "DDR5", tdp: 125, notes: "PCIe 5.0 ready" },
-];
+const STORAGE_KEYS = {
+  quotes: "pcqb:quotes:v1",
+  activeQuoteId: "pcqb:activeQuoteId:v1",
+  builder: "pcqb:builder:v1",
+};
 
-const motherboards = [
-  { id: "b550-tomahawk", name: "MSI B550 Tomahawk", socket: "AM4", formFactor: "ATX", memoryType: "DDR4", maxMemorySpeed: 4400, wifi: false },
-  { id: "b550m-plus", name: "ASUS TUF B550M-Plus WiFi", socket: "AM4", formFactor: "mATX", memoryType: "DDR4", maxMemorySpeed: 4600, wifi: true },
-  { id: "b660-aorus", name: "Gigabyte B660 Aorus Pro AX DDR4", socket: "LGA1700", formFactor: "ATX", memoryType: "DDR4", maxMemorySpeed: 5333, wifi: true },
-  { id: "z790-prime", name: "ASUS PRIME Z790-P WiFi", socket: "LGA1700", formFactor: "ATX", memoryType: "DDR5", maxMemorySpeed: 7000, wifi: true },
-];
-
-const ramKits = [
-  { id: "ddr4-16-3200", name: "16 GB (2x8) DDR4-3200 CL16", type: "DDR4", speed: 3200 },
-  { id: "ddr4-32-3600", name: "32 GB (2x16) DDR4-3600 CL18", type: "DDR4", speed: 3600 },
-  { id: "ddr5-32-5600", name: "32 GB (2x16) DDR5-5600 CL36", type: "DDR5", speed: 5600 },
-];
-
-const gpus = [
-  { id: "rtx4060", name: "NVIDIA RTX 4060", tdp: 115, length: 250, psuMin: 450 },
-  { id: "rtx4070", name: "NVIDIA RTX 4070", tdp: 200, length: 285, psuMin: 650 },
-  { id: "rx7800xt", name: "AMD RX 7800 XT", tdp: 263, length: 320, psuMin: 700 },
-];
-
-const psus = [
-  { id: "evga-550-br", name: "EVGA 550 BR (Bronze)", wattage: 550, pcieCables: 2 },
-  { id: "corsair-rm650e", name: "Corsair RM650e (Gold)", wattage: 650, pcieCables: 2 },
-  { id: "focus-750", name: "Seasonic Focus GX-750 (Gold)", wattage: 750, pcieCables: 3 },
-  { id: "msi-a850g", name: "MSI A850G PCIE5 (Gold)", wattage: 850, pcieCables: 3 },
-];
-
-const pcCases = [
-  { id: "meshify-c", name: "Fractal Meshify C", maxGpuLength: 315, coolerHeight: 170, formFactors: ["ATX", "mATX", "ITX"] },
-  { id: "nzxt-h5", name: "NZXT H5 Flow", maxGpuLength: 365, coolerHeight: 165, formFactors: ["ATX", "mATX", "ITX"] },
-  { id: "nr200p", name: "Cooler Master NR200P", maxGpuLength: 330, coolerHeight: 155, formFactors: ["ITX"] },
-];
+const DEFAULT_CATALOG = localCatalog || {};
 
 const builderSteps = [
   { key: "cpuId", label: "CPU" },
@@ -47,6 +17,15 @@ const builderSteps = [
   { key: "psuId", label: "Fuente" },
   { key: "caseId", label: "Gabinete" },
 ];
+
+const emptyBuilder = {
+  cpuId: "",
+  moboId: "",
+  ramId: "",
+  gpuId: "",
+  psuId: "",
+  caseId: "",
+};
 
 const createId = () =>
   (window.crypto && window.crypto.randomUUID
@@ -70,8 +49,109 @@ const createEmptyQuote = (name = "Nueva cotización") => ({
   rows: [createEmptyRow()],
 });
 
+const normalizeRow = (row) => ({
+  id: row.id || createId(),
+  category: row.category || "",
+  product: row.product || "",
+  store: row.store || "",
+  offerPrice: row.offerPrice || "",
+  regularPrice: row.regularPrice || "",
+  notes: row.notes || "",
+});
+
+const normalizeQuote = (quote, fallbackName = "Importada") => ({
+  id: quote.id || createId(),
+  name: quote.name || fallbackName,
+  currency: (quote.currency || "CLP").toUpperCase(),
+  rows:
+    Array.isArray(quote.rows) && quote.rows.length
+      ? quote.rows.map(normalizeRow)
+      : [createEmptyRow()],
+});
+
+const getInitialQuotes = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.quotes);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        return parsed.map((q, idx) =>
+          normalizeQuote(q, q.name || `Importada ${idx + 1}`)
+        );
+      }
+    }
+  } catch (err) {
+    console.warn("No se pudo cargar cotizaciones guardadas", err);
+  }
+  return [createEmptyQuote("Mi PC actual")];
+};
+
+const getInitialBuilder = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.builder);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { ...emptyBuilder, ...parsed };
+    }
+  } catch (err) {
+    console.warn("No se pudo cargar builder guardado", err);
+  }
+  return emptyBuilder;
+};
+
 const isRowEmpty = (row) =>
   !row.category && !row.product && !row.store && !row.offerPrice && !row.regularPrice && !row.notes;
+
+const mapProcessedToCatalog = (processed) => {
+  const cpus =
+    processed.cpus?.map((cpu) => ({
+      id: cpu.id,
+      name: cpu.name,
+      socket: cpu.socket,
+      memoryType: cpu.memory_support?.types?.[0] || cpu.memory_type || "",
+      tdp: cpu.tdp_w,
+    })) || [];
+  const motherboards =
+    processed.mobos?.map((m) => ({
+      id: m.id,
+      name: m.name,
+      socket: m.socket,
+      formFactor: m.form_factor,
+      memoryType: m.memory_type,
+    })) || [];
+  const ramKits =
+    processed.ram?.map((r) => ({
+      id: r.id,
+      name: r.name,
+      type: r.type,
+      speed: r.speed_mts,
+    })) || [];
+  const gpus =
+    processed.gpus?.map((g) => ({
+      id: g.id,
+      name: g.name,
+      tdp: g.tdp_w,
+      length: g.board_length_mm,
+      psuMin: g.recommended_psu_w || g.suggested_psu_w,
+    })) || [];
+  const psus =
+    processed.psus?.map((p) => ({
+      id: p.id,
+      name: p.name,
+      wattage: p.wattage_w,
+      pcieCables: null,
+    })) || [];
+  const pcCases =
+    processed.cases?.map((c) => ({
+      id: c.id,
+      name: c.name,
+      maxGpuLength: c.max_gpu_length_mm,
+      coolerHeight: c.max_cpu_cooler_height_mm,
+      formFactors: c.supported_mobo_form_factors || [],
+    })) || [];
+
+  return { cpus, motherboards, ramKits, gpus, psus, pcCases };
+};
 
 const estimateTdp = (selection) => {
   const cpu = selection.cpu?.tdp || 0;
@@ -198,7 +278,13 @@ const buildRowsFromSelection = (selection) => {
   return rows;
 };
 
-const getOptionsForStep = (key, selection) => {
+const getOptionsForStep = (key, selection, catalog) => {
+  const cpus = catalog.cpus || [];
+  const motherboards = catalog.motherboards || [];
+  const ramKits = catalog.ramKits || [];
+  const gpus = catalog.gpus || [];
+  const psus = catalog.psus || [];
+  const pcCases = catalog.pcCases || [];
   switch (key) {
     case "cpuId":
       return cpus;
@@ -230,22 +316,28 @@ const getOptionsForStep = (key, selection) => {
 };
 
 function App() {
-  const [quotes, setQuotes] = useState([createEmptyQuote("Mi PC actual")]);
-  const [activeQuoteId, setActiveQuoteId] = useState(quotes[0].id);
-  const [builder, setBuilder] = useState({
-    cpuId: "",
-    moboId: "",
-    ramId: "",
-    gpuId: "",
-    psuId: "",
-    caseId: "",
-  });
+  const [quotes, setQuotes] = useState(getInitialQuotes);
+  const [activeQuoteId, setActiveQuoteId] = useState("");
+  const [builder, setBuilder] = useState(getInitialBuilder);
+  const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
+  const [catalog, setCatalog] = useState(DEFAULT_CATALOG);
+  const catalogLoaded = useRef(false);
+  const [catalogError, setCatalogError] = useState("");
+  const [compatMeta, setCompatMeta] = useState(null);
+  const [tierMaps, setTierMaps] = useState({ cpu: new Map(), gpu: new Map() });
 
   const activeQuote = useMemo(
     () => quotes.find((q) => q.id === activeQuoteId),
     [quotes, activeQuoteId]
   );
+
+  const cpus = useMemo(() => catalog.cpus || [], [catalog]);
+  const motherboards = useMemo(() => catalog.motherboards || [], [catalog]);
+  const ramKits = useMemo(() => catalog.ramKits || [], [catalog]);
+  const gpus = useMemo(() => catalog.gpus || [], [catalog]);
+  const psus = useMemo(() => catalog.psus || [], [catalog]);
+  const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
 
   const selection = useMemo(
     () => ({
@@ -256,19 +348,99 @@ function App() {
       psu: psus.find((p) => p.id === builder.psuId),
       pcCase: pcCases.find((c) => c.id === builder.caseId),
     }),
-    [builder]
+    [builder, cpus, motherboards, ramKits, gpus, psus, pcCases]
   );
 
   const optionsByStep = useMemo(() => {
     const options = {};
     for (const step of builderSteps) {
-      options[step.key] = getOptionsForStep(step.key, selection);
+      options[step.key] = getOptionsForStep(step.key, selection, catalog);
     }
     return options;
-  }, [selection]);
+  }, [selection, catalog]);
+
+  useEffect(() => {
+    if (!activeQuoteId && quotes.length) {
+      const stored = localStorage.getItem(STORAGE_KEYS.activeQuoteId);
+      const validStored = stored && quotes.some((q) => q.id === stored);
+      setActiveQuoteId(validStored ? stored : quotes[0].id);
+    }
+  }, [quotes, activeQuoteId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.quotes, JSON.stringify(quotes));
+    } catch (err) {
+      console.warn("No se pudo guardar cotizaciones", err);
+    }
+  }, [quotes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.activeQuoteId, activeQuoteId);
+    } catch (err) {
+      console.warn("No se pudo guardar id de cotización activa", err);
+    }
+  }, [activeQuoteId]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.builder, JSON.stringify(builder));
+    } catch (err) {
+      console.warn("No se pudo guardar builder", err);
+    }
+  }, [builder]);
+
+  useEffect(() => {
+    if (catalogLoaded.current) return;
+    const controller = new AbortController();
+    const fetchJson = (path) =>
+      fetch(path, { signal: controller.signal }).then((res) => {
+        if (!res.ok) throw new Error(`No se pudo cargar ${path}`);
+        return res.json();
+      });
+
+    Promise.all([
+      fetchJson("/data/cpus.min.json"),
+      fetchJson("/data/gpus.min.json"),
+      fetchJson("/data/motherboards.min.json"),
+      fetchJson("/data/psus.min.json"),
+      fetchJson("/data/cases.min.json"),
+      fetchJson("/data/ram.min.json"),
+      fetchJson("/data/compatibility.min.json").catch(() => null),
+    ])
+      .then(([cpusData, gpusData, mobosData, psusData, casesData, ramData, compatData]) => {
+        const processedCatalog = mapProcessedToCatalog({
+          cpus: cpusData,
+          gpus: gpusData,
+          mobos: mobosData,
+          psus: psusData,
+          cases: casesData,
+          ram: ramData,
+        });
+        setCatalog(processedCatalog);
+        if (compatData) {
+          setCompatMeta(compatData);
+          const cpuTiers = new Map();
+          const gpuTiers = new Map();
+          (compatData.tiers?.cpu || []).forEach((t) => cpuTiers.set(t.id, t.tier));
+          (compatData.tiers?.gpu || []).forEach((t) => gpuTiers.set(t.id, t.tier));
+          setTierMaps({ cpu: cpuTiers, gpu: gpuTiers });
+        }
+        catalogLoaded.current = true;
+      })
+      .catch((err) => {
+        console.warn("Usando catálogo local por error al cargar remoto", err);
+        setCatalogError(err.message || "No se pudo cargar catálogo remoto");
+        catalogLoaded.current = true;
+      });
+    return () => controller.abort();
+  }, []);
 
   const estimatedTdp = useMemo(() => estimateTdp(selection), [selection]);
   const suggestedWatts = useMemo(() => recommendedPsu(selection), [selection]);
+  const cpuTier = useMemo(() => (selection.cpu ? tierMaps.cpu.get(selection.cpu.id) || null : null), [selection, tierMaps.cpu]);
+  const gpuTier = useMemo(() => (selection.gpu ? tierMaps.gpu.get(selection.gpu.id) || null : null), [selection, tierMaps.gpu]);
   const builderIssues = useMemo(() => validateBuild(selection), [selection]);
   const builderComplete = builderSteps.every((step) => builder[step.key]);
 
@@ -432,6 +604,75 @@ function App() {
     return str;
   };
 
+  const parseCsvToQuote = (text) => {
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (!lines.length) throw new Error("El CSV está vacío.");
+
+    const normalizeHeader = (val) =>
+      val
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]/g, "");
+
+    const headerRaw = lines.shift().split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+    const headers = headerRaw.map(normalizeHeader);
+    const findIndex = (candidates) => {
+      const normalized = candidates.map(normalizeHeader);
+      return headers.findIndex((h) => normalized.includes(h));
+    };
+
+    const idxCategory = findIndex(["componente", "categoria"]);
+    const idxProduct = findIndex(["producto", "item", "modelo"]);
+    const idxStore = findIndex(["tienda", "store"]);
+    const idxOffer = findIndex(["preciooferta", "oferta"]);
+    const idxRegular = findIndex(["precionormal", "normal"]);
+    const idxNotes = findIndex(["notas", "comentarios", "notes"]);
+
+    if (idxCategory === -1 || idxProduct === -1) {
+      throw new Error("El CSV debe incluir columnas de componente y producto.");
+    }
+
+    const rows = [];
+    for (const line of lines) {
+      const cells = line
+        .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+        .map((cell) =>
+          cell
+            .replace(/^"(.*)"$/, "$1")
+            .replace(/""/g, '"')
+            .trim()
+        );
+
+      // omitir líneas de totales
+      const firstCell = (cells[0] || "").toLowerCase();
+      if (firstCell.startsWith("total")) continue;
+
+      rows.push(
+        normalizeRow({
+          category: cells[idxCategory] || "",
+          product: cells[idxProduct] || "",
+          store: idxStore !== -1 ? cells[idxStore] || "" : "",
+          offerPrice: idxOffer !== -1 ? cells[idxOffer] || "" : "",
+          regularPrice: idxRegular !== -1 ? cells[idxRegular] || "" : "",
+          notes: idxNotes !== -1 ? cells[idxNotes] || "" : "",
+        })
+      );
+    }
+
+    return normalizeQuote(
+      {
+        name: "Importada CSV",
+        currency: "CLP",
+        rows,
+      },
+      "Importada CSV"
+    );
+  };
+
   const handleDownloadCSV = () => {
     if (!activeQuote) return;
 
@@ -479,6 +720,46 @@ function App() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const buildQuotesFromJson = (data) => {
+    if (Array.isArray(data)) {
+      return data.map((q, idx) => normalizeQuote(q, q.name || `Importada ${idx + 1}`));
+    }
+    if (data && Array.isArray(data.quotes)) {
+      return data.quotes.map((q, idx) => normalizeQuote(q, q.name || `Importada ${idx + 1}`));
+    }
+    if (data && data.rows) {
+      return [normalizeQuote(data, data.name || "Importada JSON")];
+    }
+    throw new Error("Formato JSON no reconocido.");
+  };
+
+  const handleImportFile = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const content = await file.text();
+      const isJson = file.name.toLowerCase().endsWith(".json") || content.trim().startsWith("{") || content.trim().startsWith("[");
+      const importedQuotes = isJson ? buildQuotesFromJson(JSON.parse(content)) : [parseCsvToQuote(content)];
+
+      setQuotes((prev) => {
+        const next = [...prev, ...importedQuotes];
+        return next;
+      });
+      const newActive = importedQuotes[0]?.id;
+      if (newActive) setActiveQuoteId(newActive);
+      alert("Cotización importada con éxito.");
+    } catch (err) {
+      console.error(err);
+      alert(`No se pudo importar: ${err.message || err}`);
+    } finally {
+      event.target.value = "";
+    }
+  };
+
+  const handleImportClick = () => {
+    importInputRef.current?.click();
   };
 
   const handleApplyBuilderToQuote = () => {
@@ -549,6 +830,17 @@ function App() {
           <button className="secondary-btn" onClick={handleDownloadJSON}>
             Descargar JSON
           </button>
+          <button className="secondary-btn" onClick={handleImportClick}>
+            Importar CSV/JSON
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".csv,.json"
+            style={{ display: "none" }}
+            onChange={handleImportFile}
+          />
+          {catalogError && <p className="field-hint">Catálogo remoto: {catalogError}</p>}
         </div>
 
         <footer className="sidebar-footer">
@@ -557,6 +849,45 @@ function App() {
       </aside>
 
       <main className="main">
+        {compatMeta && (
+          <section className="compat-meta">
+            <div className="metric-grid">
+              <div className="metric">
+                <span className="metric-label">CPUs</span>
+                <span className="metric-value">{compatMeta.counts?.cpus || 0}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">GPUs</span>
+                <span className="metric-value">{compatMeta.counts?.gpus || 0}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Mobos</span>
+                <span className="metric-value">{compatMeta.counts?.motherboards || 0}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Cases</span>
+                <span className="metric-value">{compatMeta.counts?.cases || 0}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">PSUs</span>
+                <span className="metric-value">{compatMeta.counts?.psus || 0}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">RAM kits</span>
+                <span className="metric-value">{compatMeta.counts?.ram || 0}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Coolers</span>
+                <span className="metric-value">{compatMeta.counts?.coolers || 0}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Fans</span>
+                <span className="metric-value">{compatMeta.counts?.fans || 0}</span>
+              </div>
+            </div>
+          </section>
+        )}
+
         <section className="builder-section">
           <div className="builder-head">
             <div>
@@ -688,22 +1019,36 @@ function App() {
             </div>
 
             <div className="builder-card builder-summary-card">
-              <div className="metric-grid">
-                <div className="metric">
-                  <span className="metric-label">Consumo estimado</span>
-                  <span className="metric-value">{estimatedTdp} W</span>
-                </div>
-                <div className="metric">
-                  <span className="metric-label">PSU sugerida</span>
-                  <span className="metric-value">{suggestedWatts} W</span>
-                </div>
-                <div className="metric">
-                  <span className="metric-label">Margen actual</span>
-                  <span className="metric-value">
-                    {selection.psu ? `${selection.psu.wattage - estimatedTdp} W` : "Selecciona una fuente"}
-                  </span>
-                </div>
+            <div className="metric-grid">
+              <div className="metric">
+                <span className="metric-label">Consumo estimado</span>
+                <span className="metric-value">{estimatedTdp} W</span>
               </div>
+              <div className="metric">
+                <span className="metric-label">PSU sugerida</span>
+                <span className="metric-value">{suggestedWatts} W</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Margen actual</span>
+                <span className="metric-value">
+                  {selection.psu ? `${selection.psu.wattage - estimatedTdp} W` : "Selecciona una fuente"}
+                </span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Tier CPU</span>
+                <span className="metric-value">{cpuTier || "-"}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">Tier GPU</span>
+                <span className="metric-value">{gpuTier || "-"}</span>
+              </div>
+              <div className="metric">
+                <span className="metric-label">PSU rec. GPU</span>
+                <span className="metric-value">
+                  {selection.gpu?.psuMin ? `${selection.gpu.psuMin} W` : "N/D"}
+                </span>
+              </div>
+            </div>
 
               <div className="status-line">
                 <span className="status-pill">{builderComplete ? "Build completo" : "Paso a paso"}</span>

@@ -1,0 +1,6 @@
+[
+  { "id": "evga-550-br", "name": "EVGA 550 BR (Bronze)", "wattage": 550, "pcieCables": 2, "rating": "Bronze" },
+  { "id": "corsair-rm650e", "name": "Corsair RM650e (Gold)", "wattage": 650, "pcieCables": 2, "rating": "Gold" },
+  { "id": "focus-750", "name": "Seasonic Focus GX-750 (Gold)", "wattage": 750, "pcieCables": 3, "rating": "Gold" },
+  { "id": "msi-a850g", "name": "MSI A850G PCIE5 (Gold)", "wattage": 850, "pcieCables": 3, "rating": "Gold" }
+]

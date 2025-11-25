@@ -1,0 +1,6 @@
+[
+  { "id": "r5-5600", "name": "AMD Ryzen 5 5600", "socket": "AM4", "memoryType": "DDR4", "tdp": 65, "notes": "PCIe 4.0" },
+  { "id": "r7-5800x3d", "name": "AMD Ryzen 7 5800X3D", "socket": "AM4", "memoryType": "DDR4", "tdp": 105, "notes": "Ideal gaming" },
+  { "id": "i5-12400f", "name": "Intel Core i5-12400F", "socket": "LGA1700", "memoryType": "DDR4", "tdp": 65, "notes": "12th gen" },
+  { "id": "i5-13600k", "name": "Intel Core i5-13600K", "socket": "LGA1700", "memoryType": "DDR5", "tdp": 125, "notes": "PCIe 5.0 ready" }
+]

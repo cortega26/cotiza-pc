@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fetch:catalog": "node ../scripts/fetch-catalog.js",
+    "build:pc-data": "node ../scripts/build_pc_data.js",
+    "download:pc-data": "python ../scripts/download_pc_datasets.py",
+    "pc-data:all": "npm run download:pc-data && npm run build:pc-data"
   },
   "dependencies": {
     "react": "^19.2.0",

@@ -1,0 +1,5 @@
+[
+  { "id": "rtx4060", "name": "NVIDIA RTX 4060", "tdp": 115, "length": 250, "psuMin": 450 },
+  { "id": "rtx4070", "name": "NVIDIA RTX 4070", "tdp": 200, "length": 285, "psuMin": 650 },
+  { "id": "rx7800xt", "name": "AMD RX 7800 XT", "tdp": 263, "length": 320, "psuMin": 700 }
+]

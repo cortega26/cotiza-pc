@@ -1,0 +1,43 @@
+{
+  "generatedAt": "2025-11-25T17:07:25.625Z",
+  "durationMs": 1515,
+  "counts": {
+    "cpus": 4,
+    "gpus": 3,
+    "psus": 4,
+    "pcCases": 3,
+    "ramKits": 3
+  },
+  "sources": {
+    "cpus": [
+      {
+        "type": "file",
+        "path": "C:\\Users\\corte\\VS Code Projects\\cotiza-pc\\catalog\\sources\\cpus.json"
+      }
+    ],
+    "gpus": [
+      {
+        "type": "file",
+        "path": "C:\\Users\\corte\\VS Code Projects\\cotiza-pc\\catalog\\sources\\gpus.json"
+      }
+    ],
+    "psus": [
+      {
+        "type": "file",
+        "path": "C:\\Users\\corte\\VS Code Projects\\cotiza-pc\\catalog\\sources\\psus.json"
+      }
+    ],
+    "cases": [
+      {
+        "type": "file",
+        "path": "C:\\Users\\corte\\VS Code Projects\\cotiza-pc\\catalog\\sources\\cases.json"
+      }
+    ],
+    "ram": [
+      {
+        "type": "file",
+        "path": "C:\\Users\\corte\\VS Code Projects\\cotiza-pc\\catalog\\sources\\ram.json"
+      }
+    ]
+  }
+}

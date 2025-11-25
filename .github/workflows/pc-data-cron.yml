@@ -1,0 +1,58 @@
+name: PC Data Pipeline (scheduled)
+
+on:
+  schedule:
+    - cron: "0 3 */14 * *" # cada 14 días a las 03:00 UTC
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pc-data-pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install npm deps
+        working-directory: pc-quote-builder
+        run: npm ci
+
+      - name: Download datasets (BuildCores, PC Part, DBGPU)
+        run: python scripts/download_pc_datasets.py
+
+      - name: Build processed data
+        working-directory: pc-quote-builder
+        run: npm run build:pc-data
+
+      - name: Build site (Vite)
+        working-directory: pc-quote-builder
+        run: npm run build
+
+      - name: Upload artifact for Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pc-quote-builder/docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

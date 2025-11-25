@@ -1,0 +1,35 @@
+{
+  "cpus": [
+    { "id": "r5-5600", "name": "AMD Ryzen 5 5600", "socket": "AM4", "memoryType": "DDR4", "tdp": 65, "notes": "PCIe 4.0" },
+    { "id": "r7-5800x3d", "name": "AMD Ryzen 7 5800X3D", "socket": "AM4", "memoryType": "DDR4", "tdp": 105, "notes": "Ideal gaming" },
+    { "id": "i5-12400f", "name": "Intel Core i5-12400F", "socket": "LGA1700", "memoryType": "DDR4", "tdp": 65, "notes": "12th gen" },
+    { "id": "i5-13600k", "name": "Intel Core i5-13600K", "socket": "LGA1700", "memoryType": "DDR5", "tdp": 125, "notes": "PCIe 5.0 ready" }
+  ],
+  "motherboards": [
+    { "id": "b550-tomahawk", "name": "MSI B550 Tomahawk", "socket": "AM4", "formFactor": "ATX", "memoryType": "DDR4", "maxMemorySpeed": 4400, "wifi": false },
+    { "id": "b550m-plus", "name": "ASUS TUF B550M-Plus WiFi", "socket": "AM4", "formFactor": "mATX", "memoryType": "DDR4", "maxMemorySpeed": 4600, "wifi": true },
+    { "id": "b660-aorus", "name": "Gigabyte B660 Aorus Pro AX DDR4", "socket": "LGA1700", "formFactor": "ATX", "memoryType": "DDR4", "maxMemorySpeed": 5333, "wifi": true },
+    { "id": "z790-prime", "name": "ASUS PRIME Z790-P WiFi", "socket": "LGA1700", "formFactor": "ATX", "memoryType": "DDR5", "maxMemorySpeed": 7000, "wifi": true }
+  ],
+  "ramKits": [
+    { "id": "ddr4-16-3200", "name": "16 GB (2x8) DDR4-3200 CL16", "type": "DDR4", "speed": 3200 },
+    { "id": "ddr4-32-3600", "name": "32 GB (2x16) DDR4-3600 CL18", "type": "DDR4", "speed": 3600 },
+    { "id": "ddr5-32-5600", "name": "32 GB (2x16) DDR5-5600 CL36", "type": "DDR5", "speed": 5600 }
+  ],
+  "gpus": [
+    { "id": "rtx4060", "name": "NVIDIA RTX 4060", "tdp": 115, "length": 250, "psuMin": 450 },
+    { "id": "rtx4070", "name": "NVIDIA RTX 4070", "tdp": 200, "length": 285, "psuMin": 650 },
+    { "id": "rx7800xt", "name": "AMD RX 7800 XT", "tdp": 263, "length": 320, "psuMin": 700 }
+  ],
+  "psus": [
+    { "id": "evga-550-br", "name": "EVGA 550 BR (Bronze)", "wattage": 550, "pcieCables": 2 },
+    { "id": "corsair-rm650e", "name": "Corsair RM650e (Gold)", "wattage": 650, "pcieCables": 2 },
+    { "id": "focus-750", "name": "Seasonic Focus GX-750 (Gold)", "wattage": 750, "pcieCables": 3 },
+    { "id": "msi-a850g", "name": "MSI A850G PCIE5 (Gold)", "wattage": 850, "pcieCables": 3 }
+  ],
+  "pcCases": [
+    { "id": "meshify-c", "name": "Fractal Meshify C", "maxGpuLength": 315, "coolerHeight": 170, "formFactors": ["ATX", "mATX", "ITX"] },
+    { "id": "nzxt-h5", "name": "NZXT H5 Flow", "maxGpuLength": 365, "coolerHeight": 165, "formFactors": ["ATX", "mATX", "ITX"] },
+    { "id": "nr200p", "name": "Cooler Master NR200P", "maxGpuLength": 330, "coolerHeight": 155, "formFactors": ["ITX"] }
+  ]
+}

@@ -1,0 +1,5 @@
+[
+  { "id": "meshify-c", "name": "Fractal Meshify C", "formFactors": ["ATX", "mATX", "ITX"], "maxGpuLength": 315, "coolerHeight": 170 },
+  { "id": "nzxt-h5", "name": "NZXT H5 Flow", "formFactors": ["ATX", "mATX", "ITX"], "maxGpuLength": 365, "coolerHeight": 165 },
+  { "id": "nr200p", "name": "Cooler Master NR200P", "formFactors": ["ITX"], "maxGpuLength": 330, "coolerHeight": 155 }
+]

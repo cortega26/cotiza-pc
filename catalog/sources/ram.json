@@ -1,0 +1,5 @@
+[
+  { "id": "ddr4-16-3200", "name": "16 GB (2x8) DDR4-3200 CL16", "type": "DDR4", "speed": 3200 },
+  { "id": "ddr4-32-3600", "name": "32 GB (2x16) DDR4-3600 CL18", "type": "DDR4", "speed": 3600 },
+  { "id": "ddr5-32-5600", "name": "32 GB (2x16) DDR5-5600 CL36", "type": "DDR5", "speed": 5600 }
+]
