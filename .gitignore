@@ -1,0 +1,6 @@
+# Root ignore rules
+AGENTS.md
+node_modules/
+dist/
+.DS_Store
+%SystemDrive%/
