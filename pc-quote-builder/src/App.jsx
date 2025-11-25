@@ -106,14 +106,23 @@ const isRowEmpty = (row) =>
 const extractCpuFamily = (cpu) => {
   const name = (cpu.name || "").toLowerCase();
   if (name.includes("core ultra")) return "Core Ultra";
-  const intel = name.match(/core\\s+i(\\d)/);
+  const intel = name.match(/core\s+i(\d)/) || name.match(/\si(\d)[- ]\d{4,5}/);
   if (intel) return `Core i${intel[1]}`;
   if (name.includes("pentium")) return "Pentium";
   if (name.includes("celeron")) return "Celeron";
-  const ryzen = name.match(/ryzen\\s+(\\d)/);
+  const ryzen = name.match(/ryzen\s+(\d)/);
   if (ryzen) return `Ryzen ${ryzen[1]}`;
   if (name.includes("threadripper")) return "Threadripper";
   return "Otros";
+};
+
+const inferBrand = (cpu) => {
+  const brand = (cpu.brand || "").trim();
+  if (brand) return brand;
+  const name = (cpu.name || "").toLowerCase();
+  if (name.includes("intel") || name.includes("core") || name.includes("pentium") || name.includes("celeron")) return "Intel";
+  if (name.includes("ryzen") || name.includes("threadripper") || name.includes("amd")) return "AMD";
+  return "Desconocido";
 };
 
 const mapProcessedToCatalog = (processed) => {
