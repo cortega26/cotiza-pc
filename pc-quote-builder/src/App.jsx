@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import localCatalog from "./data/catalog.json";
 import TypeaheadSelect from "./components/TypeaheadSelect";
-import { extractCpuFamily, inferBrand, inferSocket } from "./lib/catalogHelpers";
+import { extractCpuFamily, inferBrand, inferSocket, inferMemoryTypeBySocket } from "./lib/catalogHelpers";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
@@ -109,7 +109,9 @@ const mapProcessedToCatalog = (processed) => {
       name: cpu.name,
       brand: inferBrand(cpu),
       socket: inferSocket(cpu),
-      memoryType: (cpu.memory_support?.types?.[0] || cpu.memory_type || "").toUpperCase(),
+      memoryType:
+        (cpu.memory_support?.types?.[0] || cpu.memory_type || "").toUpperCase() ||
+        inferMemoryTypeBySocket(inferSocket(cpu)),
       tdp: cpu.tdp_w,
     })) || [];
   const motherboards =
@@ -120,7 +122,8 @@ const mapProcessedToCatalog = (processed) => {
       formFactor: m.form_factor,
       memoryType:
         (m.memory_type || "").toUpperCase() ||
-        (m.name?.toLowerCase().includes("ddr5") ? "DDR5" : m.name?.toLowerCase().includes("ddr4") ? "DDR4" : ""),
+        (m.name?.toLowerCase().includes("ddr5") ? "DDR5" : m.name?.toLowerCase().includes("ddr4") ? "DDR4" : "") ||
+        inferMemoryTypeBySocket(m.socket),
     })) || [];
   const ramKits =
     processed.ram?.map((r) => {
@@ -1103,7 +1106,11 @@ function App() {
                               onChange={(id) => handleBuilderChange(step.key, id)}
                               placeholder={`Selecciona ${step.label}`}
                               getOptionLabel={(opt) => opt.name}
-                              renderOption={(opt) => `${opt.name} · ${opt.socket || "?"} · ${opt.tdp || "?"}W`}
+                              renderOption={(opt) =>
+                                `${opt.name} · ${opt.socket || inferSocket(opt) || "?"}${
+                                  opt.memoryType ? ` · ${opt.memoryType}` : ""
+                                } · ${opt.tdp || "?"}W`
+                              }
                             />
                           </label>
                         </>
@@ -1117,7 +1124,10 @@ function App() {
                             placeholder={`Selecciona ${step.label}`}
                             getOptionLabel={(opt) => opt.name}
                             renderOption={(opt) => {
-                              if (step.key === "moboId") return `${opt.name} · ${opt.socket || "?"} · ${opt.formFactor || "-"}`;
+                              if (step.key === "moboId")
+                                return `${opt.name} · ${opt.socket || "?"}${
+                                  opt.memoryType ? ` · ${opt.memoryType}` : ""
+                                } · ${opt.formFactor || "-"}`;
                               if (step.key === "ramId")
                                 return `${opt.name}${opt.type ? ` (${opt.type})` : ""}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
                               if (step.key === "gpuId")

@@ -46,3 +46,13 @@ export const inferSocket = (cpu) => {
   }
   return cpu?.socket || "";
 };
+
+export const inferMemoryTypeBySocket = (socket = "") => {
+  const s = socket.toUpperCase();
+  if (!s) return "";
+  if (s === "AM5") return "DDR5";
+  if (s === "AM4") return "DDR4";
+  if (s === "LGA1700") return "DDR5"; // la mayoría son DDR5; DDR4 existe pero preferimos restringir
+  if (s === "LGA1200" || s === "LGA1151") return "DDR4";
+  return "";
+};
