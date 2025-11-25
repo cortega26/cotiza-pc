@@ -8,8 +8,6 @@ const STORAGE_KEYS = {
   builder: "pcqb:builder:v1",
 };
 
-const DEFAULT_CATALOG = localCatalog || {};
-
 const builderSteps = [
   { key: "cpuId", label: "CPU" },
   { key: "moboId", label: "Placa madre" },
@@ -347,7 +345,7 @@ function App() {
   const [cpuFamily, setCpuFamily] = useState("");
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
-  const [catalog, setCatalog] = useState(DEFAULT_CATALOG);
+  const [catalog, setCatalog] = useState(() => mapProcessedToCatalog(localCatalog || {}));
   const catalogLoaded = useRef(false);
   const [catalogError, setCatalogError] = useState("");
   const [compatMeta, setCompatMeta] = useState(null);
