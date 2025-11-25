@@ -122,7 +122,7 @@ const mapProcessedToCatalog = (processed) => {
       id: cpu.id,
       name: cpu.name,
       brand: cpu.brand || "",
-      socket: cpu.socket,
+      socket: inferSocket(cpu),
       memoryType: cpu.memory_support?.types?.[0] || cpu.memory_type || "",
       tdp: cpu.tdp_w,
     })) || [];
