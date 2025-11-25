@@ -932,7 +932,11 @@ function App() {
         </div>
 
         <footer className="sidebar-footer">
-          <small>Hecho con React · Ideal para publicar en GitHub Pages</small>
+          <small>
+            Esta herramienta se provee "as is": puede contener errores, y no nos hacemos responsables por descripciones
+            incorrectas. Por la complejidad de estandarizar datos, es poco probable pero posible que el builder arroje
+            falsos positivos o negativos.
+          </small>
         </footer>
       </aside>
 
