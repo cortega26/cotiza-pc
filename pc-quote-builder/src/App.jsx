@@ -1077,6 +1077,22 @@ function App() {
                 </span>
               </div>
 
+              {builderStatuses.length > 0 && (
+                <div className="status-chips">
+                  {builderStatuses.map((s, idx) => (
+                    <span
+                      key={idx}
+                      className={
+                        "status-chip " +
+                        (s.unknown ? "status-unknown" : s.ok ? "status-ok" : "status-bad")
+                      }
+                    >
+                      {s.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
               {builderIssues.length > 0 ? (
                 <div className="warning-panel">
                   <strong>Compatibilidad a revisar:</strong>
