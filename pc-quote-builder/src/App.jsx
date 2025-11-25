@@ -109,7 +109,7 @@ const mapProcessedToCatalog = (processed) => {
       name: cpu.name,
       brand: inferBrand(cpu),
       socket: inferSocket(cpu),
-      memoryType: cpu.memory_support?.types?.[0] || cpu.memory_type || "",
+      memoryType: (cpu.memory_support?.types?.[0] || cpu.memory_type || "").toUpperCase(),
       tdp: cpu.tdp_w,
     })) || [];
   const motherboards =
@@ -118,7 +118,9 @@ const mapProcessedToCatalog = (processed) => {
       name: m.name,
       socket: m.socket,
       formFactor: m.form_factor,
-      memoryType: m.memory_type,
+      memoryType:
+        (m.memory_type || "").toUpperCase() ||
+        (m.name?.toLowerCase().includes("ddr5") ? "DDR5" : m.name?.toLowerCase().includes("ddr4") ? "DDR4" : ""),
     })) || [];
   const ramKits =
     processed.ram?.map((r) => {
