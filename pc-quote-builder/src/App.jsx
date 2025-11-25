@@ -397,6 +397,8 @@ function App() {
   useEffect(() => {
     if (catalogLoaded.current) return;
     const controller = new AbortController();
+    const base = import.meta.env.BASE_URL || "/";
+    const dataBase = base.endsWith("/") ? base : `${base}/`;
     const fetchJson = (path) =>
       fetch(path, { signal: controller.signal }).then((res) => {
         if (!res.ok) throw new Error(`No se pudo cargar ${path}`);
@@ -405,13 +407,13 @@ function App() {
 
     setCatalogLoading(true);
     Promise.all([
-      fetchJson("/data/cpus.min.json"),
-      fetchJson("/data/gpus.min.json"),
-      fetchJson("/data/motherboards.min.json"),
-      fetchJson("/data/psus.min.json"),
-      fetchJson("/data/cases.min.json"),
-      fetchJson("/data/ram.min.json"),
-      fetchJson("/data/compatibility.min.json").catch(() => null),
+      fetchJson(`${dataBase}data/cpus.min.json`),
+      fetchJson(`${dataBase}data/gpus.min.json`),
+      fetchJson(`${dataBase}data/motherboards.min.json`),
+      fetchJson(`${dataBase}data/psus.min.json`),
+      fetchJson(`${dataBase}data/cases.min.json`),
+      fetchJson(`${dataBase}data/ram.min.json`),
+      fetchJson(`${dataBase}data/compatibility.min.json`).catch(() => null),
     ])
       .then(([cpusData, gpusData, mobosData, psusData, casesData, ramData, compatData]) => {
         const processedCatalog = mapProcessedToCatalog({
