@@ -123,6 +123,24 @@ const inferBrand = (cpu) => {
   return "Desconocido";
 };
 
+const inferSocket = (cpu) => {
+  const name = (cpu.name || "").toLowerCase();
+  const intelGen = name.match(/i\d[- ](\d{4,5})/);
+  if (intelGen) {
+    const gen = intelGen[1];
+    if (gen.startsWith("14") || gen.startsWith("13") || gen.startsWith("12")) return "LGA1700";
+    if (gen.startsWith("11") || gen.startsWith("10")) return "LGA1200";
+    if (gen.startsWith("9") || gen.startsWith("8")) return "LGA1151";
+  }
+  const ryzenGen = name.match(/ryzen\s+(\d{4,5})/);
+  if (ryzenGen) {
+    const genNum = parseInt(ryzenGen[1], 10);
+    if (genNum >= 7000) return "AM5";
+    if (genNum >= 2000) return "AM4";
+  }
+  return cpu.socket || "";
+};
+
 const mapProcessedToCatalog = (processed) => {
   const cpus =
     processed.cpus?.map((cpu) => ({
