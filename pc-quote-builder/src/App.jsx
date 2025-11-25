@@ -327,6 +327,8 @@ function App() {
   const [catalogError, setCatalogError] = useState("");
   const [compatMeta, setCompatMeta] = useState(null);
   const [tierMaps, setTierMaps] = useState({ cpu: new Map(), gpu: new Map() });
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const activeQuote = useMemo(
     () => quotes.find((q) => q.id === activeQuoteId),
@@ -401,6 +403,7 @@ function App() {
         return res.json();
       });
 
+    setCatalogLoading(true);
     Promise.all([
       fetchJson("/data/cpus.min.json"),
       fetchJson("/data/gpus.min.json"),
@@ -429,14 +432,16 @@ function App() {
           setTierMaps({ cpu: cpuTiers, gpu: gpuTiers });
         }
         catalogLoaded.current = true;
+        setCatalogLoading(false);
       })
       .catch((err) => {
         console.warn("Usando catálogo local por error al cargar remoto", err);
         setCatalogError(err.message || "No se pudo cargar catálogo remoto");
+        setCatalogLoading(false);
         catalogLoaded.current = true;
       });
     return () => controller.abort();
-  }, []);
+  }, [reloadToken]);
 
   const estimatedTdp = useMemo(() => estimateTdp(selection), [selection]);
   const suggestedWatts = useMemo(() => recommendedPsu(selection), [selection]);
@@ -444,6 +449,36 @@ function App() {
   const gpuTier = useMemo(() => (selection.gpu ? tierMaps.gpu.get(selection.gpu.id) || null : null), [selection, tierMaps.gpu]);
   const builderIssues = useMemo(() => validateBuild(selection), [selection]);
   const builderComplete = builderSteps.every((step) => builder[step.key]);
+  const builderStatuses = useMemo(() => {
+    const statuses = [];
+    if (selection.cpu && selection.mobo) {
+      statuses.push({
+        label: "CPU ↔ Mobo",
+        ok: selection.cpu.socket === selection.mobo.socket,
+      });
+    }
+    if (selection.ram && selection.mobo) {
+      statuses.push({
+        label: "RAM ↔ Mobo",
+        ok: selection.ram.type === selection.mobo.memoryType,
+      });
+    }
+    if (selection.gpu && selection.pcCase) {
+      statuses.push({
+        label: "GPU ↔ Case",
+        ok: selection.gpu.length && selection.pcCase.maxGpuLength ? selection.gpu.length <= selection.pcCase.maxGpuLength : false,
+        unknown: !selection.gpu.length || !selection.pcCase.maxGpuLength,
+      });
+    }
+    if (selection.cpu && selection.gpu && selection.psu) {
+      const ok = selection.psu.wattage >= suggestedWatts;
+      statuses.push({
+        label: "PSU potencia",
+        ok,
+      });
+    }
+    return statuses;
+  }, [selection, suggestedWatts]);
 
   const currencyFormatter = useMemo(() => {
     const currency = activeQuote?.currency || "CLP";
@@ -776,6 +811,18 @@ function App() {
     });
   };
 
+  const handleClearBuilder = () => {
+    setBuilder({ ...emptyBuilder });
+    setBuilderStep(0);
+  };
+
+  const handleReloadCatalog = () => {
+    catalogLoaded.current = false;
+    setCatalogLoading(true);
+    setCatalogError("");
+    setReloadToken((t) => t + 1);
+  };
+
   const currentStep = builderSteps[builderStep];
 
   if (!activeQuote) {
@@ -833,6 +880,9 @@ function App() {
           </button>
           <button className="secondary-btn" onClick={handleImportClick}>
             Importar CSV/JSON
+          </button>
+          <button className="secondary-btn" onClick={handleReloadCatalog} disabled={catalogLoading}>
+            {catalogLoading ? "Cargando catálogo..." : "Recargar catálogo"}
           </button>
           <input
             ref={importInputRef}
@@ -903,6 +953,9 @@ function App() {
                 disabled={builderStep === 0}
               >
                 ← Anterior
+              </button>
+              <button className="secondary-btn" onClick={handleClearBuilder}>
+                Limpiar selección
               </button>
               <button
                 className="primary-btn"
