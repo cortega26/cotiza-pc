@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import localCatalog from "./data/catalog.json";
+import TypeaheadSelect from "./components/TypeaheadSelect";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
@@ -958,58 +959,24 @@ function App() {
                     <div key={step.key} className={"builder-choice" + (isActive ? " active" : "")}>
                       <label className="field">
                         <span>{step.label}</span>
-                        <select value={value} onChange={(e) => handleBuilderChange(step.key, e.target.value)}>
-                          <option value="">{`Selecciona ${step.label}`}</option>
-                          {options.map((option) => {
-                            if (step.key === "cpuId") {
-                              return (
-                                <option key={option.id} value={option.id}>
-                                  {option.name} · {option.socket} · {option.tdp}W
-                                </option>
-                              );
-                            }
-                            if (step.key === "moboId") {
-                              return (
-                                <option key={option.id} value={option.id}>
-                                  {option.name} · {option.socket} · {option.formFactor}
-                                </option>
-                              );
-                            }
-                            if (step.key === "ramId") {
-                              return (
-                                <option key={option.id} value={option.id}>
-                                  {option.name}
-                                </option>
-                              );
-                            }
-                            if (step.key === "gpuId") {
-                              return (
-                                <option key={option.id} value={option.id}>
-                                  {option.name} · {option.tdp}W · {option.length}mm
-                                </option>
-                              );
-                            }
-                            if (step.key === "psuId") {
-                              return (
-                                <option key={option.id} value={option.id}>
-                                  {option.name} · {option.wattage}W
-                                </option>
-                              );
-                            }
-                            if (step.key === "caseId") {
-                              return (
-                                <option key={option.id} value={option.id}>
-                                  {option.name} · GPU {option.maxGpuLength}mm
-                                </option>
-                              );
-                            }
-                            return (
-                              <option key={option.id} value={option.id}>
-                                {option.name}
-                              </option>
-                            );
-                          })}
-                        </select>
+                        <TypeaheadSelect
+                          options={options}
+                          value={value}
+                          onChange={(id) => handleBuilderChange(step.key, id)}
+                          placeholder={`Selecciona ${step.label}`}
+                          getOptionLabel={(opt) => opt.name}
+                          renderOption={(opt) => {
+                            if (step.key === "cpuId") return `${opt.name} · ${opt.socket || "?"} · ${opt.tdp || "?"}W`;
+                            if (step.key === "moboId")
+                              return `${opt.name} · ${opt.socket || "?"} · ${opt.formFactor || "-"}`;
+                            if (step.key === "ramId") return `${opt.name}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
+                            if (step.key === "gpuId")
+                              return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm`;
+                            if (step.key === "psuId") return `${opt.name} · ${opt.wattage || "?"}W`;
+                            if (step.key === "caseId") return `${opt.name} · GPU ${opt.maxGpuLength || "-"}mm`;
+                            return opt.name;
+                          }}
+                        />
                       </label>
                       <p className="field-hint">{hint}</p>
                     </div>

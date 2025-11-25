@@ -457,6 +457,54 @@ body {
   box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.4);
 }
 
+.typeahead {
+  position: relative;
+}
+
+.typeahead-input {
+  width: 100%;
+  border-radius: 0.7rem;
+  border: 1px solid #111827;
+  padding: 0.45rem 0.5rem;
+  background: rgba(15, 23, 42, 0.95);
+  color: #e5e7eb;
+  font-size: 0.85rem;
+}
+
+.typeahead-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.4);
+}
+
+.typeahead-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #0b1020;
+  border: 1px solid #1f2937;
+  border-radius: 0.7rem;
+  margin-top: 4px;
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  list-style: none;
+  padding: 4px;
+}
+
+.typeahead-item {
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.typeahead-item:hover {
+  background: rgba(79, 70, 229, 0.25);
+}
+
 .field-hint {
   margin: 0.3rem 0 0;
   font-size: 0.78rem;
