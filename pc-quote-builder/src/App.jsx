@@ -130,7 +130,7 @@ const mapProcessedToCatalog = (processed) => {
     processed.cpus?.map((cpu) => ({
       id: cpu.id,
       name: cpu.name,
-      brand: cpu.brand || "",
+      brand: inferBrand(cpu),
       socket: inferSocket(cpu),
       memoryType: cpu.memory_support?.types?.[0] || cpu.memory_type || "",
       tdp: cpu.tdp_w,
@@ -370,6 +370,7 @@ function App() {
     const map = new Map();
     cpus.forEach((cpu) => {
       const brand = cpu.brand || "Desconocido";
+      if (brand === "Desconocido") return;
       const family = extractCpuFamily(cpu);
       if (!map.has(brand)) map.set(brand, new Set());
       map.get(brand).add(family);
@@ -1067,11 +1068,13 @@ function App() {
                               }}
                             >
                               <option value="">Todas</option>
-                              {[...cpuFamilies.keys()].map((brand) => (
-                                <option key={brand} value={brand}>
-                                  {brand}
-                                </option>
-                              ))}
+                              {Array.from(cpuFamilies.keys())
+                                .sort()
+                                .map((brand) => (
+                                  <option key={brand} value={brand}>
+                                    {brand}
+                                  </option>
+                                ))}
                             </select>
                           </label>
                           <label className="field">
