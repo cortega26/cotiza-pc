@@ -551,8 +551,10 @@ function App() {
       const next = { ...prev, [key]: cleanValue };
       if (key === "cpuId") {
         const selectedCpu = cpus.find((c) => c.id === cleanValue);
-        setCpuBrand(selectedCpu?.brand || "");
-        setCpuFamily(selectedCpu ? extractCpuFamily(selectedCpu) : "");
+        if (selectedCpu) {
+          setCpuBrand(selectedCpu.brand || "");
+          setCpuFamily(extractCpuFamily(selectedCpu));
+        }
         const cpu = cpus.find((c) => c.id === cleanValue);
         const mobo = motherboards.find((m) => m.id === next.moboId);
         const ram = ramKits.find((r) => r.id === next.ramId);
