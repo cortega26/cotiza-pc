@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import localCatalog from "./data/catalog.json";
 import TypeaheadSelect from "./components/TypeaheadSelect";
+import { extractCpuFamily, inferBrand, inferSocket } from "./lib/catalogHelpers";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
@@ -101,46 +102,6 @@ const getInitialBuilder = () => {
 const isRowEmpty = (row) =>
   !row.category && !row.product && !row.store && !row.offerPrice && !row.regularPrice && !row.notes;
 
-const extractCpuFamily = (cpu) => {
-  const name = (cpu.name || "").toLowerCase();
-  if (name.includes("core ultra")) return "Core Ultra";
-  const intel = name.match(/core\s+i(\d)/) || name.match(/\si(\d)[- ]\d{4,5}/);
-  if (intel) return `Core i${intel[1]}`;
-  if (name.includes("pentium")) return "Pentium";
-  if (name.includes("celeron")) return "Celeron";
-  const ryzen = name.match(/ryzen\s+(\d)/);
-  if (ryzen) return `Ryzen ${ryzen[1]}`;
-  if (name.includes("threadripper")) return "Threadripper";
-  return "Otros";
-};
-
-const inferBrand = (cpu) => {
-  const brand = (cpu.brand || "").trim();
-  if (brand) return brand;
-  const name = (cpu.name || "").toLowerCase();
-  if (name.includes("intel") || name.includes("core") || name.includes("pentium") || name.includes("celeron")) return "Intel";
-  if (name.includes("ryzen") || name.includes("threadripper") || name.includes("amd")) return "AMD";
-  return "Desconocido";
-};
-
-const inferSocket = (cpu) => {
-  const name = (cpu.name || "").toLowerCase();
-  const intelGen = name.match(/i\d[- ](\d{4,5})/);
-  if (intelGen) {
-    const gen = intelGen[1];
-    if (gen.startsWith("14") || gen.startsWith("13") || gen.startsWith("12")) return "LGA1700";
-    if (gen.startsWith("11") || gen.startsWith("10")) return "LGA1200";
-    if (gen.startsWith("9") || gen.startsWith("8")) return "LGA1151";
-  }
-  const ryzenGen = name.match(/ryzen\s+(\d{4,5})/);
-  if (ryzenGen) {
-    const genNum = parseInt(ryzenGen[1], 10);
-    if (genNum >= 7000) return "AM5";
-    if (genNum >= 2000) return "AM4";
-  }
-  return cpu.socket || "";
-};
-
 const mapProcessedToCatalog = (processed) => {
   const cpus =
     processed.cpus?.map((cpu) => ({
@@ -160,12 +121,23 @@ const mapProcessedToCatalog = (processed) => {
       memoryType: m.memory_type,
     })) || [];
   const ramKits =
-    processed.ram?.map((r) => ({
-      id: r.id,
-      name: r.name,
-      type: r.type,
-      speed: r.speed_mts,
-    })) || [];
+    processed.ram?.map((r) => {
+      let type = r.type;
+      if (!type && Array.isArray(r.speed)) {
+        const gen = r.speed[0];
+        if (gen) type = `DDR${gen}`;
+      }
+      if (!type && typeof r.speed === "string" && /ddr\d/i.test(r.speed)) {
+        const m = r.speed.match(/ddr(\d)/i);
+        if (m) type = `DDR${m[1]}`;
+      }
+      return {
+        id: r.id,
+        name: r.name,
+        type: type || "",
+        speed: r.speed_mts,
+      };
+    }) || [];
   const gpus =
     processed.gpus?.map((g) => ({
       id: g.id,
@@ -216,11 +188,15 @@ const validateBuild = (selection) => {
   }
 
   if (selection.cpu && selection.ram && selection.cpu.memoryType !== selection.ram.type) {
-    issues.push(`La RAM (${selection.ram.type}) no coincide con el tipo soportado por el CPU (${selection.cpu.memoryType}).`);
+    if (selection.cpu.memoryType) {
+      issues.push(`La RAM (${selection.ram.type}) no coincide con el tipo soportado por el CPU (${selection.cpu.memoryType}).`);
+    }
   }
 
   if (selection.mobo && selection.ram && selection.mobo.memoryType !== selection.ram.type) {
-    issues.push(`La placa requiere ${selection.mobo.memoryType} y la RAM elegida es ${selection.ram.type}.`);
+    if (selection.mobo.memoryType) {
+      issues.push(`La placa requiere ${selection.mobo.memoryType} y la RAM elegida es ${selection.ram.type}.`);
+    }
   }
 
   if (selection.pcCase && selection.mobo && !selection.pcCase.formFactors.includes(selection.mobo.formFactor)) {
@@ -1136,7 +1112,8 @@ function App() {
                             getOptionLabel={(opt) => opt.name}
                             renderOption={(opt) => {
                               if (step.key === "moboId") return `${opt.name} · ${opt.socket || "?"} · ${opt.formFactor || "-"}`;
-                              if (step.key === "ramId") return `${opt.name}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
+                              if (step.key === "ramId")
+                                return `${opt.name}${opt.type ? ` (${opt.type})` : ""}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
                               if (step.key === "gpuId")
                                 return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm`;
                               if (step.key === "psuId") return `${opt.name} · ${opt.wattage || "?"}W`;
