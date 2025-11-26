@@ -418,7 +418,7 @@ const mergeGpu = (records) => {
     recommended_psu_w: (() => {
       const tdp = pick(({ dbgpu, pcpart }) => dbgpu?.tdp_w ?? pcpart?.tdp_w ?? 0) || 0;
       const suggested = pick(({ dbgpu, pcpart }) => dbgpu?.suggested_psu_w ?? pcpart?.suggested_psu_w ?? 0) || 0;
-      const calc = Math.ceil((tdp + 75) * 1.5);
+      const calc = Math.ceil((tdp + 75) * 1.3 + 50);
       return Math.max(suggested, calc);
     })(),
     board_length_mm: pick(({ dbgpu, pcpart }) => dbgpu?.board_length_mm ?? pcpart?.board_length_mm ?? null),

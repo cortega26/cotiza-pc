@@ -180,7 +180,7 @@ const estimateTdp = (selection) => {
 
 const recommendedPsu = (selection) => {
   const watts = estimateTdp(selection);
-  return Math.ceil((watts * 1.5 + 25) / 50) * 50; // 50% de holgura para pérdidas/otros componentes
+  return Math.ceil((watts * 1.3 + 50) / 50) * 50; // 30% de holgura + base 50W
 };
 
 const validateBuild = (selection) => {
