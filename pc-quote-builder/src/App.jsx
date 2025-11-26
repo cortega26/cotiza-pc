@@ -36,6 +36,7 @@ const createEmptyRow = () => ({
   id: createId(),
   category: "",
   product: "",
+  itemId: "",
   store: "",
   offerPrice: "",
   regularPrice: "",
@@ -53,21 +54,22 @@ const normalizeRow = (row) => ({
   id: row.id || createId(),
   category: row.category || "",
   product: row.product || "",
+  itemId: row.itemId || "",
   store: row.store || "",
   offerPrice: row.offerPrice || "",
   regularPrice: row.regularPrice || "",
   notes: row.notes || "",
 });
 
-const normalizeQuote = (quote, fallbackName = "Importada") => ({
-  id: quote.id || createId(),
-  name: quote.name || fallbackName,
-  currency: (quote.currency || "CLP").toUpperCase(),
-  rows:
-    Array.isArray(quote.rows) && quote.rows.length
-      ? quote.rows.map(normalizeRow)
-      : [createEmptyRow()],
-});
+  const normalizeQuote = (quote, fallbackName = "Importada") => ({
+    id: quote.id || createId(),
+    name: quote.name || fallbackName,
+    currency: (quote.currency || "CLP").toUpperCase(),
+    rows:
+      Array.isArray(quote.rows) && quote.rows.length
+        ? quote.rows.map(normalizeRow)
+        : [createEmptyRow()],
+  });
 
 const getInitialQuotes = () => {
   try {
@@ -243,6 +245,7 @@ const buildRowsFromSelection = (selection) => {
       id: createId(),
       category: "Procesador",
       product: selection.cpu.name,
+      itemId: selection.cpu.id,
       store: "",
       offerPrice: "",
       regularPrice: "",
@@ -254,6 +257,7 @@ const buildRowsFromSelection = (selection) => {
       id: createId(),
       category: "Placa madre",
       product: selection.mobo.name,
+      itemId: selection.mobo.id,
       store: "",
       offerPrice: "",
       regularPrice: "",
@@ -265,6 +269,7 @@ const buildRowsFromSelection = (selection) => {
       id: createId(),
       category: "RAM",
       product: selection.ram.name,
+      itemId: selection.ram.id,
       store: "",
       offerPrice: "",
       regularPrice: "",
@@ -276,6 +281,7 @@ const buildRowsFromSelection = (selection) => {
       id: createId(),
       category: "Tarjeta de video",
       product: selection.gpu.name,
+      itemId: selection.gpu.id,
       store: "",
       offerPrice: "",
       regularPrice: "",
@@ -287,6 +293,7 @@ const buildRowsFromSelection = (selection) => {
       id: createId(),
       category: "Fuente de poder",
       product: selection.psu.name,
+      itemId: selection.psu.id,
       store: "",
       offerPrice: "",
       regularPrice: "",
@@ -298,6 +305,7 @@ const buildRowsFromSelection = (selection) => {
       id: createId(),
       category: "Gabinete",
       product: selection.pcCase.name,
+      itemId: selection.pcCase.id,
       store: "",
       offerPrice: "",
       regularPrice: "",
@@ -860,6 +868,78 @@ function App() {
     }
   };
 
+  const parsePriceCsv = (text) => {
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (!lines.length) throw new Error("El CSV está vacío.");
+    const headerRaw = lines.shift().split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
+    const headers = headerRaw.map((h) => h.toLowerCase());
+    const idxId = headers.findIndex((h) => h.includes("id"));
+    const idxOffer = headers.findIndex((h) => h.includes("offer") || h.includes("oferta"));
+    const idxNormal = headers.findIndex((h) => h.includes("regular") || h.includes("normal"));
+    const idxStore = headers.findIndex((h) => h.includes("store") || h.includes("tienda"));
+    if (idxId === -1) throw new Error("El CSV debe tener columna id");
+    const items = [];
+    for (const line of lines) {
+      const cells = line
+        .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+        .map((cell) =>
+          cell
+            .replace(/^"(.*)"$/, "$1")
+            .replace(/""/g, '"')
+            .trim()
+        );
+      items.push({
+        id: cells[idxId],
+        offerPrice: idxOffer !== -1 ? cells[idxOffer] || "" : "",
+        regularPrice: idxNormal !== -1 ? cells[idxNormal] || "" : "",
+        store: idxStore !== -1 ? cells[idxStore] || "" : "",
+      });
+    }
+    return items;
+  };
+
+  const parsePriceJson = (content) => {
+    const data = JSON.parse(content);
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    throw new Error("Formato JSON no reconocido para precios");
+  };
+
+  const handleImportPrices = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const content = await file.text();
+      const isJson = file.name.toLowerCase().endsWith(".json") || content.trim().startsWith("{") || content.trim().startsWith("[");
+      const items = isJson ? parsePriceJson(content) : parsePriceCsv(content);
+      if (!items.length) {
+        alert("No se encontraron precios para importar.");
+        return;
+      }
+      updateActiveQuote((q) => ({
+        rows: q.rows.map((row) => {
+          const match = items.find((p) => p.id && p.id === row.itemId);
+          if (!match) return row;
+          return {
+            ...row,
+            offerPrice: match.offerPrice || row.offerPrice,
+            regularPrice: match.regularPrice || row.regularPrice,
+            store: match.store || row.store,
+          };
+        }),
+      }));
+      alert("Precios importados y aplicados a los ítems con id.");
+    } catch (err) {
+      console.error(err);
+      alert(`No se pudo importar precios: ${err.message || err}`);
+    } finally {
+      event.target.value = "";
+    }
+  };
+
   const handleImportClick = () => {
     importInputRef.current?.click();
   };
@@ -957,6 +1037,13 @@ function App() {
             style={{ display: "none" }}
             onChange={handleImportFile}
           />
+          <input
+            id="price-import-input"
+            type="file"
+            accept=".csv,.json"
+            style={{ display: "none" }}
+            onChange={handleImportPrices}
+          />
           {catalogError && <p className="field-hint">Catálogo remoto: {catalogError}</p>}
         </div>
 
@@ -969,6 +1056,10 @@ function App() {
                 Actualizado: {formatDateTime(compatMeta.generatedAt)}
               </span>
             )}
+            <button className="secondary-btn" onClick={() => document.getElementById("price-import-input")?.click()}>
+              Importar precios (por id)
+            </button>
+            <p className="field-hint">Formato CSV/JSON: id, oferta, normal, tienda.</p>
           </div>
         </div>
 
