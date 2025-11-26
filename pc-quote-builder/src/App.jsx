@@ -167,7 +167,8 @@ const mapProcessedToCatalog = (processed) => {
       formFactors: c.supported_mobo_form_factors || [],
     })) || [];
 
-  return { cpus, motherboards, ramKits, gpus, psus, pcCases };
+  const meta = processed.compat || null;
+  return { cpus, motherboards, ramKits, gpus, psus, pcCases, meta };
 };
 
 const estimateTdp = (selection) => {
@@ -181,6 +182,13 @@ const estimateTdp = (selection) => {
 const recommendedPsu = (selection) => {
   const watts = estimateTdp(selection);
   return Math.ceil((watts * 1.3 + 50) / 50) * 50; // 30% de holgura + base 50W
+};
+
+const formatDateTime = (value) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
 };
 
 const validateBuild = (selection) => {
@@ -456,6 +464,7 @@ function App() {
           psus: psusData,
           cases: casesData,
           ram: ramData,
+          compat: compatData,
         });
         setCatalog(processedCatalog);
         if (compatData) {
@@ -514,6 +523,23 @@ function App() {
     }
     return statuses;
   }, [selection, suggestedWatts]);
+
+  const selectionChips = useMemo(() => {
+    const chips = [];
+    if (selection.cpu) {
+      chips.push({ label: "CPU", value: `${selection.cpu.socket || "?"}${selection.cpu.memoryType ? ` · ${selection.cpu.memoryType}` : ""}` });
+    }
+    if (selection.mobo) {
+      chips.push({
+        label: "Mobo",
+        value: `${selection.mobo.socket || "?"}${selection.mobo.memoryType ? ` · ${selection.mobo.memoryType}` : ""}`,
+      });
+    }
+    if (selection.ram) {
+      chips.push({ label: "RAM", value: selection.ram.type || "?" });
+    }
+    return chips;
+  }, [selection]);
 
   const currencyFormatter = useMemo(() => {
     const currency = activeQuote?.currency || "CLP";
@@ -934,6 +960,18 @@ function App() {
           {catalogError && <p className="field-hint">Catálogo remoto: {catalogError}</p>}
         </div>
 
+        <div className="sidebar-section">
+          <h2>Catálogo</h2>
+          <div className="catalog-meta">
+            <span className="meta-chip">{catalogLoading ? "Cargando..." : "Catálogo cargado"}</span>
+            {compatMeta?.generatedAt && (
+              <span className="meta-chip meta-chip-ghost">
+                Actualizado: {formatDateTime(compatMeta.generatedAt)}
+              </span>
+            )}
+          </div>
+        </div>
+
         <footer className="sidebar-footer">
           <small>
             Esta herramienta se provee "as is": puede contener errores, y no nos hacemos responsables por descripciones
@@ -1196,6 +1234,16 @@ function App() {
                       }
                     >
                       {s.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {selectionChips.length > 0 && (
+                <div className="status-chips selection-chips">
+                  {selectionChips.map((chip, idx) => (
+                    <span key={idx} className="status-chip status-ghost">
+                      {chip.label}: {chip.value}
                     </span>
                   ))}
                 </div>
