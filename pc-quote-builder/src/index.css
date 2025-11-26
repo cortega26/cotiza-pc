@@ -180,6 +180,11 @@ body {
   gap: 1.25rem;
   align-items: stretch;
   justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: radial-gradient(circle at top right, #1d283a, #020617);
+  padding-bottom: 0.5rem;
 }
 
 .quote-header-main {
@@ -225,14 +230,15 @@ body {
   flex-wrap: wrap;
   gap: 0.75rem;
   justify-content: flex-end;
+  align-items: stretch;
 }
 
 .total-card {
   min-width: 150px;
   padding: 0.75rem 1rem;
   border-radius: 1rem;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
@@ -265,6 +271,13 @@ body {
   border: 1px solid rgba(31, 41, 55, 0.9);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
   overflow: auto;
+}
+
+.table-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.25rem;
 }
 
 .quote-table {

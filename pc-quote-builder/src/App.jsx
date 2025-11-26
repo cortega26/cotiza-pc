@@ -1446,6 +1446,15 @@ const totals = useMemo(() => {
 
         <section className="table-section">
           <div className="table-wrapper">
+            <div className="table-toolbar">
+              <span className="muted">
+                {totals.rowsWithPrice === 0
+                  ? "Sin precios cargados; agrega manualmente o importa por id."
+                  : totals.rowsWithPrice === activeQuote.rows.length
+                  ? "Todos los ítems tienen precio."
+                  : "Faltan precios en algunos ítems."}
+              </span>
+            </div>
             <table className="quote-table">
               <thead>
                 <tr>
