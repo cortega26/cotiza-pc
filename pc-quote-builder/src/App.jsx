@@ -358,6 +358,7 @@ function App() {
   const [builder, setBuilder] = useState(getInitialBuilder);
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
+  const [socketFilter, setSocketFilter] = useState("");
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
   const [catalog, setCatalog] = useState(() => mapProcessedToCatalog(localCatalog || {}));
@@ -379,6 +380,12 @@ function App() {
   const gpus = useMemo(() => catalog.gpus || [], [catalog]);
   const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
+  const socketSet = useMemo(() => {
+    const s = new Set();
+    cpus.forEach((c) => c.socket && s.add(c.socket));
+    motherboards.forEach((m) => m.socket && s.add(m.socket));
+    return s;
+  }, [cpus, motherboards]);
   const cpuFamilies = useMemo(() => {
     const map = new Map();
     cpus.forEach((cpu) => {
@@ -558,27 +565,30 @@ function App() {
     });
   }, [activeQuote?.currency]);
 
-  const totals = useMemo(() => {
-    if (!activeQuote) {
-      return { totalOffer: 0, totalRegular: 0, saving: 0 };
-    }
+const totals = useMemo(() => {
+  if (!activeQuote) {
+    return { totalOffer: 0, totalRegular: 0, saving: 0 };
+  }
 
-    let totalOffer = 0;
-    let totalRegular = 0;
+  let totalOffer = 0;
+  let totalRegular = 0;
+  let rowsWithPrice = 0;
 
-    for (const row of activeQuote.rows) {
-      const offer = parseFloat(row.offerPrice) || 0;
-      const regular = parseFloat(row.regularPrice) || 0;
-      totalOffer += offer;
-      totalRegular += regular;
-    }
+  for (const row of activeQuote.rows) {
+    const offer = parseFloat(row.offerPrice) || 0;
+    const regular = parseFloat(row.regularPrice) || 0;
+    if (offer || regular) rowsWithPrice += 1;
+    totalOffer += offer;
+    totalRegular += regular;
+  }
 
-    return {
-      totalOffer,
-      totalRegular,
-      saving: totalRegular - totalOffer,
-    };
-  }, [activeQuote]);
+  return {
+    totalOffer,
+    totalRegular,
+    saving: totalRegular - totalOffer,
+    rowsWithPrice,
+  };
+}, [activeQuote]);
 
   const updateActiveQuote = (updater) => {
     setQuotes((prev) =>
@@ -979,6 +989,9 @@ function App() {
           <button className="primary-btn" onClick={handleAddQuote}>
             Crear primera cotización
           </button>
+          {catalog?.meta?.generatedAt && (
+            <p className="muted">Catálogo: {formatDateTime(catalog.meta.generatedAt)}</p>
+          )}
         </div>
       </div>
     );
@@ -1162,7 +1175,7 @@ function App() {
               <div className="builder-choices">
                 {builderSteps.map((step) => {
                   const isActive = currentStep.key === step.key;
-                  const options = optionsByStep[step.key] || [];
+                  let options = optionsByStep[step.key] || [];
                   const value = builder[step.key] || "";
                   const hint =
                     step.key === "moboId"
@@ -1170,11 +1183,13 @@ function App() {
                         ? selection.cpu.socket
                           ? `Filtrando placas ${selection.cpu.socket}.`
                           : "CPU sin socket en datos; mostrando todas."
-                        : "Elige CPU para filtrar socket."
-                    : step.key === "ramId"
-                    ? selection.cpu || selection.mobo
-                      ? `Mostrando RAM ${selection.cpu?.memoryType || selection.mobo?.memoryType}.`
-                      : "Elige CPU/placa para filtrar RAM."
+                        : socketFilter
+                        ? `Filtrando placas ${socketFilter}.`
+                        : "Elige CPU o socket para filtrar."
+                      : step.key === "ramId"
+                      ? selection.cpu || selection.mobo
+                        ? `Mostrando RAM ${selection.cpu?.memoryType || selection.mobo?.memoryType}.`
+                        : "Elige CPU/placa para filtrar RAM."
                     : step.key === "caseId"
                       ? selection.gpu || selection.mobo
                         ? "Filtrado por largo de GPU y factor de forma."
@@ -1207,30 +1222,49 @@ function App() {
                                 ))}
                             </select>
                           </label>
-                          <label className="field">
-                            <span>Línea</span>
-                            <select
-                              value={cpuFamily}
-                              onChange={(e) => {
-                                setCpuFamily(e.target.value);
-                                handleBuilderChange("cpuId", "");
-                              }}
-                            >
-                              <option value="">Todas</option>
-                              {cpuBrand &&
-                                Array.from(cpuFamilies.get(cpuBrand) || []).map((fam) => (
-                                  <option key={fam} value={fam}>
-                                    {fam}
-                                  </option>
-                                ))}
-                            </select>
-                          </label>
+                      <label className="field">
+                        <span>Línea</span>
+                        <select
+                          value={cpuFamily}
+                          onChange={(e) => {
+                            setCpuFamily(e.target.value);
+                            handleBuilderChange("cpuId", "");
+                          }}
+                        >
+                          <option value="">Todas</option>
+                          {cpuBrand &&
+                            Array.from(cpuFamilies.get(cpuBrand) || []).map((fam) => (
+                              <option key={fam} value={fam}>
+                                {fam}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                      <label className="field">
+                        <span>Socket (opcional)</span>
+                        <select
+                          value={socketFilter}
+                          onChange={(e) => {
+                            setSocketFilter(e.target.value);
+                          }}
+                        >
+                          <option value="">Todos</option>
+                          {Array.from(socketSet)
+                            .sort()
+                            .map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
                           <label className="field">
                             <span>{step.label}</span>
                             <TypeaheadSelect
                               options={options
                                 .filter((opt) => (!cpuBrand || opt.brand === cpuBrand))
-                                .filter((opt) => (!cpuFamily || extractCpuFamily(opt) === cpuFamily))}
+                                .filter((opt) => (!cpuFamily || extractCpuFamily(opt) === cpuFamily))
+                                .filter((opt) => (!socketFilter || opt.socket === socketFilter))}
                               value={value}
                               onChange={(id) => handleBuilderChange(step.key, id)}
                               placeholder={`Selecciona ${step.label}`}
@@ -1247,7 +1281,17 @@ function App() {
                         <label className="field">
                           <span>{step.label}</span>
                           <TypeaheadSelect
-                            options={options}
+                            options={
+                              step.key === "moboId"
+                                ? options.filter((opt) => (!socketFilter || opt.socket === socketFilter))
+                              : step.key === "ramId"
+                                ? options.filter((opt) => {
+                                    if (!socketFilter) return true;
+                                    const inferred = inferMemoryTypeBySocket({ socket: socketFilter });
+                                    return inferred ? opt.type === inferred : true;
+                                  })
+                                : options
+                            }
                             value={value}
                             onChange={(id) => handleBuilderChange(step.key, id)}
                             placeholder={`Selecciona ${step.label}`}
@@ -1389,6 +1433,13 @@ function App() {
             <div className="total-card total-card-saving">
               <span className="total-label">Ahorro</span>
               <span className="total-value">{currencyFormatter.format(totals.saving || 0)}</span>
+            </div>
+            <div className="total-card">
+              <span className="total-label">Ítems con precio</span>
+              <span className="total-value">
+                {totals.rowsWithPrice}/{activeQuote.rows.length}
+              </span>
+              {totals.rowsWithPrice === 0 && <span className="muted">Agrega precios para ver totales reales</span>}
             </div>
           </div>
         </header>
