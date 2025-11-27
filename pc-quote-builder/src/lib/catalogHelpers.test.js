@@ -26,5 +26,7 @@ describe("catalogHelpers", () => {
     expect(inferSocket({ name: "Intel Core i7-8700K" })).toBe("LGA1151");
     expect(inferSocket({ name: "AMD Ryzen 7 7800X3D" })).toBe("AM5");
     expect(inferSocket({ name: "AMD Ryzen 5 5600" })).toBe("AM4");
+    expect(inferSocket({ name: "AMD Threadripper 3990X" })).toBe("sTRX4");
+    expect(inferSocket({ name: "AMD Ryzen Threadripper Pro 5995WX" })).toBe("sWRX8");
   });
 });

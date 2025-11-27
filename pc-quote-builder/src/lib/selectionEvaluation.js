@@ -9,7 +9,10 @@ import {
   estimatePowerEnvelope,
 } from "./compatibility";
 
-const isUnknownReason = (reason = "") => reason.toLowerCase().includes("faltan datos");
+const isUnknownReason = (reason = "") => {
+  const msg = reason.toLowerCase();
+  return msg.includes("faltan datos") || msg.includes("no se pudo validar");
+};
 
 const memoryMismatch = (cpu, ram) =>
   cpu?.memoryType && ram?.type && cpu.memoryType !== ram.type

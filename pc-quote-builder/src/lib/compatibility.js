@@ -14,7 +14,10 @@ export function estimatePowerEnvelope(cpu, gpu, extraHeadroomW = 50) {
 
 export function checkCpuMoboCompatibility(cpu, mobo) {
   if (!cpu || !mobo) return { compatible: false, reason: "Faltan datos" };
-  const socketOk = cpu.socket && mobo.socket && cpu.socket === mobo.socket;
+  if (!cpu.socket || !mobo.socket) {
+    return { compatible: false, reason: "No se pudo validar compatibilidad de socket; faltan datos" };
+  }
+  const socketOk = cpu.socket === mobo.socket;
   const memoryOk =
     (mobo.memory_type || mobo.memoryType) && Array.isArray(cpu.memory_support?.types)
       ? cpu.memory_support.types.includes(mobo.memory_type || mobo.memoryType)

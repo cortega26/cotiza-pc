@@ -44,6 +44,14 @@ export const inferSocket = (cpu) => {
     if (genNum >= 7000) return "AM5";
     if (genNum >= 2000) return "AM4";
   }
+  const threadripper = name.match(/threadripper\s*(pro)?\s*(\d{4})/);
+  if (threadripper) {
+    const isPro = Boolean(threadripper[1]);
+    const series = parseInt(threadripper[2], 10);
+    if (isPro || series >= 5000) return "sWRX8";
+    if (series >= 3000) return "sTRX4";
+    return "TR4";
+  }
   return cpu?.socket || "";
 };
 
