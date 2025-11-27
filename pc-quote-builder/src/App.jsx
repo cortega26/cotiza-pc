@@ -47,6 +47,7 @@ const createEmptyQuote = (name = "Nueva cotización") => ({
   id: createId(),
   name,
   currency: "CLP",
+  priceUpdatedAt: "",
   rows: [createEmptyRow()],
 });
 
@@ -62,14 +63,15 @@ const normalizeRow = (row) => ({
 });
 
   const normalizeQuote = (quote, fallbackName = "Importada") => ({
-    id: quote.id || createId(),
-    name: quote.name || fallbackName,
-    currency: (quote.currency || "CLP").toUpperCase(),
-    rows:
-      Array.isArray(quote.rows) && quote.rows.length
-        ? quote.rows.map(normalizeRow)
-        : [createEmptyRow()],
-  });
+  id: quote.id || createId(),
+  name: quote.name || fallbackName,
+  currency: (quote.currency || "CLP").toUpperCase(),
+  priceUpdatedAt: quote.priceUpdatedAt || "",
+  rows:
+    Array.isArray(quote.rows) && quote.rows.length
+      ? quote.rows.map(normalizeRow)
+      : [createEmptyRow()],
+});
 
 const getInitialQuotes = () => {
   try {
@@ -590,6 +592,59 @@ const totals = useMemo(() => {
   };
 }, [activeQuote]);
 
+  const storeTotals = useMemo(() => {
+    const map = new Map();
+    if (!activeQuote) return [];
+    for (const row of activeQuote.rows) {
+      const offer = parseFloat(row.offerPrice) || 0;
+      const regular = parseFloat(row.regularPrice) || 0;
+      if (!offer && !regular) continue;
+      const store = (row.store || "Sin tienda").trim() || "Sin tienda";
+      const current = map.get(store) || { offer: 0, regular: 0, count: 0 };
+      current.offer += offer;
+      current.regular += regular;
+      current.count += 1;
+      map.set(store, current);
+    }
+    return Array.from(map.entries()).map(([store, data]) => ({
+      store,
+      ...data,
+      saving: data.regular - data.offer,
+    }));
+  }, [activeQuote]);
+
+  const priceStatus = useMemo(() => {
+    if (!activeQuote) return { label: "Sin datos", className: "status-unknown" };
+    const hasPrices = totals.rowsWithPrice > 0;
+    const now = Date.now();
+    const updatedAt = activeQuote.priceUpdatedAt ? new Date(activeQuote.priceUpdatedAt) : null;
+    const isValidDate = updatedAt && !Number.isNaN(updatedAt.getTime());
+    const ageMs = isValidDate ? now - updatedAt.getTime() : Infinity;
+    const stale = ageMs > 14 * 24 * 60 * 60 * 1000; // 14 días
+    const missing = totals.rowsWithPrice < activeQuote.rows.length;
+
+    if (!hasPrices) return { label: "Sin precios cargados", className: "status-bad" };
+    if (missing) {
+      return {
+        label: "Faltan precios",
+        className: "status-warn",
+        updatedAt,
+      };
+    }
+    if (stale) {
+      return {
+        label: "Precios posiblemente desactualizados",
+        className: "status-warn",
+        updatedAt,
+      };
+    }
+    return {
+      label: "Precios al día",
+      className: "status-ok",
+      updatedAt,
+    };
+  }, [activeQuote, totals.rowsWithPrice]);
+
   const updateActiveQuote = (updater) => {
     setQuotes((prev) =>
       prev.map((q) => (q.id === activeQuoteId ? { ...q, ...updater(q) } : q))
@@ -648,19 +703,21 @@ const totals = useMemo(() => {
   };
 
   const handleRowChange = (rowId, field, value) => {
-    updateActiveQuote((q) => ({
-      rows: q.rows.map((row) =>
+    const isPriceField = field === "offerPrice" || field === "regularPrice";
+    updateActiveQuote((q) => {
+      const rows = q.rows.map((row) =>
         row.id === rowId
           ? {
               ...row,
-              [field]:
-                field === "offerPrice" || field === "regularPrice"
-                  ? value.replace(/[^\d.,]/g, "").replace(",", ".")
-                  : value,
+              [field]: isPriceField ? value.replace(/[^\d.,]/g, "").replace(",", ".") : value,
             }
           : row
-      ),
-    }));
+      );
+      return {
+        rows,
+        priceUpdatedAt: isPriceField ? new Date().toISOString() : q.priceUpdatedAt,
+      };
+    });
   };
 
   const handleAddRow = () => {
@@ -940,6 +997,7 @@ const totals = useMemo(() => {
             store: match.store || row.store,
           };
         }),
+        priceUpdatedAt: new Date().toISOString(),
       }));
       alert("Precios importados y aplicados a los ítems con id.");
     } catch (err) {
@@ -1441,6 +1499,30 @@ const totals = useMemo(() => {
               </span>
               {totals.rowsWithPrice === 0 && <span className="muted">Agrega precios para ver totales reales</span>}
             </div>
+            <div className="total-card total-card-status">
+              <span className="total-label">Estado de precios</span>
+              <span className={`status-chip ${priceStatus.className}`}>{priceStatus.label}</span>
+              {priceStatus.updatedAt && (
+                <span className="muted">Actualizado: {formatDateTime(priceStatus.updatedAt)}</span>
+              )}
+            </div>
+          </div>
+
+          <div className="store-totals">
+            {storeTotals.length === 0 ? (
+              <span className="muted">Aún no hay precios por tienda.</span>
+            ) : (
+              storeTotals.map((store) => (
+                <div key={store.store} className="store-pill">
+                  <div className="store-name">{store.store}</div>
+                  <div className="store-values">
+                    <span>Oferta: {currencyFormatter.format(store.offer)}</span>
+                    <span>Normal: {currencyFormatter.format(store.regular)}</span>
+                    <span>Ahorro: {currencyFormatter.format(store.saving)}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </header>
 
