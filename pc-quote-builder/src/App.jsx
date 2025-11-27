@@ -252,6 +252,7 @@ function App() {
   const gpus = useMemo(() => catalog.gpus || [], [catalog]);
   const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
+  const [gpuTierFilter, setGpuTierFilter] = useState("");
   const familyOrderByBrand = useMemo(
     () => ({
       Intel: ["Pentium", "Celeron", "Core i3", "Core i5", "Core i7", "Core i9", "Core Ultra", "Otros"],
@@ -299,10 +300,10 @@ function App() {
 
   const optionsByStep = useMemo(() => {
     const options = {};
-    for (const step of builderSteps) {
-      options[step.key] = getOptionsForStep(step.key, selection, catalog);
-    }
-    return options;
+        for (const step of builderSteps) {
+          options[step.key] = getOptionsForStep(step.key, selection, catalog);
+        }
+        return options;
   }, [selection, catalog]);
 
   useEffect(() => {
@@ -1059,24 +1060,41 @@ function App() {
                             ))}
                         </select>
                       </label>
-                      <label className="field">
-                        <span>Socket (opcional)</span>
-                        <select
-                          value={socketFilter}
-                          onChange={(e) => {
-                            setSocketFilter(e.target.value);
-                          }}
-                        >
-                          <option value="">Todos</option>
-                          {Array.from(socketSet)
-                            .sort()
-                            .map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
+                          <label className="field">
+                            <span>Socket (opcional)</span>
+                            <select
+                              value={socketFilter}
+                              onChange={(e) => {
+                                setSocketFilter(e.target.value);
+                              }}
+                            >
+                              <option value="">Todos</option>
+                              {Array.from(socketSet)
+                                .sort()
+                                .map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                            </select>
+                          </label>
+                          <label className="field">
+                            <span>Tier GPU (filtro rápido)</span>
+                            <select
+                              value={gpuTierFilter}
+                              onChange={(e) => {
+                                setGpuTierFilter(e.target.value);
+                                handleBuilderChange("gpuId", "");
+                              }}
+                            >
+                              <option value="">Todos</option>
+                              {[1, 2, 3, 4].map((tier) => (
+                                <option key={tier} value={String(tier)}>
+                                  {tier}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           <label className="field">
                             <span>{step.label}</span>
                             <TypeaheadSelect
@@ -1109,6 +1127,12 @@ function App() {
                                   })
                               : step.key === "psuId"
                                 ? options.filter((opt) => opt.wattage >= Math.max(recommendedPsuWatts - 100, 0))
+                              : step.key === "gpuId"
+                                ? options.filter((opt) => {
+                                    if (!gpuTierFilter) return true;
+                                    const tier = tierMaps.gpu.get(opt.id) || null;
+                                    return String(tier) === gpuTierFilter;
+                                  })
                                 : options
                             }
                             value={value}
@@ -1122,8 +1146,10 @@ function App() {
                                 } · ${opt.formFactor || "-"}`;
                               if (step.key === "ramId")
                                 return `${opt.name}${opt.type ? ` (${opt.type})` : ""}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
-                              if (step.key === "gpuId")
-                                return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm`;
+                              if (step.key === "gpuId") {
+                                const tier = tierMaps.gpu.get(opt.id) || "-";
+                                return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm · Tier ${tier}`;
+                              }
                               if (step.key === "psuId") return `${opt.name} · ${opt.wattage || "?"}W`;
                               if (step.key === "caseId") return `${opt.name} · GPU ${opt.maxGpuLength || "-"}mm`;
                               return opt.name;
