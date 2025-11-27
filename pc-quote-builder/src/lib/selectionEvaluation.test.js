@@ -27,4 +27,17 @@ describe("selectionEvaluation", () => {
     expect(result.selectionChips.find((chip) => chip.label === "CPU")).toBeDefined();
     expect(result.selectionChips.find((chip) => chip.label === "RAM")?.value).toBe("DDR5");
   });
+
+  it("surfaces info when faltan datos impiden validar", () => {
+    const missingSocket = {
+      cpu: { id: "cpu1", socket: "", memoryType: "DDR5", tdp: 125 },
+      mobo: { id: "m1", socket: "LGA1700", memoryType: "DDR5", formFactor: "ATX" },
+      ram: { id: "ram1", type: "DDR5" },
+      gpu: { id: "gpu1", tdp: 220, length: 310, power_connectors: "2x 8-pin" },
+      psu: { id: "psu1", wattage: 850, pcie_power_connectors: { "8_pin": 1 } },
+      pcCase: { id: "case1", formFactors: ["ATX"], maxGpuLength: 320 },
+    };
+    const result = evaluateSelection(missingSocket, { cpu: new Map(), gpu: new Map() });
+    expect(result.info.some((msg) => msg.toLowerCase().includes("socket"))).toBe(true);
+  });
 });

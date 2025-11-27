@@ -238,7 +238,8 @@ function App() {
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
-  const { catalog, compatMeta, tierMaps, socketSet, loading: catalogLoading, error: catalogError } = useCatalog(reloadToken);
+  const { catalog, compatMeta, tierMaps, socketSet, loading: catalogLoading, error: catalogError, fallbackUsed } =
+    useCatalog(reloadToken);
 
   const activeQuote = useMemo(
     () => quotes.find((q) => q.id === activeQuoteId),
@@ -329,6 +330,7 @@ function App() {
   const builderComplete = builderSteps.every((step) => builder[step.key]);
   const builderStatuses = assessment.statuses;
   const selectionChips = assessment.selectionChips;
+  const builderInfo = assessment.info || [];
 
   const currencyFormatter = useMemo(() => {
     const currency = activeQuote?.currency || "CLP";
@@ -913,43 +915,13 @@ function App() {
       </aside>
 
       <main className="main">
-        {compatMeta && (
-          <section className="compat-meta">
-            <div className="metric-grid">
-              <div className="metric">
-                <span className="metric-label">CPUs</span>
-                <span className="metric-value">{compatMeta.counts?.cpus || 0}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">GPUs</span>
-                <span className="metric-value">{compatMeta.counts?.gpus || 0}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">Mobos</span>
-                <span className="metric-value">{compatMeta.counts?.motherboards || 0}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">Cases</span>
-                <span className="metric-value">{compatMeta.counts?.cases || 0}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">PSUs</span>
-                <span className="metric-value">{compatMeta.counts?.psus || 0}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">RAM kits</span>
-                <span className="metric-value">{compatMeta.counts?.ram || 0}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">Coolers</span>
-                <span className="metric-value">{compatMeta.counts?.coolers || 0}</span>
-              </div>
-              <div className="metric">
-                <span className="metric-label">Fans</span>
-                <span className="metric-value">{compatMeta.counts?.fans || 0}</span>
-              </div>
-            </div>
-          </section>
+        {(catalogError || fallbackUsed) && (
+          <div className="warning-panel" style={{ marginBottom: "0.75rem" }}>
+            <strong>{fallbackUsed ? "Usando catálogo local" : "Aviso de catálogo"}:</strong>{" "}
+            {fallbackUsed
+              ? `No se pudo cargar el catálogo remoto. ${catalogError || ""}`.trim()
+              : catalogError}
+          </div>
         )}
 
         <section className="builder-section">
@@ -1193,6 +1165,15 @@ function App() {
                       }
                     >
                       {s.label}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {builderInfo.length > 0 && (
+                <div className="status-chips selection-chips">
+                  {builderInfo.map((msg, idx) => (
+                    <span key={idx} className="status-chip status-ghost">
+                      {msg}
                     </span>
                   ))}
                 </div>

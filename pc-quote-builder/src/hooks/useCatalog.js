@@ -13,6 +13,7 @@ export function useCatalog(reloadToken = 0) {
   const [tierMaps, setTierMaps] = useState(buildTierMaps(localCatalog?.compat));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [fallbackUsed, setFallbackUsed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,6 +28,7 @@ export function useCatalog(reloadToken = 0) {
         setCompatMeta(processed.compat || null);
         setTierMaps(buildTierMaps(processed.compat));
         setError("");
+        setFallbackUsed(false);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -34,6 +36,7 @@ export function useCatalog(reloadToken = 0) {
         setCatalog(fallbackCatalog);
         setCompatMeta(localCatalog?.compat || null);
         setTierMaps(buildTierMaps(localCatalog?.compat));
+        setFallbackUsed(true);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -51,5 +54,5 @@ export function useCatalog(reloadToken = 0) {
     return sockets;
   }, [catalog]);
 
-  return { catalog, compatMeta, tierMaps, socketSet, loading, error };
+  return { catalog, compatMeta, tierMaps, socketSet, loading, error, fallbackUsed };
 }

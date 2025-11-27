@@ -52,19 +52,27 @@ export function evaluateSelection(selection, tierMaps, options = {}) {
 
   const statuses = [];
   const issues = [];
+  const info = [];
 
   const pushStatus = (label, ok, unknown = false) => statuses.push({ label, ok, unknown });
+  const recordInfo = (reason) => reason && info.push(reason);
 
   const cpuMobo = checkCpuMoboCompatibility(selection.cpu, selection.mobo);
   if (selection.cpu && selection.mobo) {
     pushStatus("CPU ↔ Mobo", cpuMobo.compatible, isUnknownReason(cpuMobo.reason));
-    if (!cpuMobo.compatible && !isUnknownReason(cpuMobo.reason)) issues.push(cpuMobo.reason);
+    if (!cpuMobo.compatible) {
+      if (isUnknownReason(cpuMobo.reason)) recordInfo(cpuMobo.reason);
+      else issues.push(cpuMobo.reason);
+    }
   }
 
   const ramMobo = checkRamMoboCompatibility(selection.ram, selection.mobo);
   if (selection.ram && selection.mobo) {
     pushStatus("RAM ↔ Mobo", ramMobo.compatible, isUnknownReason(ramMobo.reason));
-    if (!ramMobo.compatible && !isUnknownReason(ramMobo.reason)) issues.push(ramMobo.reason);
+    if (!ramMobo.compatible) {
+      if (isUnknownReason(ramMobo.reason)) recordInfo(ramMobo.reason);
+      else issues.push(ramMobo.reason);
+    }
   }
 
   const cpuRamIssue = memoryMismatch(selection.cpu, selection.ram);
@@ -73,13 +81,19 @@ export function evaluateSelection(selection, tierMaps, options = {}) {
   const moboCase = checkMoboCaseCompatibility(selection.mobo, selection.pcCase);
   if (selection.mobo && selection.pcCase) {
     pushStatus("Mobo ↔ Case", moboCase.compatible, isUnknownReason(moboCase.reason));
-    if (!moboCase.compatible && !isUnknownReason(moboCase.reason)) issues.push(moboCase.reason);
+    if (!moboCase.compatible) {
+      if (isUnknownReason(moboCase.reason)) recordInfo(moboCase.reason);
+      else issues.push(moboCase.reason);
+    }
   }
 
   const gpuCase = checkGpuCaseCompatibility(selection.gpu, selection.pcCase);
   if (selection.gpu && selection.pcCase) {
     pushStatus("GPU ↔ Case", gpuCase.compatible, isUnknownReason(gpuCase.reason));
-    if (!gpuCase.compatible && !isUnknownReason(gpuCase.reason)) issues.push(gpuCase.reason);
+    if (!gpuCase.compatible) {
+      if (isUnknownReason(gpuCase.reason)) recordInfo(gpuCase.reason);
+      else issues.push(gpuCase.reason);
+    }
   }
 
   if (selection.cpu && selection.gpu && selection.psu) {
@@ -102,6 +116,7 @@ export function evaluateSelection(selection, tierMaps, options = {}) {
     const unknown = connectorStatus.status === "unknown";
     pushStatus("PSU conectores", connectorStatus.status === "ok", unknown);
     if (connectorStatus.status === "fail" && !unknown) issues.push(connectorStatus.reason || "Faltan conectores PCIe");
+    if (unknown && connectorStatus.reason) recordInfo(connectorStatus.reason);
   }
 
   if (selection.gpu?.psuMin && selection.psu && selection.psu.wattage < selection.gpu.psuMin) {
@@ -110,5 +125,5 @@ export function evaluateSelection(selection, tierMaps, options = {}) {
 
   const selectionChips = buildSelectionChips(selection);
 
-  return { power, psuStatus, connectorStatus, balance, statuses, issues, selectionChips, tierMaps };
+  return { power, psuStatus, connectorStatus, balance, statuses, issues, selectionChips, info, tierMaps };
 }
