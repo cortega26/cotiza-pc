@@ -88,11 +88,15 @@ export function evaluateSelection(selection, tierMaps, options = {}) {
   }
 
   const gpuCase = checkGpuCaseCompatibility(selection.gpu, selection.pcCase);
-  if (selection.gpu && selection.pcCase) {
-    pushStatus("GPU ↔ Case", gpuCase.compatible, isUnknownReason(gpuCase.reason));
-    if (!gpuCase.compatible) {
+  if (selection.gpu || selection.pcCase) {
+    const hasBoth = Boolean(selection.gpu && selection.pcCase);
+    pushStatus("GPU ↔ Case", hasBoth ? gpuCase.compatible : false, !hasBoth || isUnknownReason(gpuCase.reason));
+    if (hasBoth && !gpuCase.compatible) {
       if (isUnknownReason(gpuCase.reason)) recordInfo(gpuCase.reason);
       else issues.push(gpuCase.reason);
+    }
+    if (!hasBoth) {
+      recordInfo("No se pudo validar fit GPU↔gabinete: falta GPU o gabinete.");
     }
   }
 
@@ -112,10 +116,12 @@ export function evaluateSelection(selection, tierMaps, options = {}) {
     }
   }
 
-  if (selection.psu && selection.gpu) {
+  if (selection.psu || selection.gpu) {
     const unknown = connectorStatus.status === "unknown";
-    pushStatus("PSU conectores", connectorStatus.status === "ok", unknown);
+    const hasBoth = Boolean(selection.psu && selection.gpu);
+    pushStatus("PSU conectores", hasBoth ? connectorStatus.status === "ok" : false, unknown || !hasBoth);
     if (connectorStatus.status === "fail" && !unknown) issues.push(connectorStatus.reason || "Faltan conectores PCIe");
+    if (!hasBoth) recordInfo("No se pudo validar conectores PSU↔GPU: falta PSU o GPU.");
     if (unknown && connectorStatus.reason) recordInfo(connectorStatus.reason);
   }
 

@@ -40,4 +40,20 @@ describe("selectionEvaluation", () => {
     const result = evaluateSelection(missingSocket, { cpu: new Map(), gpu: new Map() });
     expect(result.info.some((msg) => msg.toLowerCase().includes("socket"))).toBe(true);
   });
+
+  it("marks connectors/fit as unknown when falta GPU/PSU/case", () => {
+    const onlyGpu = {
+      cpu: null,
+      mobo: null,
+      ram: null,
+      gpu: { id: "gpu1", tdp: 220, length: 310 },
+      psu: null,
+      pcCase: null,
+    };
+    const res = evaluateSelection(onlyGpu, { cpu: new Map(), gpu: new Map() });
+    const labels = res.statuses.map((s) => s.label);
+    expect(labels).toContain("GPU ↔ Case");
+    expect(labels).toContain("PSU conectores");
+    expect(res.info.some((msg) => msg.toLowerCase().includes("conectores")) || res.info.some((msg) => msg.toLowerCase().includes("gabinete"))).toBe(true);
+  });
 });

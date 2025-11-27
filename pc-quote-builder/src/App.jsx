@@ -252,6 +252,26 @@ function App() {
   const gpus = useMemo(() => catalog.gpus || [], [catalog]);
   const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
+  const familyOrderByBrand = useMemo(
+    () => ({
+      Intel: ["Pentium", "Celeron", "Core i3", "Core i5", "Core i7", "Core i9", "Core Ultra", "Otros"],
+      AMD: ["Athlon", "Ryzen 3", "Ryzen 5", "Ryzen 7", "Ryzen 9", "Threadripper", "Threadripper Pro", "Otros"],
+    }),
+    []
+  );
+  const sortFamiliesForBrand = (brand, set) => {
+    const order = familyOrderByBrand[brand] || [];
+    const rank = (fam) => {
+      const idx = order.findIndex((o) => o.toLowerCase() === fam.toLowerCase());
+      return idx === -1 ? order.length + 1 : idx;
+    };
+    return Array.from(set).sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      return a.localeCompare(b);
+    });
+  };
   const cpuFamilies = useMemo(() => {
     const map = new Map();
     cpus.forEach((cpu) => {
@@ -1032,7 +1052,7 @@ function App() {
                         >
                           <option value="">Todas</option>
                           {cpuBrand &&
-                            Array.from(cpuFamilies.get(cpuBrand) || []).map((fam) => (
+                            sortFamiliesForBrand(cpuBrand, cpuFamilies.get(cpuBrand) || new Set()).map((fam) => (
                               <option key={fam} value={fam}>
                                 {fam}
                               </option>
