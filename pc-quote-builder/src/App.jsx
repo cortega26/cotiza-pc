@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import localCatalog from "./data/catalog.json";
 import TypeaheadSelect from "./components/TypeaheadSelect";
-import { extractCpuFamily, inferBrand, inferSocket, inferMemoryTypeBySocket } from "./lib/catalogHelpers";
+import { useCatalog } from "./hooks/useCatalog";
+import { buildSelectionChips, evaluateSelection } from "./lib/selectionEvaluation";
+import { inferMemoryTypeBySocket } from "./lib/catalogHelpers";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
@@ -106,138 +107,11 @@ const getInitialBuilder = () => {
 const isRowEmpty = (row) =>
   !row.category && !row.product && !row.store && !row.offerPrice && !row.regularPrice && !row.notes;
 
-const mapProcessedToCatalog = (processed) => {
-  const cpus =
-    processed.cpus?.map((cpu) => ({
-      id: cpu.id,
-      name: cpu.name,
-      brand: inferBrand(cpu),
-      socket: inferSocket(cpu),
-      memoryType:
-        (cpu.memory_support?.types?.[0] || cpu.memory_type || "").toUpperCase() ||
-        inferMemoryTypeBySocket(inferSocket(cpu)),
-      tdp: cpu.tdp_w,
-    })) || [];
-  const motherboards =
-    processed.mobos?.map((m) => ({
-      id: m.id,
-      name: m.name,
-      socket: m.socket,
-      formFactor: m.form_factor,
-      memoryType:
-        (m.memory_type || "").toUpperCase() ||
-        (m.name?.toLowerCase().includes("ddr5") ? "DDR5" : m.name?.toLowerCase().includes("ddr4") ? "DDR4" : "") ||
-        inferMemoryTypeBySocket(m.socket),
-    })) || [];
-  const ramKits =
-    processed.ram?.map((r) => {
-      let type = r.type;
-      if (!type && Array.isArray(r.speed)) {
-        const gen = r.speed[0];
-        if (gen) type = `DDR${gen}`;
-      }
-      if (!type && typeof r.speed === "string" && /ddr\d/i.test(r.speed)) {
-        const m = r.speed.match(/ddr(\d)/i);
-        if (m) type = `DDR${m[1]}`;
-      }
-      return {
-        id: r.id,
-        name: r.name,
-        type: type || "",
-        speed: r.speed_mts,
-      };
-    }) || [];
-  const gpus =
-    processed.gpus?.map((g) => ({
-      id: g.id,
-      name: g.name,
-      tdp: g.tdp_w,
-      length: g.board_length_mm,
-      psuMin: g.recommended_psu_w || g.suggested_psu_w,
-    })) || [];
-  const psus =
-    processed.psus?.map((p) => ({
-      id: p.id,
-      name: p.name,
-      wattage: p.wattage_w,
-      pcieCables: null,
-    })) || [];
-  const pcCases =
-    processed.cases?.map((c) => ({
-      id: c.id,
-      name: c.name,
-      maxGpuLength: c.max_gpu_length_mm,
-      coolerHeight: c.max_cpu_cooler_height_mm,
-      formFactors: c.supported_mobo_form_factors || [],
-    })) || [];
-
-  const meta = processed.compat || null;
-  return { cpus, motherboards, ramKits, gpus, psus, pcCases, meta };
-};
-
-const estimateTdp = (selection) => {
-  const cpu = selection.cpu?.tdp || 0;
-  const gpu = selection.gpu?.tdp || 0;
-  const platform = selection.mobo ? 30 : 0;
-  const extras = selection.ram ? 10 : 0;
-  return cpu + gpu + platform + extras + 50; // 50W de margen plataforma/fans
-};
-
-const recommendedPsu = (selection) => {
-  const watts = estimateTdp(selection);
-  return Math.ceil((watts * 1.3 + 50) / 50) * 50; // 30% de holgura + base 50W
-};
-
 const formatDateTime = (value) => {
   if (!value) return "";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "";
   return d.toLocaleString("es-CL", { dateStyle: "short", timeStyle: "short" });
-};
-
-const validateBuild = (selection) => {
-  const issues = [];
-  const tdp = estimateTdp(selection);
-  const suggestedWatts = recommendedPsu(selection);
-
-  if (selection.cpu && selection.mobo && selection.cpu.socket !== selection.mobo.socket) {
-    issues.push(`El CPU (${selection.cpu.socket}) y la placa (${selection.mobo.socket}) no coinciden en socket.`);
-  }
-
-  if (selection.cpu && selection.ram && selection.cpu.memoryType !== selection.ram.type) {
-    if (selection.cpu.memoryType) {
-      issues.push(`La RAM (${selection.ram.type}) no coincide con el tipo soportado por el CPU (${selection.cpu.memoryType}).`);
-    }
-  }
-
-  if (selection.mobo && selection.ram && selection.mobo.memoryType !== selection.ram.type) {
-    if (selection.mobo.memoryType) {
-      issues.push(`La placa requiere ${selection.mobo.memoryType} y la RAM elegida es ${selection.ram.type}.`);
-    }
-  }
-
-  if (selection.pcCase && selection.mobo && !selection.pcCase.formFactors.includes(selection.mobo.formFactor)) {
-    issues.push(`El gabinete no acepta factor de forma ${selection.mobo.formFactor}.`);
-  }
-
-  if (selection.pcCase && selection.gpu && selection.gpu.length > selection.pcCase.maxGpuLength) {
-    issues.push(`La GPU mide ${selection.gpu.length}mm y el gabinete soporta ${selection.pcCase.maxGpuLength}mm.`);
-  }
-
-  if (selection.psu && suggestedWatts > selection.psu.wattage) {
-    issues.push(`La fuente (${selection.psu.wattage}W) queda por debajo del recomendado (${suggestedWatts}W).`);
-  } else if (selection.psu) {
-    const headroom = selection.psu.wattage - tdp;
-    if (headroom < 100) {
-      issues.push("Poco margen en la PSU; considera subir un escalón para más holgura.");
-    }
-  }
-
-  if (selection.gpu && selection.psu && selection.gpu.psuMin && selection.psu.wattage < selection.gpu.psuMin) {
-    issues.push(`La GPU sugiere al menos ${selection.gpu.psuMin}W y la fuente elegida es de ${selection.psu.wattage}W.`);
-  }
-
-  return issues;
 };
 
 const buildRowsFromSelection = (selection) => {
@@ -363,13 +237,8 @@ function App() {
   const [socketFilter, setSocketFilter] = useState("");
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
-  const [catalog, setCatalog] = useState(() => mapProcessedToCatalog(localCatalog || {}));
-  const catalogLoaded = useRef(false);
-  const [catalogError, setCatalogError] = useState("");
-  const [compatMeta, setCompatMeta] = useState(null);
-  const [tierMaps, setTierMaps] = useState({ cpu: new Map(), gpu: new Map() });
-  const [catalogLoading, setCatalogLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
+  const { catalog, compatMeta, tierMaps, socketSet, loading: catalogLoading, error: catalogError } = useCatalog(reloadToken);
 
   const activeQuote = useMemo(
     () => quotes.find((q) => q.id === activeQuoteId),
@@ -382,18 +251,13 @@ function App() {
   const gpus = useMemo(() => catalog.gpus || [], [catalog]);
   const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
-  const socketSet = useMemo(() => {
-    const s = new Set();
-    cpus.forEach((c) => c.socket && s.add(c.socket));
-    motherboards.forEach((m) => m.socket && s.add(m.socket));
-    return s;
-  }, [cpus, motherboards]);
   const cpuFamilies = useMemo(() => {
     const map = new Map();
     cpus.forEach((cpu) => {
       const brand = cpu.brand || "Desconocido";
       if (brand === "Desconocido") return;
-      const family = extractCpuFamily(cpu);
+      const family = cpu.family || "";
+      if (!family) return;
       if (!map.has(brand)) map.set(brand, new Set());
       map.get(brand).add(family);
     });
@@ -452,111 +316,17 @@ function App() {
     }
   }, [builder]);
 
-  useEffect(() => {
-    if (catalogLoaded.current) return;
-    const controller = new AbortController();
-    const base = import.meta.env.BASE_URL || "/";
-    const dataBase = base.endsWith("/") ? base : `${base}/`;
-    const fetchJson = (path) =>
-      fetch(path, { signal: controller.signal }).then((res) => {
-        if (!res.ok) throw new Error(`No se pudo cargar ${path}`);
-        return res.json();
-      });
 
-    setCatalogLoading(true);
-    Promise.all([
-      fetchJson(`${dataBase}data/cpus.min.json`),
-      fetchJson(`${dataBase}data/gpus.min.json`),
-      fetchJson(`${dataBase}data/motherboards.min.json`),
-      fetchJson(`${dataBase}data/psus.min.json`),
-      fetchJson(`${dataBase}data/cases.min.json`),
-      fetchJson(`${dataBase}data/ram.min.json`),
-      fetchJson(`${dataBase}data/compatibility.min.json`).catch(() => null),
-    ])
-      .then(([cpusData, gpusData, mobosData, psusData, casesData, ramData, compatData]) => {
-        const processedCatalog = mapProcessedToCatalog({
-          cpus: cpusData,
-          gpus: gpusData,
-          mobos: mobosData,
-          psus: psusData,
-          cases: casesData,
-          ram: ramData,
-          compat: compatData,
-        });
-        setCatalog(processedCatalog);
-        if (compatData) {
-          setCompatMeta(compatData);
-          const cpuTiers = new Map();
-          const gpuTiers = new Map();
-          (compatData.tiers?.cpu || []).forEach((t) => cpuTiers.set(t.id, t.tier));
-          (compatData.tiers?.gpu || []).forEach((t) => gpuTiers.set(t.id, t.tier));
-          setTierMaps({ cpu: cpuTiers, gpu: gpuTiers });
-        }
-        catalogLoaded.current = true;
-        setCatalogLoading(false);
-      })
-      .catch((err) => {
-        console.warn("Usando catálogo local por error al cargar remoto", err);
-        setCatalogError(err.message || "No se pudo cargar catálogo remoto");
-        setCatalogLoading(false);
-        catalogLoaded.current = true;
-      });
-    return () => controller.abort();
-  }, [reloadToken]);
-
-  const estimatedTdp = useMemo(() => estimateTdp(selection), [selection]);
-  const suggestedWatts = useMemo(() => recommendedPsu(selection), [selection]);
   const cpuTier = useMemo(() => (selection.cpu ? tierMaps.cpu.get(selection.cpu.id) || null : null), [selection, tierMaps.cpu]);
   const gpuTier = useMemo(() => (selection.gpu ? tierMaps.gpu.get(selection.gpu.id) || null : null), [selection, tierMaps.gpu]);
-  const builderIssues = useMemo(() => validateBuild(selection), [selection]);
+  const assessment = useMemo(() => evaluateSelection(selection, tierMaps, { extraHeadroomW: 50 }), [selection, tierMaps]);
+  const { power } = assessment;
+  const estimatedTdp = power?.estimated_load_w || 0;
+  const suggestedWatts = power?.recommended_min_psu_w || 0;
+  const builderIssues = assessment.issues;
   const builderComplete = builderSteps.every((step) => builder[step.key]);
-  const builderStatuses = useMemo(() => {
-    const statuses = [];
-    if (selection.cpu && selection.mobo) {
-      statuses.push({
-        label: "CPU ↔ Mobo",
-        ok: selection.cpu.socket === selection.mobo.socket,
-      });
-    }
-    if (selection.ram && selection.mobo) {
-      statuses.push({
-        label: "RAM ↔ Mobo",
-        ok: selection.ram.type === selection.mobo.memoryType,
-      });
-    }
-    if (selection.gpu && selection.pcCase) {
-      statuses.push({
-        label: "GPU ↔ Case",
-        ok: selection.gpu.length && selection.pcCase.maxGpuLength ? selection.gpu.length <= selection.pcCase.maxGpuLength : false,
-        unknown: !selection.gpu.length || !selection.pcCase.maxGpuLength,
-      });
-    }
-    if (selection.cpu && selection.gpu && selection.psu) {
-      const ok = selection.psu.wattage >= suggestedWatts;
-      statuses.push({
-        label: "PSU potencia",
-        ok,
-      });
-    }
-    return statuses;
-  }, [selection, suggestedWatts]);
-
-  const selectionChips = useMemo(() => {
-    const chips = [];
-    if (selection.cpu) {
-      chips.push({ label: "CPU", value: `${selection.cpu.socket || "?"}${selection.cpu.memoryType ? ` · ${selection.cpu.memoryType}` : ""}` });
-    }
-    if (selection.mobo) {
-      chips.push({
-        label: "Mobo",
-        value: `${selection.mobo.socket || "?"}${selection.mobo.memoryType ? ` · ${selection.mobo.memoryType}` : ""}`,
-      });
-    }
-    if (selection.ram) {
-      chips.push({ label: "RAM", value: selection.ram.type || "?" });
-    }
-    return chips;
-  }, [selection]);
+  const builderStatuses = assessment.statuses;
+  const selectionChips = assessment.selectionChips;
 
   const currencyFormatter = useMemo(() => {
     const currency = activeQuote?.currency || "CLP";
@@ -567,30 +337,30 @@ function App() {
     });
   }, [activeQuote?.currency]);
 
-const totals = useMemo(() => {
-  if (!activeQuote) {
-    return { totalOffer: 0, totalRegular: 0, saving: 0 };
-  }
+  const totals = useMemo(() => {
+    if (!activeQuote) {
+      return { totalOffer: 0, totalRegular: 0, saving: 0 };
+    }
 
-  let totalOffer = 0;
-  let totalRegular = 0;
-  let rowsWithPrice = 0;
+    let totalOffer = 0;
+    let totalRegular = 0;
+    let rowsWithPrice = 0;
 
-  for (const row of activeQuote.rows) {
-    const offer = parseFloat(row.offerPrice) || 0;
-    const regular = parseFloat(row.regularPrice) || 0;
-    if (offer || regular) rowsWithPrice += 1;
-    totalOffer += offer;
-    totalRegular += regular;
-  }
+    for (const row of activeQuote.rows) {
+      const offer = parseFloat(row.offerPrice) || 0;
+      const regular = parseFloat(row.regularPrice) || 0;
+      if (offer || regular) rowsWithPrice += 1;
+      totalOffer += offer;
+      totalRegular += regular;
+    }
 
-  return {
-    totalOffer,
-    totalRegular,
-    saving: totalRegular - totalOffer,
-    rowsWithPrice,
-  };
-}, [activeQuote]);
+    return {
+      totalOffer,
+      totalRegular,
+      saving: totalRegular - totalOffer,
+      rowsWithPrice,
+    };
+  }, [activeQuote]);
 
   const storeTotals = useMemo(() => {
     const map = new Map();
@@ -659,7 +429,7 @@ const totals = useMemo(() => {
         const selectedCpu = cpus.find((c) => c.id === cleanValue);
         if (selectedCpu) {
           setCpuBrand(selectedCpu.brand || "");
-          setCpuFamily(extractCpuFamily(selectedCpu));
+          setCpuFamily(selectedCpu.family || "");
         }
         const cpu = cpus.find((c) => c.id === cleanValue);
         const mobo = motherboards.find((m) => m.id === next.moboId);
@@ -1031,9 +801,6 @@ const totals = useMemo(() => {
   };
 
   const handleReloadCatalog = () => {
-    catalogLoaded.current = false;
-    setCatalogLoading(true);
-    setCatalogError("");
     setReloadToken((t) => t + 1);
   };
 
@@ -1321,16 +1088,14 @@ const totals = useMemo(() => {
                             <TypeaheadSelect
                               options={options
                                 .filter((opt) => (!cpuBrand || opt.brand === cpuBrand))
-                                .filter((opt) => (!cpuFamily || extractCpuFamily(opt) === cpuFamily))
+                                .filter((opt) => (!cpuFamily || opt.family === cpuFamily))
                                 .filter((opt) => (!socketFilter || opt.socket === socketFilter))}
                               value={value}
                               onChange={(id) => handleBuilderChange(step.key, id)}
                               placeholder={`Selecciona ${step.label}`}
                               getOptionLabel={(opt) => opt.name}
                               renderOption={(opt) =>
-                                `${opt.name} · ${opt.socket || inferSocket(opt) || "?"}${
-                                  opt.memoryType ? ` · ${opt.memoryType}` : ""
-                                } · ${opt.tdp || "?"}W`
+                                `${opt.name} · ${opt.socket || "?"}${opt.memoryType ? ` · ${opt.memoryType}` : ""} · ${opt.tdp || "?"}W`
                               }
                             />
                           </label>
@@ -1345,7 +1110,7 @@ const totals = useMemo(() => {
                               : step.key === "ramId"
                                 ? options.filter((opt) => {
                                     if (!socketFilter) return true;
-                                    const inferred = inferMemoryTypeBySocket({ socket: socketFilter });
+                                    const inferred = inferMemoryTypeBySocket(socketFilter);
                                     return inferred ? opt.type === inferred : true;
                                   })
                                 : options

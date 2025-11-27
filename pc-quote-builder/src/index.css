@@ -540,6 +540,10 @@ body {
   background: rgba(79, 70, 229, 0.25);
 }
 
+.typeahead-item.active {
+  background: rgba(79, 70, 229, 0.35);
+}
+
 .field-hint {
   margin: 0.3rem 0 0;
   font-size: 0.78rem;

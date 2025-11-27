@@ -5,6 +5,8 @@ import {
   checkPsuPowerSufficiency,
   estimateCpuGpuBalance,
   checkGpuCaseCompatibility,
+  checkPsuConnectors,
+  estimatePowerEnvelope,
 } from "./compatibility";
 
 describe("compatibility helpers", () => {
@@ -14,8 +16,8 @@ describe("compatibility helpers", () => {
   const ramBad = { type: "DDR4" };
   const gpu = { tdp_w: 220, board_length_mm: 310, suggested_psu_w: 750, vram_gb: 12 };
   const gpuLong = { ...gpu, board_length_mm: 400 };
-  const psu = { wattage_w: 850 };
-  const psuTight = { wattage_w: 650 };
+  const psu = { wattage_w: 850, pcie_power_connectors: { "8_pin": 2 } };
+  const psuTight = { wattage_w: 650, pcie_power_connectors: { "8_pin": 1 } };
 
   it("valida CPU ↔ mobo", () => {
     expect(checkCpuMoboCompatibility(cpu, mobo).compatible).toBe(true);
@@ -42,5 +44,17 @@ describe("compatibility helpers", () => {
   it("estima balance CPU/GPU por tiers", () => {
     const res = estimateCpuGpuBalance(cpu, gpu);
     expect(["balanced", "cpu_limited", "gpu_limited", "unknown"]).toContain(res.balance);
+  });
+
+  it("estima potencia mínima respetando 30% + 50W base", () => {
+    const res = estimatePowerEnvelope(cpu, gpu, 50);
+    expect(res.estimated_load_w).toBeGreaterThan(0);
+    expect(res.recommended_min_psu_w % 50).toBe(0);
+    expect(res.recommended_min_psu_w).toBeGreaterThan(res.estimated_load_w);
+  });
+
+  it("valida conectores PSU ↔ GPU", () => {
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("ok");
+    expect(checkPsuConnectors(psuTight, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("fail");
   });
 });
