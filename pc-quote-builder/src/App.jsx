@@ -323,6 +323,8 @@ function App() {
   const { power } = assessment;
   const estimatedTdp = power?.estimated_load_w || 0;
   const suggestedWatts = power?.recommended_min_psu_w || 0;
+  const gpuPsuRequirement = selection.gpu?.psuMin || 0;
+  const recommendedPsuWatts = Math.max(suggestedWatts, gpuPsuRequirement || 0);
   const builderIssues = assessment.issues;
   const builderComplete = builderSteps.every((step) => builder[step.key]);
   const builderStatuses = assessment.statuses;
@@ -1020,7 +1022,7 @@ function App() {
                         ? "Filtrado por largo de GPU y factor de forma."
                         : "Elige GPU/placa para validar espacio."
                       : step.key === "psuId"
-                      ? `Sugerido: ${suggestedWatts}W (estimado ${estimatedTdp}W).`
+                      ? `Sugerido: ${recommendedPsuWatts}W (estimado ${estimatedTdp}W).`
                       : "Selecciona un componente.";
 
                   return (
@@ -1113,6 +1115,8 @@ function App() {
                                     const inferred = inferMemoryTypeBySocket(socketFilter);
                                     return inferred ? opt.type === inferred : true;
                                   })
+                              : step.key === "psuId"
+                                ? options.filter((opt) => opt.wattage >= Math.max(recommendedPsuWatts - 100, 0))
                                 : options
                             }
                             value={value}
@@ -1150,7 +1154,7 @@ function App() {
               </div>
               <div className="metric">
                 <span className="metric-label">PSU sugerida</span>
-                <span className="metric-value">{suggestedWatts} W</span>
+                <span className="metric-value">{recommendedPsuWatts} W</span>
               </div>
               <div className="metric">
                 <span className="metric-label">Margen actual</span>
@@ -1166,13 +1170,10 @@ function App() {
                 <span className="metric-label">Tier GPU</span>
                 <span className="metric-value">{gpuTier || "-"}</span>
               </div>
-              <div className="metric">
-                <span className="metric-label">PSU rec. GPU</span>
-                <span className="metric-value">
-                  {selection.gpu?.psuMin ? `${selection.gpu.psuMin} W` : "N/D"}
-                </span>
-              </div>
             </div>
+            {gpuPsuRequirement > 0 && (
+              <p className="field-hint">La GPU sugiere {gpuPsuRequirement} W; el cálculo ya lo incorpora.</p>
+            )}
 
               <div className="status-line">
                 <span className="status-pill">{builderComplete ? "Build completo" : "Paso a paso"}</span>
