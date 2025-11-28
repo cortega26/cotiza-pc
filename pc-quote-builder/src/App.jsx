@@ -25,6 +25,7 @@ const emptyBuilder = {
   gpuId: "",
   psuId: "",
   caseId: "",
+  useIntegratedGpu: false,
 };
 
 const createId = () =>
@@ -347,10 +348,16 @@ function App() {
   const gpuPsuRequirement = selection.gpu?.psuMin || 0;
   const recommendedPsuWatts = Math.max(suggestedWatts, gpuPsuRequirement || 0);
   const builderIssues = assessment.issues;
-  const builderComplete = builderSteps.every((step) => builder[step.key]);
+  const usingIntegratedGpu = builder.useIntegratedGpu || false;
+  const isStepDone = (stepKey) => (stepKey === "gpuId" ? builder.gpuId || usingIntegratedGpu : builder[stepKey]);
+  const builderComplete = builderSteps.every((step) => isStepDone(step.key));
   const builderStatuses = assessment.statuses;
   const selectionChips = assessment.selectionChips;
-  const builderInfo = assessment.info || [];
+  const builderInfo = useMemo(() => {
+    const info = assessment.info ? [...assessment.info] : [];
+    if (usingIntegratedGpu) info.push("GPU integrada (sin dedicada)");
+    return info;
+  }, [assessment.info, usingIntegratedGpu]);
   const noCasesAvailable = !pcCases.length;
 
   const currencyFormatter = useMemo(() => {
@@ -473,6 +480,7 @@ function App() {
         }
       }
       if (key === "gpuId") {
+        next.useIntegratedGpu = false;
         const gpu = gpus.find((g) => g.id === cleanValue);
         const currentCase = pcCases.find((c) => c.id === next.caseId);
         if (gpu && currentCase && gpu.length > currentCase.maxGpuLength) {
@@ -836,6 +844,18 @@ function App() {
     setActiveQuoteId(newQuote.id);
   };
 
+  const handleIntegratedGpuToggle = (checked) => {
+    const gpuStepIndex = builderSteps.findIndex((step) => step.key === "gpuId");
+    setBuilder((prev) => ({
+      ...prev,
+      useIntegratedGpu: checked,
+      gpuId: checked ? "" : prev.gpuId,
+    }));
+    if (checked && builderStep === gpuStepIndex && builderStep < builderSteps.length - 1) {
+      setBuilderStep(builderStep + 1);
+    }
+  };
+
   const handleClearBuilder = () => {
     setBuilder({ ...emptyBuilder });
     setBuilderStep(0);
@@ -996,7 +1016,7 @@ function App() {
                 className={
                   "step-chip" +
                   (index === builderStep ? " active" : "") +
-                  (builder[step.key] ? " done" : "")
+                  (isStepDone(step.key) ? " done" : "")
                 }
                 onClick={() => setBuilderStep(index)}
               >
@@ -1020,6 +1040,10 @@ function App() {
                           ? `Filtrando placas ${selection.cpu.socket}.`
                           : "CPU sin socket en datos; mostrando todas."
                         : "Elige CPU para filtrar placas."
+                      : step.key === "gpuId"
+                      ? usingIntegratedGpu
+                        ? "Usarás la GPU integrada del procesador."
+                        : "Selecciona una GPU dedicada."
                       : step.key === "ramId"
                       ? selection.cpu || selection.mobo
                         ? `Mostrando RAM ${selection.cpu?.memoryType || selection.mobo?.memoryType}.`
@@ -1094,6 +1118,39 @@ function App() {
                             />
                           </label>
                         </>
+                      ) : step.key === "gpuId" ? (
+                        <>
+                          <div className="field">
+                            <span>Sin GPU dedicada</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                              <input
+                                type="checkbox"
+                                id="integrated-gpu-toggle"
+                                checked={usingIntegratedGpu}
+                                onChange={(e) => handleIntegratedGpuToggle(e.target.checked)}
+                              />
+                              <label htmlFor="integrated-gpu-toggle" className="muted" style={{ display: "inline-block" }}>
+                                Usar GPU integrada del procesador
+                              </label>
+                            </div>
+                          </div>
+                          {!usingIntegratedGpu && (
+                            <label className="field">
+                              <span>{step.label}</span>
+                              <TypeaheadSelect
+                                options={options}
+                                value={value}
+                                onChange={(id) => handleBuilderChange(step.key, id)}
+                                placeholder={`Selecciona ${step.label}`}
+                                getOptionLabel={(opt) => opt.name}
+                                renderOption={(opt) => {
+                                  const tier = tierMaps.gpu.get(opt.id) || "-";
+                                  return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm · Tier ${tier}`;
+                                }}
+                              />
+                            </label>
+                          )}
+                        </>
                       ) : (
                         <label className="field">
                           <span>{step.label}</span>
@@ -1114,10 +1171,6 @@ function App() {
                                 } · ${opt.formFactor || "-"}`;
                               if (step.key === "ramId")
                                 return `${opt.name}${opt.type ? ` (${opt.type})` : ""}${opt.speed ? ` · ${opt.speed} MT/s` : ""}`;
-                              if (step.key === "gpuId") {
-                                const tier = tierMaps.gpu.get(opt.id) || "-";
-                                return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm · Tier ${tier}`;
-                              }
                               if (step.key === "psuId") return `${opt.name} · ${opt.wattage || "?"}W`;
                               if (step.key === "caseId") return `${opt.name} · GPU ${opt.maxGpuLength || "-"}mm`;
                               return opt.name;
