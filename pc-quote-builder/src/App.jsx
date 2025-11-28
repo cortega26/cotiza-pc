@@ -1290,15 +1290,32 @@ function App() {
                   placeholder="Ej: PC Gamer RTX 4060"
                 />
               </label>
-              <label className="field field-small">
+              <label className="field">
                 <span>Moneda</span>
-                <input type="text" value={activeQuote.currency} onChange={handleCurrencyChange} maxLength={3} />
-                <div className="preset-chips">
+                <div className="currency-row">
                   {["CLP", "USD", "EUR"].map((code) => (
-                    <button key={code} className={"status-chip status-ghost" + (activeQuote.currency === code ? " status-ok" : "")} onClick={() => handleCurrencyPreset(code)}>
+                    <label
+                      key={code}
+                      className={"currency-pill" + (activeQuote.currency === code ? " active" : "")}
+                    >
+                      <input
+                        type="radio"
+                        name="currency"
+                        value={code}
+                        checked={activeQuote.currency === code}
+                        onChange={() => handleCurrencyPreset(code)}
+                      />
                       {code}
-                    </button>
+                    </label>
                   ))}
+                  <input
+                    className="currency-input"
+                    type="text"
+                    value={activeQuote.currency}
+                    onChange={handleCurrencyChange}
+                    maxLength={3}
+                    aria-label="Moneda personalizada"
+                  />
                 </div>
               </label>
             </div>
