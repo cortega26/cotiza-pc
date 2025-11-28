@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import { useCatalog } from "./hooks/useCatalog";
 import { buildSelectionChips, evaluateSelection } from "./lib/selectionEvaluation";
-import { inferMemoryTypeBySocket } from "./lib/catalogHelpers";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
@@ -236,11 +235,10 @@ function App() {
   const [builder, setBuilder] = useState(getInitialBuilder);
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
-  const [socketFilter, setSocketFilter] = useState("");
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
-  const { catalog, compatMeta, tierMaps, socketSet, loading: catalogLoading, error: catalogError, fallbackUsed } =
+  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed } =
     useCatalog(reloadToken);
 
   const activeQuote = useMemo(
@@ -254,7 +252,6 @@ function App() {
   const gpus = useMemo(() => catalog.gpus || [], [catalog]);
   const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
-  const [gpuTierFilter, setGpuTierFilter] = useState("");
   const familyOrderByBrand = useMemo(
     () => ({
       Intel: ["Pentium", "Celeron", "Core i3", "Core i5", "Core i7", "Core i9", "Core Ultra", "Otros"],
@@ -1022,9 +1019,7 @@ function App() {
                         ? selection.cpu.socket
                           ? `Filtrando placas ${selection.cpu.socket}.`
                           : "CPU sin socket en datos; mostrando todas."
-                        : socketFilter
-                        ? `Filtrando placas ${socketFilter}.`
-                        : "Elige CPU o socket para filtrar."
+                        : "Elige CPU para filtrar placas."
                       : step.key === "ramId"
                       ? selection.cpu || selection.mobo
                         ? `Mostrando RAM ${selection.cpu?.memoryType || selection.mobo?.memoryType}.`
@@ -1084,47 +1079,11 @@ function App() {
                         </select>
                       </label>
                           <label className="field">
-                            <span>Socket (opcional)</span>
-                            <select
-                              value={socketFilter}
-                              onChange={(e) => {
-                                setSocketFilter(e.target.value);
-                              }}
-                            >
-                              <option value="">Todos</option>
-                              {Array.from(socketSet)
-                                .sort()
-                                .map((s) => (
-                                  <option key={s} value={s}>
-                                    {s}
-                                  </option>
-                                ))}
-                            </select>
-                          </label>
-                          <label className="field">
-                            <span>Tier GPU (filtro rápido)</span>
-                            <select
-                              value={gpuTierFilter}
-                              onChange={(e) => {
-                                setGpuTierFilter(e.target.value);
-                                handleBuilderChange("gpuId", "");
-                              }}
-                            >
-                              <option value="">Todos</option>
-                              {[1, 2, 3, 4].map((tier) => (
-                                <option key={tier} value={String(tier)}>
-                                  {tier}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          <label className="field">
                             <span>{step.label}</span>
                             <TypeaheadSelect
                               options={options
                                 .filter((opt) => (!cpuBrand || opt.brand === cpuBrand))
-                                .filter((opt) => (!cpuFamily || opt.family === cpuFamily))
-                                .filter((opt) => (!socketFilter || opt.socket === socketFilter))}
+                                .filter((opt) => (!cpuFamily || opt.family === cpuFamily))}
                               value={value}
                               onChange={(id) => handleBuilderChange(step.key, id)}
                               placeholder={`Selecciona ${step.label}`}
@@ -1140,22 +1099,8 @@ function App() {
                           <span>{step.label}</span>
                           <TypeaheadSelect
                             options={
-                              step.key === "moboId"
-                                ? options.filter((opt) => (!socketFilter || opt.socket === socketFilter))
-                              : step.key === "ramId"
-                                ? options.filter((opt) => {
-                                    if (!socketFilter) return true;
-                                    const inferred = inferMemoryTypeBySocket(socketFilter);
-                                    return inferred ? opt.type === inferred : true;
-                                  })
-                              : step.key === "psuId"
+                              step.key === "psuId"
                                 ? options.filter((opt) => opt.wattage >= Math.max(recommendedPsuWatts - 100, 0))
-                              : step.key === "gpuId"
-                                ? options.filter((opt) => {
-                                    if (!gpuTierFilter) return true;
-                                    const tier = tierMaps.gpu.get(opt.id) || null;
-                                    return String(tier) === gpuTierFilter;
-                                  })
                                 : options
                             }
                             value={value}
