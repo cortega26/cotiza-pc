@@ -28,8 +28,12 @@ function TypeaheadSelect({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return options.slice(0, maxItems);
+    const tokens = q.split(/\s+/).filter(Boolean);
     return options
-      .filter((opt) => getOptionLabel(opt).toLowerCase().includes(q))
+      .filter((opt) => {
+        const label = getOptionLabel(opt).toLowerCase();
+        return tokens.every((token) => label.includes(token));
+      })
       .slice(0, maxItems);
   }, [options, query, maxItems, getOptionLabel]);
 

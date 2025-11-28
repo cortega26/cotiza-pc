@@ -35,4 +35,24 @@ describe("TypeaheadSelect", () => {
     fireEvent.keyDown(input, { key: "Enter" }); // should not select after escape
     expect(handleChange).not.toHaveBeenCalled();
   });
+
+  it("filters by multiple terms in any order", () => {
+    render(
+      <TypeaheadSelect
+        options={[
+          { id: "1", name: "ASUS Prime B550M DDR4" },
+          { id: "2", name: "MSI B650 DDR5" },
+        ]}
+        value=""
+        onChange={() => {}}
+        placeholder="Placa madre"
+      />
+    );
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "asus ddr4" } });
+
+    const items = screen.getAllByRole("option");
+    expect(items).toHaveLength(1);
+    expect(items[0].textContent).toContain("ASUS Prime B550M DDR4");
+  });
 });
