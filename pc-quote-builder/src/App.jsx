@@ -418,7 +418,8 @@ function App() {
     const stale = ageMs > 14 * 24 * 60 * 60 * 1000; // 14 días
     const missing = totals.rowsWithPrice < activeQuote.rows.length;
 
-    if (!hasPrices) return { label: "Sin precios cargados", className: "status-bad" };
+    if (!hasPrices)
+      return { label: "Sin precios cargados", className: "status-bad", updatedAt };
     if (missing) {
       return {
         label: "Faltan precios",
@@ -495,6 +496,10 @@ function App() {
   const handleCurrencyChange = (e) => {
     const newCurrency = e.target.value || "CLP";
     updateActiveQuote(() => ({ currency: newCurrency.toUpperCase() }));
+  };
+
+  const handleCurrencyPreset = (value) => {
+    updateActiveQuote(() => ({ currency: value }));
   };
 
   const handleRowChange = (rowId, field, value) => {
@@ -1256,21 +1261,28 @@ function App() {
         </section>
 
         <header className="quote-header">
-          <div className="quote-header-main">
-            <label className="field">
-              <span>Nombre de la cotización</span>
-              <input
-                type="text"
-                value={activeQuote.name}
-                onChange={handleQuoteNameChange}
-                placeholder="Ej: PC Gamer RTX 4060"
-              />
-            </label>
-            <label className="field field-small">
-              <span>Moneda</span>
-              <input type="text" value={activeQuote.currency} onChange={handleCurrencyChange} maxLength={3} />
-            </label>
-          </div>
+            <div className="quote-header-main">
+              <label className="field">
+                <span>Nombre de la cotización</span>
+                <input
+                  type="text"
+                  value={activeQuote.name}
+                  onChange={handleQuoteNameChange}
+                  placeholder="Ej: PC Gamer RTX 4060"
+                />
+              </label>
+              <label className="field field-small">
+                <span>Moneda</span>
+                <input type="text" value={activeQuote.currency} onChange={handleCurrencyChange} maxLength={3} />
+                <div className="preset-chips">
+                  {["CLP", "USD", "EUR"].map((code) => (
+                    <button key={code} className={"status-chip status-ghost" + (activeQuote.currency === code ? " status-ok" : "")} onClick={() => handleCurrencyPreset(code)}>
+                      {code}
+                    </button>
+                  ))}
+                </div>
+              </label>
+            </div>
 
           <div className="totals">
             <div className="total-card">
@@ -1294,9 +1306,19 @@ function App() {
             </div>
             <div className="total-card total-card-status">
               <span className="total-label">Estado de precios</span>
-              <span className={`status-chip ${priceStatus.className}`}>{priceStatus.label}</span>
+              <span
+                className={`status-chip ${priceStatus.className}`}
+                title={priceStatus.updatedAt ? `Actualizado: ${formatDateTime(priceStatus.updatedAt)}` : ""}
+              >
+                {priceStatus.label}
+              </span>
               {priceStatus.updatedAt && (
-                <span className="muted">Actualizado: {formatDateTime(priceStatus.updatedAt)}</span>
+                <span className="muted">
+                  Actualizado: {formatDateTime(priceStatus.updatedAt)} ·{" "}
+                  <button className="link-btn" onClick={() => document.getElementById("price-import-input")?.click()}>
+                    Reimportar precios
+                  </button>
+                </span>
               )}
             </div>
           </div>
