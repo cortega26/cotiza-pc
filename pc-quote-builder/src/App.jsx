@@ -216,10 +216,12 @@ const getOptionsForStep = (key, selection, catalog) => {
     case "caseId": {
       let filtered = pcCases;
       if (selection.mobo) {
-        filtered = filtered.filter((c) => c.formFactors.includes(selection.mobo.formFactor));
+        filtered = filtered.filter(
+          (c) => !c.formFactors || c.formFactors.length === 0 || c.formFactors.includes(selection.mobo.formFactor)
+        );
       }
       if (selection.gpu) {
-        filtered = filtered.filter((c) => c.maxGpuLength >= selection.gpu.length);
+        filtered = filtered.filter((c) => !c.maxGpuLength || c.maxGpuLength >= selection.gpu.length);
       }
       return filtered;
     }
@@ -352,6 +354,7 @@ function App() {
   const builderStatuses = assessment.statuses;
   const selectionChips = assessment.selectionChips;
   const builderInfo = assessment.info || [];
+  const noCasesAvailable = !pcCases.length;
 
   const currencyFormatter = useMemo(() => {
     const currency = activeQuote?.currency || "CLP";
@@ -825,6 +828,17 @@ function App() {
     });
   };
 
+  const handleDuplicateBuilderSelection = () => {
+    const builderRows = buildRowsFromSelection(selection);
+    if (!builderRows.length) {
+      alert("Selecciona al menos un componente en el builder.");
+      return;
+    }
+    const newQuote = createEmptyQuote(`${activeQuote?.name || "Build"} variante`);
+    setQuotes((prev) => [...prev, { ...newQuote, rows: builderRows, priceUpdatedAt: "" }]);
+    setActiveQuoteId(newQuote.id);
+  };
+
   const handleClearBuilder = () => {
     setBuilder({ ...emptyBuilder });
     setBuilderStep(0);
@@ -1015,12 +1029,16 @@ function App() {
                       ? selection.cpu || selection.mobo
                         ? `Mostrando RAM ${selection.cpu?.memoryType || selection.mobo?.memoryType}.`
                         : "Elige CPU/placa para filtrar RAM."
-                    : step.key === "caseId"
+                      : step.key === "caseId"
                       ? selection.gpu || selection.mobo
-                        ? "Filtrado por largo de GPU y factor de forma."
+                        ? "Filtrado por largo de GPU y factor de forma; si falta dato, no se excluye."
+                        : noCasesAvailable
+                        ? "No hay gabinetes en el catálogo cargado."
                         : "Elige GPU/placa para validar espacio."
                       : step.key === "psuId"
-                      ? `Sugerido: ${recommendedPsuWatts}W (estimado ${estimatedTdp}W).`
+                      ? `Sugerido: ${recommendedPsuWatts}W (estimado ${estimatedTdp}W).${
+                          selection.gpu && !selection.gpu.power_connectors ? " GPU sin dato de conectores; valida manualmente." : ""
+                        }`
                       : "Selecciona un componente.";
 
                   return (
@@ -1255,6 +1273,9 @@ function App() {
 
               <button className="primary-btn full-width" onClick={handleApplyBuilderToQuote}>
                 Aplicar selección a la cotización
+              </button>
+              <button className="secondary-btn full-width" onClick={handleDuplicateBuilderSelection} style={{ marginTop: "0.35rem" }}>
+                ⧉ Duplicar selección como nueva cotización
               </button>
             </div>
           </div>
