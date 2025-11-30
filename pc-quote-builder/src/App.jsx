@@ -1293,29 +1293,35 @@ function App() {
               <label className="field">
                 <span>Moneda</span>
                 <div className="currency-row">
-                  {["CLP", "USD", "EUR"].map((code) => (
-                    <label
-                      key={code}
-                      className={"currency-pill" + (activeQuote.currency === code ? " active" : "")}
-                    >
-                      <input
-                        type="radio"
-                        name="currency"
-                        value={code}
-                        checked={activeQuote.currency === code}
-                        onChange={() => handleCurrencyPreset(code)}
-                      />
-                      {code}
-                    </label>
-                  ))}
-                  <input
-                    className="currency-input"
-                    type="text"
-                    value={activeQuote.currency}
-                    onChange={handleCurrencyChange}
-                    maxLength={3}
-                    aria-label="Moneda personalizada"
-                  />
+                  <div className="currency-pills">
+                    {["CLP", "USD", "EUR"].map((code) => (
+                      <label
+                        key={code}
+                        className={"currency-pill" + (activeQuote.currency === code ? " active" : "")}
+                      >
+                        <input
+                          type="radio"
+                          name="currency"
+                          value={code}
+                          checked={activeQuote.currency === code}
+                          onChange={() => handleCurrencyPreset(code)}
+                        />
+                        {code}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="currency-custom">
+                    <span>Otra</span>
+                    <input
+                      className="currency-input"
+                      type="text"
+                      value={activeQuote.currency}
+                      onChange={handleCurrencyChange}
+                      maxLength={3}
+                      placeholder="Ej: GBP"
+                      aria-label="Moneda personalizada"
+                    />
+                  </div>
                 </div>
               </label>
             </div>

@@ -274,50 +274,64 @@ body {
 
 .currency-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.5rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.currency-pills {
+  display: inline-flex;
+  gap: 0.35rem;
 }
 
 .currency-pill {
   border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  padding: 0.4rem 0.85rem;
-  background: rgba(15, 23, 42, 0.9);
-  color: #e5e7eb;
-  font-size: 0.85rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  padding: 0.32rem 0.75rem;
+  background: rgba(15, 23, 42, 0.75);
+  color: #cbd5e1;
+  font-size: 0.82rem;
   cursor: pointer;
-  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.05s;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, transform 0.05s, background 0.12s;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
 }
 
 .currency-pill:hover {
-  border-color: rgba(124, 58, 237, 0.6);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25);
+  border-color: rgba(124, 58, 237, 0.55);
+  background: rgba(124, 58, 237, 0.12);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
 }
 
 .currency-pill.active {
-  border-color: rgba(34, 197, 94, 0.7);
-  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.65);
+  background: rgba(34, 197, 94, 0.14);
   color: #d1fae5;
-  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.4);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.35);
 }
 
 .currency-pill input {
   display: none;
 }
 
+.currency-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
 .currency-input {
   border-radius: 999px;
   border: 1px solid #1f2937;
-  padding: 0.4rem 0.65rem;
-  background: rgba(15, 23, 42, 0.9);
+  padding: 0.38rem 0.65rem;
+  background: rgba(15, 23, 42, 0.82);
   color: #e5e7eb;
-  width: 72px;
+  width: 78px;
   text-transform: uppercase;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   transition: box-shadow 0.12s ease, border-color 0.12s ease;
 }
 
