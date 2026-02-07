@@ -24,6 +24,7 @@ export const mapProcessedToCatalog = (processed = {}) => {
       memoryType:
         (cpu.memory_support?.types?.[0] || cpu.memory_type || "").toUpperCase() ||
         inferMemoryTypeBySocket(inferSocket(cpu)),
+      memoryTypeExplicit: Boolean((cpu.memory_support?.types?.[0] || cpu.memory_type || "").trim()),
       tdp: cpu.tdp_w,
       tdp_w: cpu.tdp_w,
       suggestedPsu: cpu.suggested_psu_w,
@@ -39,6 +40,7 @@ export const mapProcessedToCatalog = (processed = {}) => {
         (mobo.memory_type || "").toUpperCase() ||
         (mobo.name?.toLowerCase().includes("ddr5") ? "DDR5" : mobo.name?.toLowerCase().includes("ddr4") ? "DDR4" : "") ||
         inferMemoryTypeBySocket(mobo.socket),
+      memoryTypeExplicit: Boolean((mobo.memory_type || "").trim()),
     })) || [];
 
   const ramKits =

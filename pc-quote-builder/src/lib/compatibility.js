@@ -49,6 +49,9 @@ export function checkMoboCaseCompatibility(mobo, pcCase) {
   if (!mobo || !pcCase) return { compatible: false, reason: "Faltan datos" };
   const formFactor = mobo.form_factor || mobo.formFactor;
   const supported = pcCase.supported_mobo_form_factors || pcCase.formFactors;
+  if (!formFactor || !Array.isArray(supported) || supported.length === 0) {
+    return { compatible: false, reason: "Faltan datos" };
+  }
   const ok =
     Array.isArray(supported) &&
     supported.includes(formFactor);
@@ -59,7 +62,7 @@ export function checkGpuCaseCompatibility(gpu, pcCase) {
   if (!gpu || !pcCase) return { compatible: false, reason: "Faltan datos" };
   const gpuLength = gpu.board_length_mm ?? gpu.length;
   const maxLength = pcCase.max_gpu_length_mm ?? pcCase.maxGpuLength;
-  if (!gpuLength || !maxLength) return { compatible: false, reason: "Desconocido" };
+  if (!gpuLength || !maxLength) return { compatible: false, reason: "Faltan datos" };
   const ok = gpuLength <= maxLength;
   return ok ? { compatible: true } : { compatible: false, reason: "La GPU no cabe en el gabinete" };
 }

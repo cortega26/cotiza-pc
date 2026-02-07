@@ -56,4 +56,32 @@ describe("selectionEvaluation", () => {
     expect(labels).toContain("PSU conectores");
     expect(res.info.some((msg) => msg.toLowerCase().includes("conectores")) || res.info.some((msg) => msg.toLowerCase().includes("gabinete"))).toBe(true);
   });
+
+  it("treats missing dimensions as unknown (not a hard incompatibility)", () => {
+    const unknownFit = {
+      cpu: null,
+      mobo: null,
+      ram: null,
+      gpu: { id: "gpu1", length: 310 },
+      psu: null,
+      pcCase: { id: "case1", maxGpuLength: null },
+    };
+    const res = evaluateSelection(unknownFit, { cpu: new Map(), gpu: new Map() });
+    const gpuCase = res.statuses.find((s) => s.label === "GPU ↔ Case");
+    expect(gpuCase?.unknown).toBe(true);
+    expect(res.issues.some((msg) => msg.toLowerCase().includes("no cabe"))).toBe(false);
+  });
+
+  it("does not warn CPU↔RAM mismatch when CPU memoryType is inferred", () => {
+    const inferredCpu = {
+      cpu: { id: "cpu1", memoryType: "DDR5", memoryTypeExplicit: false },
+      mobo: null,
+      ram: { id: "ram1", type: "DDR4" },
+      gpu: null,
+      psu: null,
+      pcCase: null,
+    };
+    const res = evaluateSelection(inferredCpu, { cpu: new Map(), gpu: new Map() });
+    expect(res.issues.some((msg) => msg.toLowerCase().includes("no coincide") && msg.toLowerCase().includes("cpu"))).toBe(false);
+  });
 });

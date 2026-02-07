@@ -47,6 +47,10 @@ jobs:
         working-directory: pc-quote-builder
         run: npm run build:pc-data
 
+      - name: Sync processed data into deployed static assets
+        working-directory: pc-quote-builder
+        run: npm run sync:pc-data
+
       - name: Build site (Vite)
         working-directory: pc-quote-builder
         run: npm run build
@@ -58,7 +62,7 @@ jobs:
       - name: Upload artifact for Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: pc-quote-builder/docs
+          path: docs
 
       - name: Deploy to GitHub Pages
         id: deployment

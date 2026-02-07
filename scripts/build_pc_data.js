@@ -32,6 +32,17 @@ const ensureDir = (dir) => {
 
 ensureDir(PROCESSED_DIR);
 
+const assert = (condition, message) => {
+  if (!condition) throw new Error(message);
+};
+
+const envNumber = (key, fallback) => {
+  const raw = process.env[key];
+  if (raw == null || raw === "") return fallback;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : fallback;
+};
+
 // ---------- Utilidades de normalización ----------
 const deburr = (str = "") =>
   str
@@ -94,15 +105,72 @@ const readJsonFiles = (dir) => {
 const readCsvFile = (filePath) => {
   if (!fs.existsSync(filePath)) return [];
   const text = fs.readFileSync(filePath, "utf8");
-  const lines = text.split(/\r?\n/).filter(Boolean);
-  if (!lines.length) return [];
-  const header = lines.shift().split(",").map((h) => h.trim());
-  return lines.map((line) => {
-    const cells = line.split(",").map((c) => c.trim());
-    const obj = {};
-    header.forEach((h, idx) => (obj[h] = cells[idx]));
-    return obj;
-  });
+
+  // Minimal RFC4180-ish CSV parser: supports quoted fields, commas inside quotes and escaped quotes ("").
+  const parseCsv = (input) => {
+    const rows = [];
+    let row = [];
+    let field = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < input.length; i++) {
+      const ch = input[i];
+
+      if (inQuotes) {
+        if (ch === "\"") {
+          if (input[i + 1] === "\"") {
+            field += "\"";
+            i++;
+          } else {
+            inQuotes = false;
+          }
+        } else {
+          field += ch;
+        }
+        continue;
+      }
+
+      if (ch === "\"") {
+        inQuotes = true;
+        continue;
+      }
+      if (ch === ",") {
+        row.push(field);
+        field = "";
+        continue;
+      }
+      if (ch === "\n") {
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = "";
+        continue;
+      }
+      if (ch === "\r") continue;
+
+      field += ch;
+    }
+
+    // Final row
+    row.push(field);
+    const hasAny = row.some((c) => String(c || "").trim() !== "");
+    if (hasAny) rows.push(row);
+    return rows;
+  };
+
+  const rows = parseCsv(text);
+  if (!rows.length) return [];
+
+  const header = (rows.shift() || []).map((h) => String(h || "").trim());
+  if (!header.length) return [];
+
+  return rows
+    .filter((r) => Array.isArray(r) && r.some((c) => String(c || "").trim() !== ""))
+    .map((cells) => {
+      const obj = {};
+      header.forEach((h, idx) => (obj[h] = String(cells[idx] ?? "").trim()));
+      return obj;
+    });
 };
 
 // ---------- Loaders por fuente ----------
@@ -152,23 +220,31 @@ const loadDbGpu = () => {
   for (const csv of csvFiles) {
     json.push(...readCsvFile(path.join(dir, csv)));
   }
-  const gpus = json.map((item) => ({
-    source: SOURCE_TAGS.DBGPU,
-    category: "gpu",
-    id: item.id || slug(item.name || item.model || item.gpu_name || ""),
-    brand: item.brand || item.manufacturer || "",
-    model: item.model || item.name || item.gpu_name || "",
-    chipset: item.chipset || item.gpu_name || "",
-    vram_gb: safeNumber(item.vram_gb || item.vram || item.memory_size_gb),
-    vram_type: item.vram_type || item.memory_type || "",
-    tdp_w: safeNumber(item.tdp_w || item.tdp || item.thermal_design_power_w),
-    suggested_psu_w: safeNumber(item.suggested_psu_w),
-    board_length_mm: safeNumber(item.board_length_mm || item.length_mm),
-    board_slot_width: safeNumber(item.board_slot_width),
-    power_connectors: item.power_connectors || item.power || "",
-    architecture: item.architecture || "",
-    normalized_key: normalizeKey(item.brand || "", item.chipset || item.model || item.gpu_name || ""),
-  }));
+  const gpus = json
+    .map((item) => ({
+      source: SOURCE_TAGS.DBGPU,
+      category: "gpu",
+      id: item.id || slug(item.name || item.model || item.gpu_name || ""),
+      brand: item.brand || item.manufacturer || "",
+      model: item.model || item.name || item.gpu_name || "",
+      chipset: item.chipset || item.gpu_name || "",
+      vram_gb: safeNumber(item.vram_gb || item.vram || item.memory_size_gb),
+      vram_type: item.vram_type || item.memory_type || "",
+      tdp_w: safeNumber(item.tdp_w || item.tdp || item.thermal_design_power_w),
+      suggested_psu_w: safeNumber(item.suggested_psu_w),
+      board_length_mm: safeNumber(item.board_length_mm || item.length_mm),
+      board_slot_width: safeNumber(item.board_slot_width),
+      power_connectors: item.power_connectors || item.power || "",
+      architecture: item.architecture || "",
+      normalized_key: normalizeKey(item.brand || "", item.chipset || item.model || item.gpu_name || ""),
+    }))
+    // Guardrail: drop rows that are clearly malformed to avoid silent corruption.
+    .filter((g) => {
+      const hasIdentity = Boolean((g.brand || "").trim() && (g.model || "").trim());
+      const tdpOk = g.tdp_w == null || (g.tdp_w > 0 && g.tdp_w < 1200);
+      const vramOk = g.vram_gb == null || (g.vram_gb > 0 && g.vram_gb < 128);
+      return hasIdentity && tdpOk && vramOk;
+    });
   return { gpus };
 };
 
@@ -574,6 +650,14 @@ function build() {
   const { gpus: dbGpus } = loadDbGpu();
   const { cpus: pcCpus, gpus: pcGpus, mobos, psus, cases, ram: pcRam, coolers, fans } = loadPcPart();
 
+  // Fail-fast guardrails: don't ship empty/degenerate datasets to production.
+  assert(Array.isArray(mobos) && mobos.length > 0, "Motherboards dataset vacio (pc-part-dataset).");
+  assert(Array.isArray(psus) && psus.length > 0, "PSUs dataset vacio (pc-part-dataset).");
+  assert(Array.isArray(cases) && cases.length > 0, "Cases dataset vacio (pc-part-dataset).");
+  assert(Array.isArray(pcRam) && pcRam.length > 0, "RAM dataset vacio (pc-part-dataset).");
+  assert(Array.isArray(pcCpus) && pcCpus.length > 0, "CPU dataset vacio (pc-part-dataset).");
+  assert((dbGpus?.length || 0) + (pcGpus?.length || 0) > 0, "GPU dataset vacio (dbgpu + pc-part-dataset).");
+
   const mergedCpus = Object.values(byNormalizedKey([...bcCpus, ...pcCpus])).map(mergeCpu).filter(Boolean);
   const mergedGpus = Object.values(byNormalizedKey([...dbGpus, ...pcGpus])).map(mergeGpu).filter(Boolean);
   const mergedMobos = Object.values(byNormalizedKey([...mobos])).map(mergeMobo).filter(Boolean);
@@ -582,6 +666,22 @@ function build() {
   const mergedRam = Object.values(byNormalizedKey([...bcRam, ...pcRam])).map(mergeRam).filter(Boolean);
   const mergedCoolers = Object.values(byNormalizedKey([...coolers])).map(mergeCooler).filter(Boolean);
   const mergedFans = Object.values(byNormalizedKey([...fans])).map(mergeFan).filter(Boolean);
+
+  const mins = {
+    cpus: envNumber("PC_DATA_MIN_CPUS", 100),
+    gpus: envNumber("PC_DATA_MIN_GPUS", 500),
+    motherboards: envNumber("PC_DATA_MIN_MOTHERBOARDS", 500),
+    psus: envNumber("PC_DATA_MIN_PSUS", 50),
+    cases: envNumber("PC_DATA_MIN_CASES", 50),
+    ram: envNumber("PC_DATA_MIN_RAM", 100),
+  };
+
+  assert(mergedCpus.length >= mins.cpus, `CPU procesadas demasiado pocas: ${mergedCpus.length} (< ${mins.cpus}).`);
+  assert(mergedGpus.length >= mins.gpus, `GPU procesadas demasiado pocas: ${mergedGpus.length} (< ${mins.gpus}).`);
+  assert(mergedMobos.length >= mins.motherboards, `Motherboards procesadas demasiado pocas: ${mergedMobos.length} (< ${mins.motherboards}).`);
+  assert(mergedPsus.length >= mins.psus, `PSUs procesadas demasiado pocas: ${mergedPsus.length} (< ${mins.psus}).`);
+  assert(mergedCases.length >= mins.cases, `Cases procesadas demasiado pocas: ${mergedCases.length} (< ${mins.cases}).`);
+  assert(mergedRam.length >= mins.ram, `RAM procesadas demasiado pocas: ${mergedRam.length} (< ${mins.ram}).`);
 
   const cpuTiers = mergedCpus.map((c) => ({ id: c.id, tier: computeTierCpu(c) }));
   const gpuTiers = mergedGpus.map((g) => ({ id: g.id, tier: computeTierGpu(g) }));

@@ -11,13 +11,16 @@ import {
 
 const isUnknownReason = (reason = "") => {
   const msg = reason.toLowerCase();
-  return msg.includes("faltan datos") || msg.includes("no se pudo validar");
+  return msg.includes("faltan datos") || msg.includes("no se pudo validar") || msg.includes("desconocido");
 };
 
-const memoryMismatch = (cpu, ram) =>
-  cpu?.memoryType && ram?.type && cpu.memoryType !== ram.type
+const memoryMismatch = (cpu, ram) => {
+  // Avoid false positives: only warn when CPU memory type is explicit (not inferred).
+  if (!cpu?.memoryTypeExplicit) return "";
+  return cpu?.memoryType && ram?.type && cpu.memoryType !== ram.type
     ? `La RAM (${ram.type}) no coincide con lo que soporta el CPU (${cpu.memoryType}).`
     : "";
+};
 
 export function buildSelectionChips(selection) {
   const chips = [];
@@ -75,8 +78,11 @@ export function evaluateSelection(selection, tierMaps, options = {}) {
     }
   }
 
-  const cpuRamIssue = memoryMismatch(selection.cpu, selection.ram);
-  if (cpuRamIssue) issues.push(cpuRamIssue);
+  // CPU ↔ RAM mismatch warning is only useful when there's no motherboard context.
+  if (selection.cpu && selection.ram && !selection.mobo) {
+    const cpuRamIssue = memoryMismatch(selection.cpu, selection.ram);
+    if (cpuRamIssue) issues.push(cpuRamIssue);
+  }
 
   const moboCase = checkMoboCaseCompatibility(selection.mobo, selection.pcCase);
   if (selection.mobo && selection.pcCase) {

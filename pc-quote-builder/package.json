@@ -10,8 +10,9 @@
     "preview": "vite preview",
     "fetch:catalog": "node ../scripts/fetch-catalog.js",
     "build:pc-data": "node ../scripts/build_pc_data.js",
+    "sync:pc-data": "node ../scripts/sync_processed_to_public_data.js",
     "download:pc-data": "python ../scripts/download_pc_datasets.py",
-    "pc-data:all": "npm run download:pc-data && npm run build:pc-data",
+    "pc-data:all": "npm run download:pc-data && npm run build:pc-data && npm run sync:pc-data",
     "test": "vitest run"
   },
   "dependencies": {

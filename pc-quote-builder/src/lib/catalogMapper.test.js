@@ -12,8 +12,8 @@ describe("catalogMapper", () => {
       cases: [{ id: "c1", name: "NZXT H5", max_gpu_length_mm: 365, supported_mobo_form_factors: ["ATX"] }],
     });
 
-    expect(mapped.cpus[0]).toMatchObject({ brand: "Intel", socket: "LGA1700", memoryType: "DDR5", family: "Core i5" });
-    expect(mapped.motherboards[0]).toMatchObject({ memoryType: "DDR5", formFactor: "ATX" });
+    expect(mapped.cpus[0]).toMatchObject({ brand: "Intel", socket: "LGA1700", memoryType: "DDR5", family: "Core i5", memoryTypeExplicit: true });
+    expect(mapped.motherboards[0]).toMatchObject({ memoryType: "DDR5", formFactor: "ATX", memoryTypeExplicit: true });
     expect(mapped.ramKits[0]).toMatchObject({ type: "DDR5", speed: 6000 });
     expect(mapped.gpus[0]).toMatchObject({ psuMin: 650, powerConnectors: "2x 8-pin" });
     expect(mapped.psus[0].pcie_power_connectors["8_pin"]).toBe(2);
