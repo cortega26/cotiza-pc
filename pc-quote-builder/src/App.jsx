@@ -205,7 +205,10 @@ const getOptionsForStep = (key, selection, catalog) => {
       if (!selection.cpu || !selection.cpu.socket) return motherboards;
       return motherboards.filter((m) => m.socket === selection.cpu.socket);
     case "ramId": {
-      const memoryType = selection.cpu?.memoryType || selection.mobo?.memoryType;
+      // Avoid false negatives: only filter RAM when memory type is explicit (not inferred).
+      const memoryType =
+        (selection.mobo?.memoryTypeExplicit ? selection.mobo.memoryType : "") ||
+        (selection.cpu?.memoryTypeExplicit ? selection.cpu.memoryType : "");
       if (!memoryType) return ramKits;
       return ramKits.filter((ram) => ram.type === memoryType);
     }
@@ -468,12 +471,12 @@ function App() {
         const mobo = motherboards.find((m) => m.id === next.moboId);
         const ram = ramKits.find((r) => r.id === next.ramId);
         if (mobo && cpu && mobo.socket !== cpu.socket) next.moboId = "";
-        if (ram && cpu && ram.type !== cpu.memoryType) next.ramId = "";
+        if (ram && cpu && cpu.memoryTypeExplicit && ram.type !== cpu.memoryType) next.ramId = "";
       }
       if (key === "moboId") {
         const mobo = motherboards.find((m) => m.id === cleanValue);
         const ram = ramKits.find((r) => r.id === next.ramId);
-        if (mobo && ram && ram.type !== mobo.memoryType) next.ramId = "";
+        if (mobo && ram && mobo.memoryTypeExplicit && ram.type !== mobo.memoryType) next.ramId = "";
         const currentCase = pcCases.find((c) => c.id === next.caseId);
         if (mobo && currentCase && !currentCase.formFactors.includes(mobo.formFactor)) {
           next.caseId = "";
@@ -953,6 +956,17 @@ function App() {
             {compatMeta?.generatedAt && (
               <span className="meta-chip meta-chip-ghost">
                 Actualizado: {formatDateTime(compatMeta.generatedAt)}
+              </span>
+            )}
+            {typeof compatMeta?.schemaVersion === "number" && (
+              <span className="meta-chip meta-chip-ghost">Schema: v{compatMeta.schemaVersion}</span>
+            )}
+            {compatMeta?.provenance?.sources && (
+              <span className="meta-chip meta-chip-ghost" title="Versiones exactas de datasets usados para generar el catálogo">
+                Fuentes:{" "}
+                {(compatMeta.provenance.sources.buildcores?.sha || "").slice(0, 7) || "buildcores?"} ·{" "}
+                {(compatMeta.provenance.sources.pcpart?.sha || "").slice(0, 7) || "pcpart?"} ·{" "}
+                {compatMeta.provenance.sources.dbgpu?.version ? `dbgpu ${compatMeta.provenance.sources.dbgpu.version}` : "dbgpu?"}
               </span>
             )}
             <button className="secondary-btn" onClick={() => document.getElementById("price-import-input")?.click()}>

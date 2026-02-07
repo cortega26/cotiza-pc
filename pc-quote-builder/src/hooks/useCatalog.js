@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import localCatalog from "../data/catalog.json";
 import { buildTierMaps, mapProcessedToCatalog } from "../lib/catalogMapper";
-import { loadAllProcessed } from "../lib/dataLoader";
+import { clearCatalogCache, loadAllProcessed } from "../lib/dataLoader";
 
 const fallbackCatalog = mapProcessedToCatalog(localCatalog || {});
 
@@ -21,7 +21,9 @@ export function useCatalog(reloadToken = 0) {
     const dataBase = `${baseUrl}/data`;
 
     setLoading(true);
-    loadAllProcessed(dataBase, true)
+    // Ensure "Recargar catálogo" always refetches, even if URLs are unchanged.
+    clearCatalogCache();
+    loadAllProcessed(dataBase, true, { cacheBust: String(reloadToken) })
       .then((processed) => {
         if (cancelled) return;
         setCatalog(mapProcessedToCatalog(processed));

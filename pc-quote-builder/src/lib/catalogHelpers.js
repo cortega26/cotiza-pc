@@ -60,7 +60,8 @@ export const inferMemoryTypeBySocket = (socket = "") => {
   if (!s) return "";
   if (s === "AM5") return "DDR5";
   if (s === "AM4") return "DDR4";
-  if (s === "LGA1700") return "DDR5"; // la mayoría son DDR5; DDR4 existe pero preferimos restringir
+  // LGA1700 supports DDR4 or DDR5 depending on motherboard; don't guess.
+  if (s === "LGA1700") return "";
   if (s === "LGA1200" || s === "LGA1151") return "DDR4";
   return "";
 };

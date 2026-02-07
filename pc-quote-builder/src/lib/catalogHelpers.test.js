@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractCpuFamily, inferBrand, inferSocket } from "./catalogHelpers.js";
+import { extractCpuFamily, inferBrand, inferSocket, inferMemoryTypeBySocket } from "./catalogHelpers.js";
 
 describe("catalogHelpers", () => {
   it("clasifica familias Intel Core", () => {
@@ -28,5 +28,11 @@ describe("catalogHelpers", () => {
     expect(inferSocket({ name: "AMD Ryzen 5 5600" })).toBe("AM4");
     expect(inferSocket({ name: "AMD Threadripper 3990X" })).toBe("sTRX4");
     expect(inferSocket({ name: "AMD Ryzen Threadripper Pro 5995WX" })).toBe("sWRX8");
+  });
+
+  it("no infiere memoryType cuando el socket es ambiguo (LGA1700)", () => {
+    expect(inferMemoryTypeBySocket("LGA1700")).toBe("");
+    expect(inferMemoryTypeBySocket("AM4")).toBe("DDR4");
+    expect(inferMemoryTypeBySocket("AM5")).toBe("DDR5");
   });
 });

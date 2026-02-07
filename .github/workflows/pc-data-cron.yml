@@ -40,6 +40,10 @@ jobs:
         working-directory: pc-quote-builder
         run: npm ci
 
+      - name: Run tests (Vitest)
+        working-directory: pc-quote-builder
+        run: npm test
+
       - name: Download datasets (BuildCores, PC Part, DBGPU)
         run: python scripts/download_pc_datasets.py
 

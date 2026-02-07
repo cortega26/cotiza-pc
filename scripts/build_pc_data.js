@@ -26,6 +26,8 @@ const SOURCE_TAGS = {
   PCPART: "pcpart",
 };
 
+const stableIdSort = (a, b) => String(a?.id || "").localeCompare(String(b?.id || ""));
+
 const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
@@ -422,7 +424,7 @@ const loadPcPart = () => {
 // ---------- Merge helpers ----------
 const mergeCpu = (records) => {
   if (!records.length) return null;
-  const sources = records.map((r) => r.source);
+  const sources = Array.from(new Set(records.map((r) => r.source))).sort();
   const pick = (fn) => {
     const buildcores = records.find((r) => r.source === SOURCE_TAGS.BUILDCORES);
     const pcpart = records.find((r) => r.source === SOURCE_TAGS.PCPART);
@@ -465,7 +467,7 @@ const mergeCpu = (records) => {
 
 const mergeGpu = (records) => {
   if (!records.length) return null;
-  const sources = records.map((r) => r.source);
+  const sources = Array.from(new Set(records.map((r) => r.source))).sort();
   const pick = (fn) => {
     const dbgpu = records.find((r) => r.source === SOURCE_TAGS.DBGPU);
     const pcpart = records.find((r) => r.source === SOURCE_TAGS.PCPART);
@@ -645,6 +647,17 @@ const byNormalizedKey = (list) =>
     return acc;
   }, {});
 
+const mergeGrouped = (items, mergeFn) => {
+  const groups = byNormalizedKey(items);
+  return Object.keys(groups)
+    .sort()
+    .map((k) => mergeFn(groups[k]))
+    .filter(Boolean);
+};
+
+const sortObjectKeys = (obj) =>
+  Object.fromEntries(Object.entries(obj || {}).sort(([a], [b]) => String(a).localeCompare(String(b))));
+
 function build() {
   const { cpus: bcCpus, ram: bcRam } = loadBuildCores();
   const { gpus: dbGpus } = loadDbGpu();
@@ -658,14 +671,14 @@ function build() {
   assert(Array.isArray(pcCpus) && pcCpus.length > 0, "CPU dataset vacio (pc-part-dataset).");
   assert((dbGpus?.length || 0) + (pcGpus?.length || 0) > 0, "GPU dataset vacio (dbgpu + pc-part-dataset).");
 
-  const mergedCpus = Object.values(byNormalizedKey([...bcCpus, ...pcCpus])).map(mergeCpu).filter(Boolean);
-  const mergedGpus = Object.values(byNormalizedKey([...dbGpus, ...pcGpus])).map(mergeGpu).filter(Boolean);
-  const mergedMobos = Object.values(byNormalizedKey([...mobos])).map(mergeMobo).filter(Boolean);
-  const mergedPsus = Object.values(byNormalizedKey([...psus])).map(mergePsu).filter(Boolean);
-  const mergedCases = Object.values(byNormalizedKey([...cases])).map(mergeCase).filter(Boolean);
-  const mergedRam = Object.values(byNormalizedKey([...bcRam, ...pcRam])).map(mergeRam).filter(Boolean);
-  const mergedCoolers = Object.values(byNormalizedKey([...coolers])).map(mergeCooler).filter(Boolean);
-  const mergedFans = Object.values(byNormalizedKey([...fans])).map(mergeFan).filter(Boolean);
+  const mergedCpus = mergeGrouped([...bcCpus, ...pcCpus], mergeCpu).sort(stableIdSort);
+  const mergedGpus = mergeGrouped([...dbGpus, ...pcGpus], mergeGpu).sort(stableIdSort);
+  const mergedMobos = mergeGrouped([...mobos], mergeMobo).sort(stableIdSort);
+  const mergedPsus = mergeGrouped([...psus], mergePsu).sort(stableIdSort);
+  const mergedCases = mergeGrouped([...cases], mergeCase).sort(stableIdSort);
+  const mergedRam = mergeGrouped([...bcRam, ...pcRam], mergeRam).sort(stableIdSort);
+  const mergedCoolers = mergeGrouped([...coolers], mergeCooler).sort(stableIdSort);
+  const mergedFans = mergeGrouped([...fans], mergeFan).sort(stableIdSort);
 
   const mins = {
     cpus: envNumber("PC_DATA_MIN_CPUS", 100),
@@ -683,8 +696,8 @@ function build() {
   assert(mergedCases.length >= mins.cases, `Cases procesadas demasiado pocas: ${mergedCases.length} (< ${mins.cases}).`);
   assert(mergedRam.length >= mins.ram, `RAM procesadas demasiado pocas: ${mergedRam.length} (< ${mins.ram}).`);
 
-  const cpuTiers = mergedCpus.map((c) => ({ id: c.id, tier: computeTierCpu(c) }));
-  const gpuTiers = mergedGpus.map((g) => ({ id: g.id, tier: computeTierGpu(g) }));
+  const cpuTiers = mergedCpus.map((c) => ({ id: c.id, tier: computeTierCpu(c) })).sort(stableIdSort);
+  const gpuTiers = mergedGpus.map((g) => ({ id: g.id, tier: computeTierGpu(g) })).sort(stableIdSort);
 
   const range = (list, key) => {
     const nums = list.map((i) => safeNumber(i[key])).filter((v) => v != null);
@@ -692,8 +705,18 @@ function build() {
     return { min: Math.min(...nums), max: Math.max(...nums) };
   };
 
+  let provenance = null;
+  try {
+    const provPath = path.join(RAW_DIR, "provenance.json");
+    if (fs.existsSync(provPath)) provenance = JSON.parse(fs.readFileSync(provPath, "utf8"));
+  } catch (err) {
+    console.warn("No se pudo leer data/raw/provenance.json:", err.message);
+  }
+
   const compatibilityMeta = {
+    schemaVersion: 1,
     generatedAt: new Date().toISOString(),
+    provenance,
     counts: {
       cpus: mergedCpus.length,
       gpus: mergedGpus.length,
@@ -735,6 +758,9 @@ function build() {
     notes: "Compatibilidad detallada se calcula en frontend (src/lib/compatibility.js); aquí se incluyen rangos y tiers.",
   };
 
+  compatibilityMeta.sockets = sortObjectKeys(compatibilityMeta.sockets);
+  compatibilityMeta.form_factors = sortObjectKeys(compatibilityMeta.form_factors);
+
   const outputs = [
     { filename: "cpus.min.json", data: mergedCpus },
     { filename: "gpus.min.json", data: mergedGpus },
@@ -750,7 +776,8 @@ function build() {
 
   for (const out of outputs) {
     const file = path.join(PROCESSED_DIR, out.filename);
-    fs.writeFileSync(file, JSON.stringify(out.data, null, 2));
+    // Deterministic + truly "min" JSON to keep diffs small and payloads lighter.
+    fs.writeFileSync(file, `${JSON.stringify(out.data)}\n`);
     const count = Array.isArray(out.data) ? out.data.length : 1;
     console.log(`Escrito ${file} (${count} items)`);
   }

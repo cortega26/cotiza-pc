@@ -20,6 +20,13 @@ describe("catalogMapper", () => {
     expect(mapped.pcCases[0].formFactors).toContain("ATX");
   });
 
+  it("respects local catalog memoryType fields (no DDR guesswork)", () => {
+    const mapped = mapProcessedToCatalog({
+      cpus: [{ id: "cpu1", name: "Intel Core i5-12400F", socket: "LGA1700", memoryType: "DDR4", tdp: 65 }],
+    });
+    expect(mapped.cpus[0]).toMatchObject({ socket: "LGA1700", memoryType: "DDR4", memoryTypeExplicit: true });
+  });
+
   it("builds tier maps from compatibility meta", () => {
     const tiers = buildTierMaps({ tiers: { cpu: [{ id: "c1", tier: 2 }], gpu: [{ id: "g1", tier: 3 }] } });
     expect(tiers.cpu.get("c1")).toBe(2);
