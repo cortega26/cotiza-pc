@@ -40,9 +40,9 @@ jobs:
         working-directory: pc-quote-builder
         run: npm ci
 
-      - name: Run tests (Vitest)
+      - name: Run verification gate
         working-directory: pc-quote-builder
-        run: npm test
+        run: npm run check
 
       - name: Download datasets (BuildCores, PC Part, DBGPU)
         run: python scripts/download_pc_datasets.py
@@ -54,10 +54,6 @@ jobs:
       - name: Sync processed data into deployed static assets
         working-directory: pc-quote-builder
         run: npm run sync:pc-data
-
-      - name: Build site (Vite)
-        working-directory: pc-quote-builder
-        run: npm run build
 
       - name: Configure Pages
         id: pages
