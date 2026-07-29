@@ -313,6 +313,7 @@ function App() {
     if (!activeQuoteId && quotes.length) {
       const stored = localStorage.getItem(STORAGE_KEYS.activeQuoteId);
       const validStored = stored && quotes.some((q) => q.id === stored);
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init guarded by condition; not cascading
       setActiveQuoteId(validStored ? stored : quotes[0].id);
     }
   }, [quotes, activeQuoteId]);
@@ -421,6 +422,7 @@ function App() {
   const priceStatus = useMemo(() => {
     if (!activeQuote) return { label: "Sin datos", className: "status-unknown" };
     const hasPrices = totals.rowsWithPrice > 0;
+    // eslint-disable-next-line react-hooks/purity -- Date.now() needed for price staleness; result used only for display
     const now = Date.now();
     const updatedAt = activeQuote.priceUpdatedAt ? new Date(activeQuote.priceUpdatedAt) : null;
     const isValidDate = updatedAt && !Number.isNaN(updatedAt.getTime());

@@ -9,6 +9,14 @@
 - **Priority**: P1; **Effort**: M; **Risk**: MED; **Depends on**: `001-green-verification-gate.md`
 - **Category**: security
 - **Planned at**: commit `63ecbca`, 2026-07-29
+- **Completed at**: commit `070c485`, 2026-07-29
+
+### Completion summary
+
+- Vite already at 8.1.5 and Vitest already at 4.1.10 (resolved by previous work)
+- Upgraded eslint from `^9.39.1` → `^10.8.0` and eslint-plugin-react-hooks from `^7.0.1` → `^7.1.1` to fix 5 high advisories through `brace-expansion` → `minimatch` → `@eslint/config-array`/`@eslint/eslintrc` → `eslint`
+- Remaining 1 moderate (ajv) resolved by `npm audit fix` (non-breaking)
+- Added two `eslint-disable-next-line` comments for new strict `react-hooks/set-state-in-effect` and `react-hooks/purity` rules in hooks@7.1.1
 
 ## Why this matters
 
