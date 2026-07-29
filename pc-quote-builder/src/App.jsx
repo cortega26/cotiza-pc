@@ -419,10 +419,10 @@ function App() {
     }));
   }, [activeQuote]);
 
-  const priceStatus = useMemo(() => {
+  const priceStatus = (() => {
     if (!activeQuote) return { label: "Sin datos", className: "status-unknown" };
     const hasPrices = totals.rowsWithPrice > 0;
-    // eslint-disable-next-line react-hooks/purity -- Date.now() needed for price staleness; result used only for display
+    // eslint-disable-next-line react-hooks/purity -- Date.now() intentional for display staleness; no alternatives
     const now = Date.now();
     const updatedAt = activeQuote.priceUpdatedAt ? new Date(activeQuote.priceUpdatedAt) : null;
     const isValidDate = updatedAt && !Number.isNaN(updatedAt.getTime());
@@ -451,7 +451,7 @@ function App() {
       className: "status-ok",
       updatedAt,
     };
-  }, [activeQuote, totals.rowsWithPrice]);
+  })();
 
   const updateActiveQuote = (updater) => {
     setQuotes((prev) =>
