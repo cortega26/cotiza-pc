@@ -48,7 +48,7 @@ describe("compatibility helpers", () => {
     const ram7200 = { ...ram, speed_mts: 7200 };
     const res = checkRamMoboCompatibility(ram7200, mobo5600);
     expect(res.compatible).toBe(true);
-    expect(res.warning).toBeTruthy();
+    expect(res.status).toBe("warning");
   });
 
   it("valida RAM ↔ mobo — salta chequeo de slots si faltan datos en RAM o mobo", () => {
@@ -95,7 +95,7 @@ describe("compatibility helpers", () => {
     const resOk = checkPsuPowerSufficiency(psu, cpu, gpu);
     expect(resOk.status).toBe("ok");
     const resWarn = checkPsuPowerSufficiency(psuTight, cpu, gpu);
-    expect(resWarn.status === "warn" || resWarn.status === "fail").toBe(true);
+    expect(resWarn.status).toBe("warning");
   });
 
   it("estima balance CPU/GPU por tiers", () => {

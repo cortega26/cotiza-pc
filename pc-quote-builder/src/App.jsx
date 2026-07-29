@@ -394,6 +394,8 @@ function App() {
   const gpuPsuRequirement = selection.gpu?.psuMin || 0;
   const recommendedPsuWatts = Math.max(suggestedWatts, gpuPsuRequirement || 0);
   const builderIssues = assessment.issues;
+  const builderWarnings = assessment.warnings || [];
+  const summaryVerdict = assessment.summaryVerdict || "";
   const usingIntegratedGpu = builder.useIntegratedGpu || false;
   const isStepDone = (stepKey) => (stepKey === "gpuId" ? builder.gpuId || usingIntegratedGpu : builder[stepKey]);
   const builderComplete = builderSteps.every((step) => isStepDone(step.key));
@@ -1160,7 +1162,10 @@ function App() {
               <div className="status-line">
                 <span className="status-pill">{builderComplete ? "Build completo" : "Paso a paso"}</span>
                 <span className="muted">
-                  {builderIssues.length ? `${builderIssues.length} puntos a revisar` : "Sin conflictos detectados"}
+                  {summaryVerdict === "fail" ? `${builderIssues.length} puntos a revisar` :
+                   summaryVerdict === "warning" ? `${builderWarnings.length} advertencia(s)` :
+                   summaryVerdict === "unknown" ? "Información incompleta" :
+                   "Sin conflictos detectados"}
                 </span>
               </div>
 
@@ -1171,7 +1176,7 @@ function App() {
                       key={idx}
                       className={
                         "status-chip " +
-                        (s.unknown ? "status-unknown" : s.ok ? "status-ok" : "status-bad")
+                        (s.warn ? "status-warn" : s.unknown ? "status-unknown" : s.ok ? "status-ok" : "status-bad")
                       }
                     >
                       {s.label}
@@ -1199,7 +1204,7 @@ function App() {
                 </div>
               )}
 
-              {builderIssues.length > 0 ? (
+              {summaryVerdict === "fail" && (
                 <div className="warning-panel">
                   <strong>Compatibilidad a revisar:</strong>
                   <ul className="issues-list">
@@ -1207,9 +1212,36 @@ function App() {
                       <li key={idx}>{issue}</li>
                     ))}
                   </ul>
+                  {builderWarnings.length > 0 && (
+                    <>
+                      <strong style={{ marginTop: "0.5rem", display: "block" }}>Advertencias:</strong>
+                      <ul className="issues-list">
+                        {builderWarnings.map((w, idx) => (
+                          <li key={idx}>{w}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
                 </div>
-              ) : (
-                builderComplete && <div className="ok-panel">Todo ok: sockets, RAM y potencia están alineados.</div>
+              )}
+              {summaryVerdict === "warning" && (
+                <div className="warning-panel">
+                  <strong>Advertencias:</strong>
+                  <ul className="issues-list">
+                    {builderWarnings.map((w, idx) => (
+                      <li key={idx}>{w}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {summaryVerdict === "unknown" && builderComplete && (
+                <div className="warning-panel">
+                  <strong>Información incompleta:</strong>
+                  <p className="muted">No se pudo verificar todas las dimensiones de compatibilidad.</p>
+                </div>
+              )}
+              {summaryVerdict === "ok" && builderComplete && (
+                <div className="ok-panel">Todo ok: sockets, RAM y potencia están alineados.</div>
               )}
 
               <button className="primary-btn full-width" onClick={handleApplyBuilderToQuote}>

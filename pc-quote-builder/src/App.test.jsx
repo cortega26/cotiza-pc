@@ -392,6 +392,59 @@ describe("Builder assessment and compatibility display", () => {
       expect(screen.getByText("Paso a paso")).toBeTruthy();
     });
   });
+
+  // ─────[plan 014] Severity-based rendering ───────────────────────────────
+
+  it("shows both issues and warnings in the fail panel when both exist", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1",
+      gpuId: "gpu-2", psuId: "psu-2", caseId: "case-1",
+      useIntegratedGpu: false,
+    });
+    await waitFor(() => {
+      // gpu-2 has psuMin:650, psu-2 has wattage:500 → warning
+      // psu-2 has only 1x 8-pin, gpu-2 needs 2x 8-pin → fail
+      expect(screen.getByText("Compatibilidad a revisar:")).toBeTruthy();
+      expect(screen.getByText("Advertencias:")).toBeTruthy();
+      expect(screen.getByText(/sugiere 650W y/)).toBeTruthy();
+    });
+  });
+
+  it("does not show 'Todo ok' when builder has warnings", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1",
+      gpuId: "gpu-2", psuId: "psu-2", caseId: "case-1",
+      useIntegratedGpu: false,
+    });
+    await waitFor(() => {
+      // gpu-2 has psuMin:650, psu-2 has wattage:500 → psuMin warning
+      expect(screen.queryByText("Todo ok: sockets, RAM y potencia están alineados.")).toBeNull();
+      // There will be both fails (connectors) and warnings (psuMin) — at minimum no "Todo ok"
+      expect(screen.getByText("Compatibilidad a revisar:")).toBeTruthy();
+    });
+  });
+
+  it("shows 'Sin conflictos detectados' when no components are selected", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    // No selection → no statuses → summaryVerdict "incomplete" → shows muted "Sin conflictos detectados"
+    await waitFor(() => {
+      expect(screen.getByText("Sin conflictos detectados")).toBeTruthy();
+    });
+  });
+
+  it("shows issue count in the muted line when there are failures", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1",
+      gpuId: "gpu-2", psuId: "psu-2", caseId: "case-1",
+      useIntegratedGpu: false,
+    });
+    await waitFor(() => {
+      expect(screen.getByText(/puntos a revisar/)).toBeTruthy();
+    });
+  });
 });
 
 // ─────[plan 012] Staged catalog demand and reload ────────────────────────

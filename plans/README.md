@@ -10,7 +10,6 @@ Before approving or implementing any material plan, read [the Canonical Product 
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [014](014-preserve-assessment-severity.md) | Preserve assessment severity and prevent false all-clear verdicts | P1 | M | 012 | TODO |
 | [015](015-harden-quote-interchange.md) | Separate local/catalog identity and make CSV spreadsheet-safe | P1 | M | 012 | TODO |
 | [016](016-extract-catalog-compiler.md) | Extract a pure, fixture-tested catalog compiler | P1 | L | 009, 011 | TODO |
 | [017](017-correct-case-form-factors.md) | Separate case chassis class from motherboard compatibility | P1 | M | 016 | TODO |

@@ -19,7 +19,7 @@ describe("selectionEvaluation", () => {
     expect(labels).toContain("PSU conectores");
     expect(connectorStatus?.ok).toBe(false);
     expect(result.issues.some((msg) => msg.toLowerCase().includes("8-pin"))).toBe(true);
-    expect(result.issues.some((msg) => msg.toLowerCase().includes("psu"))).toBe(true);
+    expect(result.warnings.some((msg) => msg.toLowerCase().includes("sugiere"))).toBe(true);
   });
 
   it("provides selection chips for memory/socket context", () => {
@@ -83,5 +83,71 @@ describe("selectionEvaluation", () => {
     };
     const res = evaluateSelection(inferredCpu, { cpu: new Map(), gpu: new Map() });
     expect(res.issues.some((msg) => msg.toLowerCase().includes("no coincide") && msg.toLowerCase().includes("cpu"))).toBe(false);
+  });
+
+  // ─────[plan 014] Severity preservation ──────────────────────────────────
+
+  it("records RAM speed warning in warnings array", () => {
+    const ramFast = {
+      cpu: { id: "cpu1", socket: "LGA1700", memoryType: "DDR5", memoryTypeExplicit: true, memory_support: { types: ["DDR5"] }, tdp: 125 },
+      mobo: { id: "m1", socket: "LGA1700", memoryType: "DDR5", formFactor: "ATX", max_memory_speed_mts: 5600 },
+      ram: { id: "ram1", type: "DDR5", modules: 2, speed_mts: 7200 },
+      gpu: null,
+      psu: null,
+      pcCase: null,
+    };
+    const res = evaluateSelection(ramFast, { cpu: new Map(), gpu: new Map() });
+    const ramMobo = res.statuses.find((s) => s.label === "RAM ↔ Mobo");
+    expect(ramMobo?.warn).toBe(true);
+    expect(ramMobo?.ok).toBe(true);
+    expect(res.warnings.some((msg) => msg.toLowerCase().includes("máximo oficial"))).toBe(true);
+    expect(res.summaryVerdict).toBe("warning");
+  });
+
+  it("derives summaryVerdict='ok' when all dimensions are valid", () => {
+    const validAll = {
+      cpu: { id: "cpu1", socket: "LGA1700", memoryType: "DDR5", memoryTypeExplicit: true, memory_support: { types: ["DDR5"] }, tdp: 125 },
+      mobo: { id: "m1", socket: "LGA1700", memoryType: "DDR5", formFactor: "ATX" },
+      ram: { id: "ram1", type: "DDR5", modules: 2 },
+      gpu: { id: "gpu1", tdp: 220, length: 300, power_connectors: "2x 8-pin" },
+      psu: { id: "psu1", wattage: 750, pcie_power_connectors: { "8_pin": 2 } },
+      pcCase: { id: "case1", formFactors: ["ATX"], maxGpuLength: 320 },
+    };
+    const res = evaluateSelection(validAll, { cpu: new Map(), gpu: new Map() }, { extraHeadroomW: 50 });
+    expect(res.summaryVerdict).toBe("ok");
+    expect(res.issues.length).toBe(0);
+    expect(res.warnings.length).toBe(0);
+  });
+
+  it("derives summaryVerdict='fail' when there is a hard incompatibility", () => {
+    const badSocket = {
+      cpu: { id: "cpu1", socket: "AM5", memoryType: "DDR5", memoryTypeExplicit: true, memory_support: { types: ["DDR5"] }, tdp: 125 },
+      mobo: { id: "m1", socket: "LGA1700", memoryType: "DDR5", formFactor: "ATX" },
+      ram: { id: "ram1", type: "DDR5" },
+      gpu: { id: "gpu1", tdp: 220, length: 300, power_connectors: "2x 8-pin" },
+      psu: { id: "psu1", wattage: 750, pcie_power_connectors: { "8_pin": 2 } },
+      pcCase: { id: "case1", formFactors: ["ATX"], maxGpuLength: 320 },
+    };
+    const res = evaluateSelection(badSocket, { cpu: new Map(), gpu: new Map() });
+    expect(res.summaryVerdict).toBe("fail");
+    expect(res.issues.length).toBeGreaterThan(0);
+  });
+
+  it("derives summaryVerdict='unknown' when dimensions are missing", () => {
+    const missingData = {
+      cpu: { id: "cpu1", socket: "", memoryType: "DDR5", memoryTypeExplicit: true, memory_support: { types: ["DDR5"] }, tdp: 125 },
+      mobo: { id: "m1", socket: "", memoryType: "DDR5", formFactor: "ATX" },
+      ram: { id: "ram1", type: "DDR5" },
+      gpu: null,
+      psu: null,
+      pcCase: null,
+    };
+    const res = evaluateSelection(missingData, { cpu: new Map(), gpu: new Map() });
+    expect(res.summaryVerdict).toBe("unknown");
+  });
+
+  it("includes summaryVerdict in return value", () => {
+    const res = evaluateSelection(selection, { cpu: new Map(), gpu: new Map() });
+    expect(["ok", "warning", "unknown", "fail", "incomplete"]).toContain(res.summaryVerdict);
   });
 });

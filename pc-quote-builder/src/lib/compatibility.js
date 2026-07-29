@@ -13,58 +13,58 @@ export function estimatePowerEnvelope(cpu, gpu, extraHeadroomW = 50) {
 }
 
 export function checkCpuMoboCompatibility(cpu, mobo) {
-  if (!cpu || !mobo) return { compatible: false, reason: "Faltan datos" };
+  if (!cpu || !mobo) return { compatible: false, status: "unknown", reason: "Faltan datos" };
   if (!cpu.socket || !mobo.socket) {
-    return { compatible: false, reason: "No se pudo validar compatibilidad de socket; faltan datos" };
+    return { compatible: false, status: "unknown", reason: "No se pudo validar compatibilidad de socket; faltan datos" };
   }
   const socketOk = cpu.socket === mobo.socket;
   const memoryOk =
     (mobo.memory_type || mobo.memoryType) && Array.isArray(cpu.memory_support?.types)
       ? cpu.memory_support.types.includes(mobo.memory_type || mobo.memoryType)
       : true;
-  if (!socketOk) return { compatible: false, reason: "Socket distinto" };
-  if (!memoryOk) return { compatible: false, reason: "Tipo de RAM no coincide" };
-  return { compatible: true };
+  if (!socketOk) return { compatible: false, status: "fail", reason: "Socket distinto" };
+  if (!memoryOk) return { compatible: false, status: "fail", reason: "Tipo de RAM no coincide" };
+  return { compatible: true, status: "ok" };
 }
 
 export function checkRamMoboCompatibility(ram, mobo) {
-  if (!ram || !mobo) return { compatible: false, reason: "Faltan datos" };
+  if (!ram || !mobo) return { compatible: false, status: "unknown", reason: "Faltan datos" };
   const moboMemory = mobo.memory_type || mobo.memoryType;
   if (ram.type && moboMemory && ram.type !== moboMemory) {
-    return { compatible: false, reason: "Tipo de RAM no coincide" };
+    return { compatible: false, status: "fail", reason: "Tipo de RAM no coincide" };
   }
   if (mobo.memory_slots && ram.modules && ram.modules > mobo.memory_slots) {
-    return { compatible: false, reason: "Excede número de slots" };
+    return { compatible: false, status: "fail", reason: "Excede número de slots" };
   }
   if ((mobo.max_memory_gb || mobo.maxMemoryGb) && ram.capacity_gb_total && ram.capacity_gb_total > (mobo.max_memory_gb || mobo.maxMemoryGb)) {
-    return { compatible: false, reason: "Excede capacidad máxima" };
+    return { compatible: false, status: "fail", reason: "Excede capacidad máxima" };
   }
   if ((mobo.max_memory_speed_mts || mobo.maxMemorySpeedMts) && ram.speed_mts && ram.speed_mts > (mobo.max_memory_speed_mts || mobo.maxMemorySpeedMts)) {
-    return { compatible: true, warning: "RAM sobre el máximo oficial; puede requerir ajuste/XMP" };
+    return { compatible: true, status: "warning", reason: "RAM sobre el máximo oficial; puede requerir ajuste/XMP" };
   }
-  return { compatible: true };
+  return { compatible: true, status: "ok" };
 }
 
 export function checkMoboCaseCompatibility(mobo, pcCase) {
-  if (!mobo || !pcCase) return { compatible: false, reason: "Faltan datos" };
+  if (!mobo || !pcCase) return { compatible: false, status: "unknown", reason: "Faltan datos" };
   const formFactor = mobo.form_factor || mobo.formFactor;
   const supported = pcCase.supported_mobo_form_factors || pcCase.formFactors;
   if (!formFactor || !Array.isArray(supported) || supported.length === 0) {
-    return { compatible: false, reason: "Faltan datos" };
+    return { compatible: false, status: "unknown", reason: "Faltan datos" };
   }
   const ok =
     Array.isArray(supported) &&
     supported.includes(formFactor);
-  return ok ? { compatible: true } : { compatible: false, reason: "Factor de forma no soportado" };
+  return ok ? { compatible: true, status: "ok" } : { compatible: false, status: "fail", reason: "Factor de forma no soportado" };
 }
 
 export function checkGpuCaseCompatibility(gpu, pcCase) {
-  if (!gpu || !pcCase) return { compatible: false, reason: "Faltan datos" };
+  if (!gpu || !pcCase) return { compatible: false, status: "unknown", reason: "Faltan datos" };
   const gpuLength = gpu.board_length_mm ?? gpu.length;
   const maxLength = pcCase.max_gpu_length_mm ?? pcCase.maxGpuLength;
-  if (!gpuLength || !maxLength) return { compatible: false, reason: "Faltan datos" };
+  if (!gpuLength || !maxLength) return { compatible: false, status: "unknown", reason: "Faltan datos" };
   const ok = gpuLength <= maxLength;
-  return ok ? { compatible: true } : { compatible: false, reason: "La GPU no cabe en el gabinete" };
+  return ok ? { compatible: true, status: "ok" } : { compatible: false, status: "fail", reason: "La GPU no cabe en el gabinete" };
 }
 
 export function checkPsuPowerSufficiency(psu, cpu, gpu, extraHeadroomW = 50) {
@@ -74,7 +74,7 @@ export function checkPsuPowerSufficiency(psu, cpu, gpu, extraHeadroomW = 50) {
   if (!wattage) return { status: "unknown", reason: "PSU sin wattage" };
   if (wattage >= recommended_min_psu_w) return { status: "ok", estimated_load_w, recommended_min_psu_w };
   if (wattage >= estimated_load_w)
-    return { status: "warn", estimated_load_w, recommended_min_psu_w, reason: "Poco margen" };
+    return { status: "warning", estimated_load_w, recommended_min_psu_w, reason: "Poco margen" };
   return { status: "fail", estimated_load_w, recommended_min_psu_w, reason: "PSU insuficiente" };
 }
 
