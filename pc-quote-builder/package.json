@@ -14,7 +14,8 @@
     "sync:pc-data": "node ../scripts/sync_processed_to_public_data.js",
     "download:pc-data": "python ../scripts/download_pc_datasets.py",
     "pc-data:all": "npm run download:pc-data && npm run build:pc-data && npm run sync:pc-data",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:artifacts": "vitest run src/lib/artifactContract.test.js"
   },
   "dependencies": {
     "react": "^19.2.0",

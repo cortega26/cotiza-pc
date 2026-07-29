@@ -55,6 +55,10 @@ jobs:
         working-directory: pc-quote-builder
         run: npm run sync:pc-data
 
+      - name: Validate artifact contracts
+        working-directory: pc-quote-builder
+        run: npm run test:artifacts
+
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v6
