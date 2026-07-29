@@ -592,19 +592,19 @@ describe("Currency input and draft behavior", () => {
   });
 });
 
-// ─────[plan 013] Quote CRUD and persistence — future work ───────────────
+// ─────Quote CRUD and persistence — future work ──────────────────────────
 
-describe("[plan 013] Quote CRUD and persistence", () => {
-  it.todo("adds a new quote and switches to it [plan 013]");
-  it.todo("duplicates the active quote with fresh IDs [plan 013]");
-  it.todo("deletes the active quote and switches to the remaining one [plan 013]");
-  it.todo("shows alert and does not delete the last quote [plan 013]");
-  it.todo("persists quotes to localStorage on name change [plan 013]");
-  it.todo("persists activeQuoteId to localStorage [plan 013]");
-  it.todo("restores activeQuoteId from localStorage when valid [plan 013]");
-  it.todo("handles empty quotes array gracefully [plan 013]");
-  it.todo("normalizes quotes with missing fields on load [plan 013]");
-  it.todo("persists updated quote rows to localStorage [plan 013]");
+describe("Quote CRUD and persistence", () => {
+  it.todo("adds a new quote and switches to it");
+  it.todo("duplicates the active quote with fresh IDs");
+  it.todo("deletes the active quote and switches to the remaining one");
+  it.todo("shows alert and does not delete the last quote");
+  it.todo("persists quotes to localStorage on name change");
+  it.todo("persists activeQuoteId to localStorage");
+  it.todo("restores activeQuoteId from localStorage when valid");
+  it.todo("handles empty quotes array gracefully");
+  it.todo("normalizes quotes with missing fields on load");
+  it.todo("persists updated quote rows to localStorage");
 });
 
 // ─────[plan 014] Builder flow — future work ──────────────────────────────
