@@ -28,9 +28,28 @@ const resolveCpuMemoryType = (cpu) => {
   return { memoryType: normalizeMemoryType(inferMemoryTypeBySocket(inferSocket(cpu))), memoryTypeExplicit: false };
 };
 
-export const mapProcessedToCatalog = (processed = {}) => {
+const normalizeMotherboardsKey = (src) => {
+  if (src.mobos) return src.mobos;
+  if (src.motherboards) return src.motherboards;
+  return [];
+};
+
+const normalizeRamKey = (src) => {
+  if (src.ram) return src.ram;
+  if (src.ramKits) return src.ramKits;
+  return [];
+};
+
+const normalizeCasesKey = (src) => {
+  if (src.cases) return src.cases;
+  if (src.pcCases) return src.pcCases;
+  return [];
+};
+
+export const mapProcessedToCatalog = (processed) => {
+  const data = processed || {};
   const cpus =
-    processed.cpus?.map((cpu) => {
+    data.cpus?.map((cpu) => {
       const { memoryType, memoryTypeExplicit } = resolveCpuMemoryType(cpu);
       return {
         id: cpu.id,
@@ -47,7 +66,7 @@ export const mapProcessedToCatalog = (processed = {}) => {
     }) || [];
 
   const motherboards =
-    processed.mobos?.map((mobo) => ({
+    normalizeMotherboardsKey(data).map((mobo) => ({
       id: mobo.id,
       name: mobo.name,
       socket: mobo.socket,
@@ -57,48 +76,54 @@ export const mapProcessedToCatalog = (processed = {}) => {
         (mobo.name?.toLowerCase().includes("ddr5") ? "DDR5" : mobo.name?.toLowerCase().includes("ddr4") ? "DDR4" : "") ||
         inferMemoryTypeBySocket(mobo.socket),
       memoryTypeExplicit: Boolean(normalizeMemoryType(mobo.memory_type || mobo.memoryType)),
+      memory_slots: mobo.memory_slots ?? mobo.memorySlots ?? null,
+      max_memory_gb: mobo.max_memory_gb ?? mobo.maxMemoryGb ?? null,
+      max_memory_speed_mts: mobo.max_memory_speed_mts ?? mobo.maxMemorySpeedMts ?? mobo.maxMemorySpeed ?? null,
     })) || [];
 
   const ramKits =
-    processed.ram?.map((ram) => ({
+    normalizeRamKey(data).map((ram) => ({
       id: ram.id,
       name: ram.name,
       type: normalizeRamType(ram),
-      speed: ram.speed_mts,
+      speed: ram.speed_mts ?? ram.speed ?? null,
+      modules: ram.modules ?? null,
+      capacity_gb_total: ram.capacity_gb_total ?? ram.capacityGbTotal ?? null,
+      speed_mts: ram.speed_mts ?? ram.speed ?? null,
     })) || [];
 
   const gpus =
-    processed.gpus?.map((gpu) => ({
+    data.gpus?.map((gpu) => ({
       id: gpu.id,
       name: gpu.name,
-      tdp: gpu.tdp_w,
-      tdp_w: gpu.tdp_w,
-      length: gpu.board_length_mm,
-      psuMin: gpu.recommended_psu_w || gpu.suggested_psu_w,
-      powerConnectors: gpu.power_connectors,
-      power_connectors: gpu.power_connectors,
+      tdp: gpu.tdp_w ?? gpu.tdp ?? null,
+      tdp_w: gpu.tdp_w ?? gpu.tdp ?? null,
+      length: gpu.board_length_mm ?? gpu.length ?? null,
+      psuMin: gpu.recommended_psu_w ?? gpu.suggested_psu_w ?? gpu.psuMin ?? null,
+      powerConnectors: gpu.power_connectors ?? gpu.powerConnectors ?? null,
+      power_connectors: gpu.power_connectors ?? gpu.powerConnectors ?? null,
     })) || [];
 
   const psus =
-    processed.psus?.map((psu) => ({
+    data.psus?.map((psu) => ({
       id: psu.id,
       name: psu.name,
-      wattage: psu.wattage_w,
-      wattage_w: psu.wattage_w,
-      pcieCables: psu.pcie_power_connectors?.["8_pin"] || null,
-      pcie_power_connectors: psu.pcie_power_connectors || {},
+      wattage: psu.wattage_w ?? psu.wattage ?? null,
+      wattage_w: psu.wattage_w ?? psu.wattage ?? null,
+      pcieCables: psu.pcie_power_connectors?.["8_pin"] ?? psu.pcieCables ?? null,
+      pcie_power_connectors: psu.pcie_power_connectors ?? psu.pciePowerConnectors ?? {},
     })) || [];
 
   const pcCases =
-    processed.cases?.map((pcCase) => ({
+    normalizeCasesKey(data).map((pcCase) => ({
       id: pcCase.id,
       name: pcCase.name,
-      maxGpuLength: pcCase.max_gpu_length_mm,
-      coolerHeight: pcCase.max_cpu_cooler_height_mm,
-      formFactors: pcCase.supported_mobo_form_factors || [],
+      maxGpuLength: pcCase.max_gpu_length_mm ?? pcCase.maxGpuLength ?? null,
+      coolerHeight: pcCase.max_cpu_cooler_height_mm ?? pcCase.coolerHeight ?? null,
+      formFactors: pcCase.supported_mobo_form_factors ?? pcCase.formFactors ?? [],
     })) || [];
 
-  return { cpus, motherboards, ramKits, gpus, psus, pcCases, meta: processed.compat || null };
+  return { cpus, motherboards, ramKits, gpus, psus, pcCases, meta: data.compat || null };
 };
 
 export const buildTierMaps = (compatMeta) => {

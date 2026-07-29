@@ -47,6 +47,12 @@ describe("useCatalog", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.error).toBe("Network failure");
     expect(result.current.fallbackUsed).toBe(true);
+    expect(result.current.catalog.cpus.length).toBeGreaterThan(0);
+    expect(result.current.catalog.motherboards.length).toBeGreaterThan(0);
+    expect(result.current.catalog.ramKits.length).toBeGreaterThan(0);
+    expect(result.current.catalog.gpus.length).toBeGreaterThan(0);
+    expect(result.current.catalog.psus.length).toBeGreaterThan(0);
+    expect(result.current.catalog.pcCases.length).toBeGreaterThan(0);
   });
 
   it("ignores stale responses when reloadToken changes mid-flight", async () => {
