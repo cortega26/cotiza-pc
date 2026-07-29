@@ -78,4 +78,74 @@ describe("TypeaheadSelect", () => {
     expect(items).toHaveLength(1);
     expect(items[0].textContent).toContain("ASUS Prime B550M DDR4");
   });
+
+  it("renders no options when the list is empty", () => {
+    render(<TypeaheadSelect options={[]} value="" onChange={() => {}} placeholder="CPU" />);
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("shows no options when no item matches the filter", () => {
+    render(<TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "zzznonexistent" } });
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("selects an option by mouse click", () => {
+    const handleChange = vi.fn();
+    render(<TypeaheadSelect options={options} value="" onChange={handleChange} placeholder="CPU" />);
+    fireEvent.focus(screen.getByRole("combobox"));
+    fireEvent.click(screen.getAllByRole("option")[0]);
+    expect(handleChange).toHaveBeenCalledWith("1");
+  });
+
+  it("closes the list when clicking outside the component", () => {
+    render(<TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" />);
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option").length).toBeGreaterThan(0);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("resets input to selected label on re-focus after editing", () => {
+    const handleChange = vi.fn();
+    render(<TypeaheadSelect options={options} value="1" onChange={handleChange} placeholder="CPU" />);
+    const input = screen.getByRole("combobox");
+
+    expect(input.value).toBe("Ryzen 5 7600");
+
+    fireEvent.focus(input);
+    fireEvent.change(input, { target: { value: "custom text" } });
+    fireEvent.mouseDown(document.body);
+    fireEvent.focus(input);
+
+    expect(input.value).toBe("Ryzen 5 7600");
+  });
+
+  it("calls onChange with empty string when the input is cleared", () => {
+    const handleChange = vi.fn();
+    render(<TypeaheadSelect options={options} value="1" onChange={handleChange} placeholder="CPU" />);
+    fireEvent.focus(screen.getByRole("combobox"));
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "" } });
+    expect(handleChange).toHaveBeenCalledWith("");
+  });
+
+  it("respects the maxItems limit", () => {
+    const many = Array.from({ length: 20 }, (_, i) => ({ id: String(i), name: `Item ${i}` }));
+    render(
+      <TypeaheadSelect options={many} value="" onChange={() => {}} placeholder="CPU" maxItems={5} />
+    );
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.getAllByRole("option")).toHaveLength(5);
+  });
+
+  it("wraps highlighted index to the last option on arrow-up at index 0", () => {
+    render(<TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" />);
+    const input = screen.getByRole("combobox");
+    fireEvent.focus(input);
+    fireEvent.keyDown(input, { key: "ArrowUp" });
+
+    const items = screen.getAllByRole("option");
+    expect(items[items.length - 1].getAttribute("aria-selected")).toBe("true");
+  });
 });
