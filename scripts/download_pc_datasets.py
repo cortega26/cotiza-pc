@@ -165,7 +165,18 @@ def main():
     parser.add_argument("--skip-pcpart", action="store_true")
     parser.add_argument("--skip-dbgpu", action="store_true")
     parser.add_argument("--print-pins", action="store_true", help="mostrar SHAs y versiones actuales")
+    parser.add_argument("--raw-dir", type=str, default=None,
+                        help="directorio raíz para datos crudos (por defecto: data/raw/)")
     args = parser.parse_args()
+
+    if args.raw_dir:
+        global RAW_DIR, BUILDCORES_DIR, PCPART_DIR, DBGPU_DIR, DBGPU_JSON, PROVENANCE_JSON
+        RAW_DIR = Path(args.raw_dir).resolve()
+        BUILDCORES_DIR = RAW_DIR / "buildcores-open-db"
+        PCPART_DIR = RAW_DIR / "pc-part-dataset"
+        DBGPU_DIR = RAW_DIR / "dbgpu"
+        DBGPU_JSON = DBGPU_DIR / "dbgpu.json"
+        PROVENANCE_JSON = RAW_DIR / "provenance.json"
 
     if args.print_pins:
         print(f"PINNED_BUILDCORES_SHA = {PINNED_BUILDCORES_SHA}")
