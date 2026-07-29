@@ -47,9 +47,9 @@ Todos los comandos se ejecutan desde `pc-quote-builder/`.
 
 ### Prerrequisitos
 
-- **Node.js** >= 22 (usa el gestor de versiones que prefieras: fnm, nvm, asdf).
+- **Node.js** >= 22.13 (usa el gestor de versiones que prefieras: fnm, nvm, asdf; el repositorio incluye [`.node-version`](.node-version) en la raíz).
 - **npm** incluido con Node.js.
-- **Python** >= 3.10 con `pip` (solo para la descarga de datos de catálogo).
+- **Python** >= 3.13 con `pip` (solo para la descarga de datos de catálogo).
 
 ### Primeros pasos
 
