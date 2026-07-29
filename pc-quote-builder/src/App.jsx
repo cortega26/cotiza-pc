@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import { useCatalog } from "./hooks/useCatalog";
 import { evaluateSelection } from "./lib/selectionEvaluation";
+import { parsePrice, computeTotals, normalizeCurrency } from "./lib/money";
 import {
   escapeCsvField,
   parseCsvToQuote,
@@ -73,7 +74,7 @@ const normalizeRow = (row) => ({
   const normalizeQuote = (quote, fallbackName = "Importada") => ({
   id: quote.id || createId(),
   name: quote.name || fallbackName,
-  currency: (quote.currency || "CLP").toUpperCase(),
+  currency: normalizeCurrency(quote.currency),
   priceUpdatedAt: quote.priceUpdatedAt || "",
   rows:
     Array.isArray(quote.rows) && quote.rows.length
@@ -249,6 +250,7 @@ function App() {
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
+  const [currencyDraft, setCurrencyDraft] = useState("");
   const neededCategories = useMemo(() => {
     const step = builderStep;
     const cats = ["cpus"];
@@ -360,6 +362,13 @@ function App() {
     }
   }, [builder]);
 
+  useEffect(() => {
+    if (activeQuote) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing draft to active quote on switch; not cascading
+      setCurrencyDraft(activeQuote.currency);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- activeQuote is derived from these, stable enough
+  }, [activeQuote?.id, activeQuote?.currency]);
 
   const cpuTier = useMemo(() => (selection.cpu ? tierMaps.cpu.get(selection.cpu.id) || null : null), [selection, tierMaps.cpu]);
   const gpuTier = useMemo(() => (selection.gpu ? tierMaps.gpu.get(selection.gpu.id) || null : null), [selection, tierMaps.gpu]);
@@ -384,56 +393,47 @@ function App() {
 
   const currencyFormatter = useMemo(() => {
     const currency = activeQuote?.currency || "CLP";
-    return new Intl.NumberFormat("es-CL", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    });
+    try {
+      return new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency,
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      return new Intl.NumberFormat("es-CL", {
+        style: "currency",
+        currency: "CLP",
+        maximumFractionDigits: 0,
+      });
+    }
   }, [activeQuote?.currency]);
 
   const totals = useMemo(() => {
-    if (!activeQuote) {
-      return { totalOffer: 0, totalRegular: 0, saving: 0 };
-    }
-
-    let totalOffer = 0;
-    let totalRegular = 0;
-    let rowsWithPrice = 0;
-
-    for (const row of activeQuote.rows) {
-      const offer = parseFloat(row.offerPrice) || 0;
-      const regular = parseFloat(row.regularPrice) || 0;
-      if (offer || regular) rowsWithPrice += 1;
-      totalOffer += offer;
-      totalRegular += regular;
-    }
-
-    return {
-      totalOffer,
-      totalRegular,
-      saving: totalRegular - totalOffer,
-      rowsWithPrice,
-    };
+    if (!activeQuote) return { totalOffer: 0, totalRegular: 0, saving: 0, rowsWithPrice: 0, savingRowCount: 0 };
+    return computeTotals(activeQuote.rows, activeQuote.currency);
   }, [activeQuote]);
 
   const storeTotals = useMemo(() => {
     const map = new Map();
     if (!activeQuote) return [];
+    const currency = activeQuote.currency;
     for (const row of activeQuote.rows) {
-      const offer = parseFloat(row.offerPrice) || 0;
-      const regular = parseFloat(row.regularPrice) || 0;
-      if (!offer && !regular) continue;
+      const offer = parsePrice(row.offerPrice, currency);
+      const regular = parsePrice(row.regularPrice, currency);
+      const hasOffer = offer.status === "valid";
+      const hasRegular = regular.status === "valid";
+      if (!hasOffer && !hasRegular) continue;
       const store = (row.store || "Sin tienda").trim() || "Sin tienda";
-      const current = map.get(store) || { offer: 0, regular: 0, count: 0 };
-      current.offer += offer;
-      current.regular += regular;
+      const current = map.get(store) || { offer: 0, regular: 0, saving: 0, count: 0 };
+      if (hasOffer) current.offer += offer.value;
+      if (hasRegular) current.regular += regular.value;
+      if (hasOffer && hasRegular) current.saving += regular.value - offer.value;
       current.count += 1;
       map.set(store, current);
     }
     return Array.from(map.entries()).map(([store, data]) => ({
       store,
       ...data,
-      saving: data.regular - data.offer,
     }));
   }, [activeQuote]);
 
@@ -525,11 +525,16 @@ function App() {
   };
 
   const handleCurrencyChange = (e) => {
-    const newCurrency = e.target.value || "CLP";
-    updateActiveQuote(() => ({ currency: newCurrency.toUpperCase() }));
+    const raw = e.target.value || "";
+    setCurrencyDraft(raw);
+    const upper = raw.toUpperCase();
+    if (upper.length === 3 && normalizeCurrency(upper) === upper) {
+      updateActiveQuote(() => ({ currency: upper }));
+    }
   };
 
   const handleCurrencyPreset = (value) => {
+    setCurrencyDraft(value);
     updateActiveQuote(() => ({ currency: value }));
   };
 
@@ -540,7 +545,7 @@ function App() {
         row.id === rowId
           ? {
               ...row,
-              [field]: isPriceField ? value.replace(/[^\d.,]/g, "").replace(",", ".") : value,
+              [field]: isPriceField ? value.replace(/[^\d.,]/g, "") : value,
             }
           : row
       );
@@ -701,6 +706,11 @@ function App() {
         return;
       }
       const priceMap = buildPriceMap(items);
+      const matchCount = activeQuote ? activeQuote.rows.filter((r) => priceMap.has(r.itemId)).length : 0;
+      if (matchCount === 0) {
+        alert("No se encontraron precios para importar.");
+        return;
+      }
       updateActiveQuote((q) => ({
         rows: q.rows.map((row) => {
           const match = priceMap.get(row.itemId);
@@ -714,7 +724,7 @@ function App() {
         }),
         priceUpdatedAt: new Date().toISOString(),
       }));
-      alert("Precios importados y aplicados a los ítems con id.");
+      alert(`Precios importados y aplicados a ${matchCount} ítem(s) con id.`);
     } catch (err) {
       console.error(err);
       alert(`No se pudo importar precios: ${err.message || err}`);
@@ -1233,7 +1243,7 @@ function App() {
                     <input
                       className="currency-input"
                       type="text"
-                      value={activeQuote.currency}
+                      value={currencyDraft}
                       onChange={handleCurrencyChange}
                       maxLength={3}
                       placeholder="Ej: GBP"

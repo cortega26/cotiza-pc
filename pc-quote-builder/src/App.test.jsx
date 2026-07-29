@@ -511,13 +511,13 @@ describe("Row operations", () => {
     });
   });
 
-  it("sanitizes price input on offerPrice field", async () => {
+  it("strips non-numeric characters from price input (keeps digits, dots, commas)", async () => {
     await renderApp();
     const priceInputs = screen.getAllByPlaceholderText("0");
     const offerInput = priceInputs[0];
     fireEvent.change(offerInput, { target: { value: "abc12,500.99" } });
     await waitFor(() => {
-      expect(offerInput.value).toBe("12.500.99");
+      expect(offerInput.value).toBe("12,500.99");
     });
   });
 
@@ -541,13 +541,13 @@ describe("Row operations", () => {
     });
   });
 
-  it("replaces only the first comma in price input", async () => {
+  it("preserves multiple commas in price input (no comma-to-dot conversion)", async () => {
     await renderApp();
     const priceInputs = screen.getAllByPlaceholderText("0");
     const offerInput = priceInputs[0];
     fireEvent.change(offerInput, { target: { value: "12,500,99" } });
     await waitFor(() => {
-      expect(offerInput.value).toBe("12.500,99");
+      expect(offerInput.value).toBe("12,500,99");
     });
   });
 });
