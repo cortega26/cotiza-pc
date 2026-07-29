@@ -5,3 +5,10 @@ dist/
 .DS_Store
 %SystemDrive%/
 data/raw/
+
+# Tool / agent config (environment-specific)
+.agents/
+.claude/
+.codegraph/
+.continue/
+skills-lock.json
