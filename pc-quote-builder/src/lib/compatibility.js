@@ -82,7 +82,7 @@ export function checkPsuConnectors(psu, gpu) {
   if (!psu || !gpu) return { status: "unknown", reason: "Faltan datos" };
   const connectors = psu.pcie_power_connectors || {};
   const knownConnectorData = Object.keys(connectors).length > 0;
-  const needRaw = (gpu.power_connectors || "").toLowerCase();
+  const needRaw = (typeof gpu.power_connectors === "string" ? gpu.power_connectors : "").toLowerCase();
   const parseRequired = (pattern) => {
     const match = needRaw.match(pattern);
     if (!match) return 0;
