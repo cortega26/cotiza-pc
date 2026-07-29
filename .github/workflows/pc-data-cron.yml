@@ -36,6 +36,11 @@ jobs:
         with:
           python-version: "3.x"
 
+      - name: Install Python deps (hash-locked)
+        run: |
+          python -m venv /tmp/pc-venv
+          /tmp/pc-venv/bin/pip install --require-hashes -r scripts/requirements.txt
+
       - name: Install npm deps
         working-directory: pc-quote-builder
         run: npm ci
@@ -45,7 +50,7 @@ jobs:
         run: npm run check
 
       - name: Download datasets (BuildCores, PC Part, DBGPU)
-        run: python scripts/download_pc_datasets.py
+        run: /tmp/pc-venv/bin/python scripts/download_pc_datasets.py
 
       - name: Build processed data
         working-directory: pc-quote-builder

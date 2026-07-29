@@ -1,4 +1,23 @@
 #!/usr/bin/env python
+"""
+Download / update hardware datasets from upstream sources.
+
+Upstream repositories are pinned to specific commit SHAs. To refresh pins:
+
+  1. Find the desired SHA on the upstream default branch.
+  2. Update PINNED_BUILDCORES_SHA and/or PINNED_PCPART_SHA below.
+  3. Run:  python scripts/download_pc_datasets.py --print-pins
+  4. Verify the printed provenance matches expectations.
+  5. Commit the SHA change in a single reviewed pull request.
+
+Python dependencies (dbgpu) are hash-locked in scripts/requirements.txt.
+Regenerate with:
+
+    python -m pip install pip-tools
+    pip-compile --generate-hashes -o scripts/requirements.txt <<< "dbgpu==<version>"
+
+Then update CI to use the new requirements.txt.
+"""
 import argparse
 import json
 import os
@@ -6,7 +25,6 @@ import shutil
 import subprocess
 import sys
 import traceback
-import site
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +36,14 @@ DBGPU_JSON = DBGPU_DIR / "dbgpu.json"
 PROVENANCE_JSON = RAW_DIR / "provenance.json"
 
 GIT_EXE = shutil.which("git") or "git"
-IS_CI = (os.environ.get("CI", "").lower() in ("1", "true", "yes")) or (os.environ.get("GITHUB_ACTIONS", "").lower() in ("1", "true", "yes"))
+IS_CI = (os.environ.get("CI", "").lower() in ("1", "true", "yes")) or (
+    os.environ.get("GITHUB_ACTIONS", "").lower() in ("1", "true", "yes")
+)
+
+# ── Pinned upstream SHAs ──────────────────────────────────────────────
+# Update these through a reviewed PR (see docstring above).
+PINNED_BUILDCORES_SHA = "b4a2a3bd8d5d07d0640615e81e2f152f77a76301"
+PINNED_PCPART_SHA = "c52a04ca9465c83997ed335f7767b09a2005dd26"
 
 
 def run(cmd, cwd=None, check=True):
@@ -35,8 +60,18 @@ def git_info(repo_dir: Path):
     if not (repo_dir / ".git").exists():
         return None
     try:
-        sha = subprocess.check_output([GIT_EXE, "rev-parse", "HEAD"], cwd=repo_dir).decode("utf-8").strip()
-        remote = subprocess.check_output([GIT_EXE, "config", "--get", "remote.origin.url"], cwd=repo_dir).decode("utf-8").strip()
+        sha = (
+            subprocess.check_output([GIT_EXE, "rev-parse", "HEAD"], cwd=repo_dir)
+            .decode("utf-8")
+            .strip()
+        )
+        remote = (
+            subprocess.check_output(
+                [GIT_EXE, "config", "--get", "remote.origin.url"], cwd=repo_dir
+            )
+            .decode("utf-8")
+            .strip()
+        )
         return {"sha": sha, "remote": remote}
     except Exception as e:
         if IS_CI:
@@ -46,41 +81,49 @@ def git_info(repo_dir: Path):
         return None
 
 
-def clone_or_update(repo_url, dest, force=False, skip=False):
+def clone_pinned(repo_url, dest, pinned_sha, skip=False):
+    """Clone or update *dest* to *pinned_sha* and verify HEAD matches."""
     if skip:
         print(f"[skip] {dest.name}")
         return
-    if not any(dest.iterdir()):
-        print(f"Clonando {repo_url} en {dest}...")
-        # git clone is picky about pre-existing dirs; remove empty placeholder if needed.
-        if dest.exists():
-            shutil.rmtree(dest)
-        run([GIT_EXE, "clone", "--depth=1", repo_url, str(dest)])
-        return
-    if (dest / ".git").exists():
-        try:
-            print(f"Actualizando {dest}...")
-            run([GIT_EXE, "fetch", "--depth=1"], cwd=dest)
-            if force:
-                run([GIT_EXE, "reset", "--hard", "origin/main"], cwd=dest)
-            else:
-                run([GIT_EXE, "pull", "--ff-only"], cwd=dest)
-        except subprocess.CalledProcessError as e:
-            if IS_CI:
-                print(f"[error] No se pudo actualizar {dest}: {e}")
-                sys.exit(1)
-            print(f"[warn] No se pudo actualizar {dest}: {e}")
-    else:
-        if force:
-            print(f"[force] Recreando {dest}...")
-            shutil.rmtree(dest)
-            run([GIT_EXE, "clone", "--depth=1", repo_url, str(dest)])
-        else:
-            msg = f"{dest} existe sin .git; se deja intacto (use --force para recrear)"
-            if IS_CI:
-                print(f"[error] {msg}")
-                sys.exit(1)
-            print(f"[warn] {msg}")
+
+    if dest.exists():
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True)
+
+    # Shallow fetch the target SHA only.
+    run(
+        [GIT_EXE, "init"],
+        cwd=dest,
+    )
+    run(
+        [GIT_EXE, "remote", "add", "origin", repo_url],
+        cwd=dest,
+    )
+    run(
+        [GIT_EXE, "fetch", "--depth=1", "origin", pinned_sha],
+        cwd=dest,
+    )
+    run(
+        [GIT_EXE, "checkout", pinned_sha],
+        cwd=dest,
+    )
+
+    # Verify pinned SHA matches HEAD.
+    head_sha = (
+        subprocess.check_output([GIT_EXE, "rev-parse", "HEAD"], cwd=dest)
+        .decode("utf-8")
+        .strip()
+    )
+    if head_sha != pinned_sha:
+        msg = (
+            f"PIN MISMATCH: {dest.name} HEAD ({head_sha}) != "
+            f"pinned SHA ({pinned_sha}). Update the PINNED_ constant."
+        )
+        if IS_CI:
+            print(f"[error] {msg}")
+            sys.exit(1)
+        print(f"[warn] {msg}")
 
 
 def export_dbgpu(force=False, skip=False):
@@ -89,75 +132,83 @@ def export_dbgpu(force=False, skip=False):
         return 0
     DBGPU_DIR.mkdir(parents=True, exist_ok=True)
     try:
-        # asegurar que el site-packages de usuario esté en sys.path
-        try:
-            site.addsitedir(site.getusersitepackages())
-        except Exception:
-            pass
-        try:
-            from dbgpu import GPUDatabase  # type: ignore
-        except ImportError:
-            print("Instalando dbgpu...")
-            run([sys.executable, "-m", "pip", "install", "--user", "dbgpu"], check=True)
-            try:
-                site.addsitedir(site.getusersitepackages())
-            except Exception:
-                pass
-            from dbgpu import GPUDatabase  # type: ignore
-        db = GPUDatabase.default()
-        items = []
-        for gpu in getattr(db, "specs", []):
-            g = vars(gpu).copy()
-            rd = g.get("release_date")
-            if rd:
-                g["release_date"] = rd.isoformat()
-            items.append(g)
-        DBGPU_JSON.write_text(json.dumps(items, indent=2), encoding="utf-8")
-        print(f"Exportado DBGPU a {DBGPU_JSON} ({len(items)} GPUs)")
-        return len(items)
-    except Exception as e:
-        traceback.print_exc()
+        from dbgpu import GPUDatabase  # type: ignore
+    except ImportError:
+        msg = (
+            "dbgpu no está instalado. "
+            "Cree un venv e instale:  pip install --require-hashes -r scripts/requirements.txt"
+        )
         if IS_CI:
-            print(f"[error] Falló dbgpu en CI: {e}")
+            print(f"[error] {msg}")
             sys.exit(1)
-        if DBGPU_JSON.exists():
-            print(f"[warn] Falló dbgpu ({e}); usando archivo existente {DBGPU_JSON}")
-            try:
-                return len(json.loads(DBGPU_JSON.read_text(encoding="utf-8")))
-            except Exception:
-                return 0
-        else:
-            print(f"[error] No se pudo obtener DBGPU y no existe {DBGPU_JSON}")
-            sys.exit(1)
+        print(f"[error] {msg}")
+        sys.exit(1)
+
+    db = GPUDatabase.default()
+    items = []
+    for gpu in getattr(db, "specs", []):
+        g = vars(gpu).copy()
+        rd = g.get("release_date")
+        if rd:
+            g["release_date"] = rd.isoformat()
+        items.append(g)
+    DBGPU_JSON.write_text(json.dumps(items, indent=2), encoding="utf-8")
+    print(f"Exportado DBGPU a {DBGPU_JSON} ({len(items)} GPUs)")
+    return len(items)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Descarga/actualiza datasets de PC")
+    parser = argparse.ArgumentParser(
+        description="Descarga/actualiza datasets de PC"
+    )
     parser.add_argument("--skip-buildcores", action="store_true")
     parser.add_argument("--skip-pcpart", action="store_true")
     parser.add_argument("--skip-dbgpu", action="store_true")
-    parser.add_argument("--force", action="store_true", help="recrear repos si no tienen .git")
+    parser.add_argument("--print-pins", action="store_true", help="mostrar SHAs y versiones actuales")
     args = parser.parse_args()
 
+    if args.print_pins:
+        print(f"PINNED_BUILDCORES_SHA = {PINNED_BUILDCORES_SHA}")
+        print(f"PINNED_PCPART_SHA    = {PINNED_PCPART_SHA}")
+        try:
+            from importlib import metadata as importlib_metadata
+        except Exception:
+            import importlib_metadata
+        try:
+            print(f"dbgpu                 = {importlib_metadata.version('dbgpu')}")
+        except Exception:
+            print("dbgpu                 = (no instalado)")
+        return
+
     ensure_dirs()
-    clone_or_update("https://github.com/buildcores/buildcores-open-db.git", BUILDCORES_DIR, force=args.force, skip=args.skip_buildcores)
-    clone_or_update("https://github.com/docyx/pc-part-dataset.git", PCPART_DIR, force=args.force, skip=args.skip_pcpart)
-    dbgpu_count = export_dbgpu(force=args.force, skip=args.skip_dbgpu)
+
+    clone_pinned(
+        "https://github.com/buildcores/buildcores-open-db.git",
+        BUILDCORES_DIR,
+        PINNED_BUILDCORES_SHA,
+        skip=args.skip_buildcores,
+    )
+    clone_pinned(
+        "https://github.com/docyx/pc-part-dataset.git",
+        PCPART_DIR,
+        PINNED_PCPART_SHA,
+        skip=args.skip_pcpart,
+    )
+    dbgpu_count = export_dbgpu(skip=args.skip_dbgpu)
 
     # Provenance artifact (helps reproduce and audit scheduled runs).
     try:
         try:
-            from importlib import metadata as importlib_metadata  # type: ignore
+            from importlib import metadata as importlib_metadata
         except Exception:
-            import importlib_metadata  # type: ignore
-
+            import importlib_metadata
         dbgpu_version = None
         try:
             dbgpu_version = importlib_metadata.version("dbgpu")
         except Exception:
             dbgpu_version = None
-
         import datetime as _dt
+
         provenance = {
             "generatedAt": _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z"),
             "ci": bool(IS_CI),

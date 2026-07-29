@@ -9,6 +9,17 @@
 - **Priority**: P1; **Effort**: M; **Risk**: MED; **Depends on**: `003-validate-deployed-catalog-artifacts.md`
 - **Category**: security
 - **Planned at**: commit `63ecbca`, 2026-07-29
+- **Completed at**: commit `c4004d4`, 2026-07-29
+
+### Completion summary
+
+- Added `PINNED_BUILDCORES_SHA` and `PINNED_PCPART_SHA` constants in `download_pc_datasets.py` with real commit SHAs (`b4a2a3bd`, `c52a04ca`)
+- `clone_pinned()` fetches exact SHA, checks out, and verifies HEAD matches
+- Replaced on-demand `pip install dbgpu` with a hard failure and actionable error message
+- Added hash-locked `scripts/requirements.txt` (generated with `pip-compile --generate-hashes`)
+- CI workflow creates a venv and installs with `--require-hashes`
+- Added `--print-pins` flag for provenance output
+- Added test file `src/lib/downloadPins.test.js` (3 cases: print-pins format, skip flags, missing dbgpu)
 
 ## Why this matters
 

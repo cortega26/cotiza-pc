@@ -3,8 +3,7 @@
 Generated on 2026-07-29 against commit `63ecbca`. Execute in order unless a plan's dependency says otherwise. Executors must read the whole plan, honor STOP conditions, and update this table.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
-|---|---:|---:|---:|---|---|
-| 004 | Pin scheduled catalog supply-chain inputs | P1 | M | 003 | TODO |
+|---|---|---:|---:|---:|---|---|
 | 005 | Upgrade vulnerable development tooling | P1 | M | 001 | TODO |
 | 006 | Characterize and harden quote import workflows | P2 | M | 001 | TODO |
 | 007 | Consolidate catalog maintenance and onboarding | P2 | M | 003 | TODO |
