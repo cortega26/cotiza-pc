@@ -29,6 +29,63 @@ describe("compatibility helpers", () => {
     expect(checkRamMoboCompatibility(ramBad, mobo).compatible).toBe(false);
   });
 
+  it("valida RAM ↔ mobo — demasiados módulos", () => {
+    const mobo2Slot = { ...mobo, memory_slots: 2 };
+    const ram4Sticks = { ...ram, modules: 4 };
+    expect(checkRamMoboCompatibility(ram4Sticks, mobo2Slot).compatible).toBe(false);
+    expect(checkRamMoboCompatibility(ram4Sticks, mobo2Slot).reason).toContain("Excede");
+  });
+
+  it("valida RAM ↔ mobo — capacidad excede el límite", () => {
+    const mobo64Gb = { ...mobo, max_memory_gb: 64 };
+    const ram128Gb = { ...ram, capacity_gb_total: 128 };
+    expect(checkRamMoboCompatibility(ram128Gb, mobo64Gb).compatible).toBe(false);
+    expect(checkRamMoboCompatibility(ram128Gb, mobo64Gb).reason).toContain("Excede");
+  });
+
+  it("valida RAM ↔ mobo — velocidad sobre el máximo oficial (compatible con warning)", () => {
+    const mobo5600 = { ...mobo, max_memory_speed_mts: 5600 };
+    const ram7200 = { ...ram, speed_mts: 7200 };
+    const res = checkRamMoboCompatibility(ram7200, mobo5600);
+    expect(res.compatible).toBe(true);
+    expect(res.warning).toBeTruthy();
+  });
+
+  it("valida RAM ↔ mobo — salta chequeo de slots si faltan datos en RAM o mobo", () => {
+    const moboConSlots = { ...mobo, memory_slots: 2 };
+    const ramSinModules = { type: "DDR5", capacity_gb_total: 32 };
+    expect(checkRamMoboCompatibility(ramSinModules, moboConSlots).compatible).toBe(true);
+    const moboSinSlots = { ...mobo };
+    const ramConModules = { ...ram, modules: 4 };
+    expect(checkRamMoboCompatibility(ramConModules, moboSinSlots).compatible).toBe(true);
+  });
+
+  it("valida RAM ↔ mobo — salta chequeo de capacidad si faltan datos", () => {
+    const moboConMax = { ...mobo, max_memory_gb: 64 };
+    const ramSinCap = { type: "DDR5", modules: 2 };
+    expect(checkRamMoboCompatibility(ramSinCap, moboConMax).compatible).toBe(true);
+    const moboSinMax = { ...mobo };
+    const ramConCap = { ...ram, capacity_gb_total: 128 };
+    expect(checkRamMoboCompatibility(ramConCap, moboSinMax).compatible).toBe(true);
+  });
+
+  it("valida RAM ↔ mobo — salta chequeo de velocidad si faltan datos", () => {
+    const moboConSpeed = { ...mobo, max_memory_speed_mts: 5600 };
+    const ramSinSpeed = { type: "DDR5", modules: 2, capacity_gb_total: 32 };
+    expect(checkRamMoboCompatibility(ramSinSpeed, moboConSpeed).compatible).toBe(true);
+    const moboSinSpeed = { ...mobo };
+    const ramConSpeed = { ...ram, speed_mts: 7200 };
+    expect(checkRamMoboCompatibility(ramConSpeed, moboSinSpeed).compatible).toBe(true);
+  });
+
+  it("valida RAM ↔ mobo — acepta camelCase en campos de límite de mobo", () => {
+    const moboCamel = { ...mobo, maxMemoryGb: 64, maxMemorySpeedMts: 5600 };
+    const ramSobrante = { type: "DDR5", modules: 2, capacity_gb_total: 128, speed_mts: 7200 };
+    const resCap = checkRamMoboCompatibility(ramSobrante, moboCamel);
+    expect(resCap.compatible).toBe(false);
+    expect(resCap.reason).toContain("Excede");
+  });
+
   it("valida GPU ↔ case", () => {
     expect(checkGpuCaseCompatibility(gpu, { max_gpu_length_mm: 320 }).compatible).toBe(true);
     expect(checkGpuCaseCompatibility(gpuLong, { max_gpu_length_mm: 320 }).compatible).toBe(false);
