@@ -36,6 +36,29 @@ describe("TypeaheadSelect", () => {
     expect(handleChange).not.toHaveBeenCalled();
   });
 
+  it("keeps the selected label synchronized with an externally updated value", () => {
+    const { rerender } = render(
+      <TypeaheadSelect options={options} value="1" onChange={() => {}} placeholder="CPU" />
+    );
+    const input = screen.getByRole("combobox");
+
+    expect(input.value).toBe("Ryzen 5 7600");
+
+    rerender(<TypeaheadSelect options={options} value="2" onChange={() => {}} placeholder="CPU" />);
+    expect(input.value).toBe("Core i5-13600K");
+  });
+
+  it("clears a stale keyboard highlight when filtering removes that option", () => {
+    render(<TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" />);
+    const input = screen.getByRole("combobox");
+
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.keyDown(input, { key: "ArrowDown" });
+    fireEvent.change(input, { target: { value: "Ryzen" } });
+
+    expect(screen.getByRole("option").getAttribute("aria-selected")).toBe("false");
+  });
+
   it("filters by multiple terms in any order", () => {
     render(
       <TypeaheadSelect

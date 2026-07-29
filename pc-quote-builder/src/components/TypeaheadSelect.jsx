@@ -12,21 +12,17 @@ function TypeaheadSelect({
   maxItems = 50,
 }) {
   const [query, setQuery] = useState("");
+  const [isEditing, setIsEditing] = useState(false);
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef(null);
 
-  useEffect(() => {
-    const selected = options.find((o) => o.id === value);
-    if (selected) {
-      setQuery(getOptionLabel(selected));
-    } else {
-      setQuery("");
-    }
-  }, [value, options, getOptionLabel]);
+  const selected = options.find((option) => option.id === value);
+  const selectedLabel = selected ? getOptionLabel(selected) : "";
+  const inputValue = isEditing ? query : selectedLabel;
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = inputValue.trim().toLowerCase();
     if (!q) return options.slice(0, maxItems);
     const tokens = q.split(/\s+/).filter(Boolean);
     return options
@@ -35,12 +31,15 @@ function TypeaheadSelect({
         return tokens.every((token) => label.includes(token));
       })
       .slice(0, maxItems);
-  }, [options, query, maxItems, getOptionLabel]);
+  }, [options, inputValue, maxItems, getOptionLabel]);
+
+  const activeIndex = open && highlightedIndex >= 0 && highlightedIndex < filtered.length ? highlightedIndex : -1;
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (containerRef.current && !containerRef.current.contains(e.target)) {
         setOpen(false);
+        setIsEditing(false);
         setHighlightedIndex(-1);
       }
     };
@@ -51,6 +50,7 @@ function TypeaheadSelect({
   const handleSelect = (opt) => {
     onChange(opt.id);
     setQuery(getOptionLabel(opt));
+    setIsEditing(false);
     setOpen(false);
     setHighlightedIndex(-1);
   };
@@ -73,35 +73,35 @@ function TypeaheadSelect({
         return next < 0 ? filtered.length - 1 : next;
       });
     } else if (event.key === "Enter") {
-      if (open && highlightedIndex >= 0 && filtered[highlightedIndex]) {
+      if (open && activeIndex >= 0 && filtered[activeIndex]) {
         event.preventDefault();
-        handleSelect(filtered[highlightedIndex]);
+        handleSelect(filtered[activeIndex]);
       }
     } else if (event.key === "Escape") {
       setOpen(false);
+      setIsEditing(false);
       setHighlightedIndex(-1);
     }
   };
-
-  useEffect(() => {
-    if (!open) {
-      setHighlightedIndex(-1);
-      return;
-    }
-    setHighlightedIndex((idx) => (idx >= filtered.length ? filtered.length - 1 : idx));
-  }, [filtered.length, open]);
 
   return (
     <div className="typeahead" ref={containerRef}>
       <input
         className="typeahead-input"
         type="text"
-        value={query}
+        value={inputValue}
         placeholder={placeholder}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setQuery(selectedLabel);
+          setIsEditing(true);
+          setOpen(true);
+          setHighlightedIndex(-1);
+        }}
         onChange={(e) => {
           setQuery(e.target.value);
+          setIsEditing(true);
           setOpen(true);
+          setHighlightedIndex(-1);
           if (!e.target.value) onChange("");
         }}
         onKeyDown={handleKeyDown}
@@ -114,12 +114,12 @@ function TypeaheadSelect({
           {filtered.map((opt, idx) => (
             <li
               key={opt.id}
-              className={"typeahead-item" + (idx === highlightedIndex ? " active" : "")}
+              className={"typeahead-item" + (idx === activeIndex ? " active" : "")}
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleSelect(opt)}
               onMouseEnter={() => setHighlightedIndex(idx)}
               role="option"
-              aria-selected={idx === highlightedIndex}
+              aria-selected={idx === activeIndex}
             >
               {renderOption ? renderOption(opt) : getOptionLabel(opt)}
             </li>

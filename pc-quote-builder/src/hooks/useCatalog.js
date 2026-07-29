@@ -11,7 +11,7 @@ export function useCatalog(reloadToken = 0) {
   const [catalog, setCatalog] = useState(fallbackCatalog);
   const [compatMeta, setCompatMeta] = useState(localCatalog?.compat || null);
   const [tierMaps, setTierMaps] = useState(buildTierMaps(localCatalog?.compat));
-  const [loading, setLoading] = useState(true);
+  const [completedReloadToken, setCompletedReloadToken] = useState(-1);
   const [error, setError] = useState("");
   const [fallbackUsed, setFallbackUsed] = useState(false);
 
@@ -20,7 +20,6 @@ export function useCatalog(reloadToken = 0) {
     const baseUrl = stripTrailingSlash(import.meta.env.BASE_URL || "/");
     const dataBase = `${baseUrl}/data`;
 
-    setLoading(true);
     // Ensure "Recargar catálogo" always refetches, even if URLs are unchanged.
     clearCatalogCache();
     loadAllProcessed(dataBase, true, { cacheBust: String(reloadToken) })
@@ -31,6 +30,7 @@ export function useCatalog(reloadToken = 0) {
         setTierMaps(buildTierMaps(processed.compat));
         setError("");
         setFallbackUsed(false);
+        setCompletedReloadToken(reloadToken);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -39,9 +39,7 @@ export function useCatalog(reloadToken = 0) {
         setCompatMeta(localCatalog?.compat || null);
         setTierMaps(buildTierMaps(localCatalog?.compat));
         setFallbackUsed(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
+        setCompletedReloadToken(reloadToken);
       });
 
     return () => {
@@ -56,5 +54,13 @@ export function useCatalog(reloadToken = 0) {
     return sockets;
   }, [catalog]);
 
-  return { catalog, compatMeta, tierMaps, socketSet, loading, error, fallbackUsed };
+  return {
+    catalog,
+    compatMeta,
+    tierMaps,
+    socketSet,
+    loading: completedReloadToken !== reloadToken,
+    error,
+    fallbackUsed,
+  };
 }

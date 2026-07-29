@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import { useCatalog } from "./hooks/useCatalog";
-import { buildSelectionChips, evaluateSelection } from "./lib/selectionEvaluation";
+import { evaluateSelection } from "./lib/selectionEvaluation";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
