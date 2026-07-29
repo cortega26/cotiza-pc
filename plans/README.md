@@ -10,7 +10,6 @@ Before approving or implementing any material plan, read [the Canonical Product 
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [010](010-rebuild-and-isolate-pages-deployment.md) | Deploy refreshed catalog through a non-mutating, least-privileged pipeline | P1 | M | 009 | TODO |
 | [011](011-isolate-downloader-tests.md) | Isolate downloader tests from repository catalog data | P1 | S | 009 | TODO |
 | [012](012-characterize-app-workflows.md) | Characterize real quote and builder workflows | P1 | M | 009 | TODO |
 | [013](013-correct-quote-money-semantics.md) | Make quote money and freshness semantics trustworthy | P1 | M | 012 | TODO |

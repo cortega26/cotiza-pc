@@ -5,34 +5,30 @@ on:
     - cron: "0 3 */14 * *" # cada 14 días a las 03:00 UTC
   workflow_dispatch: {}
 
+# Build job only needs contents:read; deploy job gets pages + id-token explicitly.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pc-data-pages
   cancel-in-progress: false
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 1
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: "22.13"
 
       - name: Setup Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.13"
 
@@ -45,9 +41,9 @@ jobs:
         working-directory: pc-quote-builder
         run: npm ci
 
-      - name: Run verification gate
+      - name: Lint and test
         working-directory: pc-quote-builder
-        run: npm run check
+        run: npm run lint && npm test
 
       - name: Download datasets (BuildCores, PC Part, DBGPU)
         run: /tmp/pc-venv/bin/python scripts/download_pc_datasets.py
@@ -64,15 +60,44 @@ jobs:
         working-directory: pc-quote-builder
         run: npm run test:artifacts
 
+      - name: Build production site
+        working-directory: pc-quote-builder
+        run: npm run build
+
+      - name: Assert docs/data matches synced public/data
+        working-directory: pc-quote-builder
+        run: npx vitest run src/lib/postBuildAssertion.test.js
+
+      - name: Upload production build artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: site-build
+          path: docs/
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - name: Download production build
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: site-build
+          path: docs/
+
       - name: Configure Pages
         id: pages
-        uses: actions/configure-pages@v6
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
 
       - name: Upload artifact for Pages
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
         with:
-          path: docs
+          path: docs/
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5

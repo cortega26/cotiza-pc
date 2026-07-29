@@ -56,7 +56,7 @@ Todos los comandos se ejecutan desde `pc-quote-builder/`.
 ```sh
 cd pc-quote-builder
 npm ci             # instala dependencias exactas del lockfile
-npm run check      # lint + test + build — verifica que todo está sano
+npm run check      # lint + test + disposable build — verifica que todo está sano (no modifica docs/)
 ```
 
 ### Desarrollo
@@ -71,6 +71,7 @@ npm run test        # Vitest (modo run)
 
 ```sh
 npm run build       # Vite build; salida en ../docs/ (para GitHub Pages)
+npm run build:check # Vite build a /tmp/pc-check-build (disposable, no modifica docs/)
 ```
 
 ### Pipeline de datos de catálogo
@@ -95,7 +96,8 @@ También es posible ejecutar pasos individuales:
 | Descarga | `npm run download:pc-data` | Obtiene datasets desde BuildCores, PC Part, DBGPU |
 | Normalización | `npm run build:pc-data` | Procesa datos crudos → `data/processed/` |
 | Sincronización | `npm run sync:pc-data` | Copia `data/processed/` → `public/data/` |
-| Validación | `npm run test:artifacts` | Verifica contratos de artefactos generados |
+| Validación (pre-build) | `npm run test:artifacts` | Verifica contratos de artefactos en `public/data/` |
+| Validación (post-build) | `npx vitest run src/lib/postBuildAssertion.test.js` | Verifica que `docs/data/` coincide byte a byte con `public/data/` |
 
 ### Despliegue automatizado
 
