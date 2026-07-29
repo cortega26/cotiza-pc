@@ -9,6 +9,15 @@
 - **Priority**: P2; **Effort**: M; **Risk**: LOW; **Depends on**: `001-green-verification-gate.md`
 - **Category**: tests
 - **Planned at**: commit `63ecbca`, 2026-07-29
+- **Completed at**: commit `2fa039f`, 2026-07-29
+
+### Completion summary
+
+- Created `src/lib/csvParser.js` with an RFC-4180 state-machine parser (handles quoted newlines, escaped quotes, \r\n/\n/\r endings) and extracted inline `escapeCsvField`, `parsePriceJson`
+- Replaced `items.find()` O(n²) in `handleImportPrices` with a `buildPriceMap()` Map-based O(1) lookup; first-match-wins semantics preserved
+- Wrote 40 csvParser unit tests covering round-trip (commas, quotes, newlines), price CSV (many items, duplicate IDs, edge cases), and import semantics
+- Wrote 4 App characterization tests covering startup restore (empty, valid, corrupt localStorage) and button rendering
+- All 131 tests pass, lint clean, build succeeds
 
 ## Why this matters
 

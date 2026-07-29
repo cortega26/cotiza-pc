@@ -1,12 +1,7 @@
 # PC Quote Builder
 
-App React/Vite para armar cotizaciones de PCs con validaciones de compatibilidad (CPU ↔ mobo ↔ RAM ↔ case ↔ PSU).
+La documentación de entrada del repositorio está en [../README.md](../README.md).
 
-## Guías rápidas
-- **Heurística PSU:** ver `PSU_HEURISTICS.md`.
-- **Personas/recorridos:** ver `docs/user-personas.md`.
-- **Compatibilidad:** lógica en `src/lib/compatibility.js` y evaluaciones en `src/lib/selectionEvaluation.js`.
+Antes de realizar trabajo material de producto, lee la [Visión de Producto Canónica](../docs/PRODUCT_VISION.md). Rige diseño de funcionalidades, planes, cambios de recomendación o compatibilidad, flujos principales, puntuaciones, estados de advertencia/desconocimiento, monetización, rankings y decisiones arquitectónicas que condicionen el producto.
 
-## Scripts
-- `npm test` — Vitest.
-- `npm run build` — build Vite (salida en `docs/` para GitHub Pages).
+La heurística de fuente de poder está en [PSU_HEURISTICS.md](PSU_HEURISTICS.md). Los comandos de la aplicación se ejecutan desde este directorio; consulta la guía raíz para el flujo completo.

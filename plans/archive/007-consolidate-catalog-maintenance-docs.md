@@ -12,11 +12,11 @@
 
 ## Why this matters
 
-The repository presents two catalog commands with different outputs. `fetch:catalog` writes `catalog/catalog.json`, while the application deploys processed artifacts from `public/data`; running the former does not refresh the site. The root README also tells users to run npm commands where no manifest exists and links to missing paths; the root lockfile has no corresponding package manifest.
+The repository presents two catalog commands with different outputs. `fetch:catalog` writes `catalog/catalog.json`, while the application deploys processed artifacts from `public/data`; running the former does not refresh the site. The root lockfile has no corresponding package manifest. The READMEs have since been corrected to establish a single onboarding entry point and valid links, but they still need the complete, verified catalog-maintenance workflow described by this plan.
 
 ## Current state
 
-`pc-quote-builder/package.json:11` exposes `fetch:catalog`; `scripts/fetch-catalog.js:21-23` writes `catalog/` files. `useCatalog.js:26` loads processed public data. Root `README.md:10-12` runs npm from root, while scripts are in `pc-quote-builder/package.json`; both READMEs link to nonexistent `docs/user-personas.md`, and root README references `PSU_HEURISTICS.md` outside its actual app directory. Root `package-lock.json` is an empty independent lockfile.
+`pc-quote-builder/package.json:11` exposes `fetch:catalog`; `scripts/fetch-catalog.js:21-23` writes `catalog/` files. `useCatalog.js:26` loads processed public data. The root README now provides product direction and valid links, while the nested README points to it; neither remaining README references the missing personas document. The outstanding documentation work is to add verified prerequisites, working-directory guidance, development/build and catalog-pipeline commands, deployment output, and scheduled-workflow guidance without duplicating the canonical product vision. Root `package-lock.json` remains an empty independent lockfile.
 
 ## Commands you will need
 
@@ -33,7 +33,7 @@ Modify only the named docs/scripts/package metadata and root lockfile. Do not de
 ## Steps
 
 1. Use the consumer search to decide one canonical catalog pipeline: the existing download → `build:pc-data` → `sync:pc-data` route. If no external tracked consumer needs `fetch:catalog`, remove that script and retire `scripts/fetch-catalog.js`; otherwise mark it deprecated with an explicit non-deployment warning and a migration path. STOP if a consumer outside the repository is required but cannot be confirmed.
-2. Make the root README canonical. Include prerequisites, `cd pc-quote-builder`, `npm ci`, `npm run check`, development/build commands, catalog pipeline commands, output (`docs/`), and scheduled workflow. Correct links or remove unsupported references. Avoid duplicated full READMEs; make the nested README point to root or contain only app-specific details.
+2. Complete the root README as the canonical onboarding entry point, while preserving its existing product-vision summary and keeping [the Canonical Product Vision](../docs/PRODUCT_VISION.md) as the highest-authority product document. Add prerequisites, `cd pc-quote-builder`, `npm ci`, `npm run check`, development/build commands, catalog pipeline commands, output (`docs/`), and scheduled workflow. Preserve valid links and avoid duplicated full READMEs; keep the nested README as a pointer to root or app-specific details only.
 3. Remove the orphaned root `package-lock.json` after confirming no root `package.json` and no CI command uses it. Do not generate a replacement lockfile.
 
 ## Done criteria
@@ -46,7 +46,7 @@ Modify only the named docs/scripts/package metadata and root lockfile. Do not de
 
 ## STOP conditions
 
-Stop if `fetch:catalog` has a documented external consumer, `catalog/` is a published interface, or the missing personas document is required content not recoverable from repository history.
+Stop if `fetch:catalog` has a documented external consumer, `catalog/` is a published interface, or additional required onboarding content cannot be recovered from repository history or another authoritative source.
 
 ## Maintenance notes
 

@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     // build a la carpeta docs en la RAÍZ del repo
     outDir: "../docs",
-    emptyOutDir: true,
+    // docs/ also contains the canonical product source of truth.
+    emptyOutDir: false,
   },
 });

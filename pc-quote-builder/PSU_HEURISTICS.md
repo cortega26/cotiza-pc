@@ -1,3 +1,7 @@
+# PSU sizing heuristic
+
+This is a current implementation heuristic, not an independent product-policy source. It defers to the [Canonical Product Vision](../docs/PRODUCT_VISION.md), including its requirements for explainability, evidence, and explicit uncertainty. Its internal `warn` and `fail` labels do not by themselves establish a definitive user-facing compatibility conclusion: a warning, failed check, or unavailable input must be presented according to the vision's distinct states and evidence requirements.
+
 PSU sizing heuristic used in the builder and compatibility helpers:
 
 - Inputs: CPU `tdp_w` (or `tdp`), GPU `tdp_w`/`tdp`, GPU `suggested_psu_w` (when available), and PSU `wattage_w`/`wattage`.

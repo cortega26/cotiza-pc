@@ -9,7 +9,6 @@
     "lint": "eslint .",
     "check": "npm run lint && npm test && npm run build",
     "preview": "vite preview",
-    "fetch:catalog": "node ../scripts/fetch-catalog.js",
     "build:pc-data": "node ../scripts/build_pc_data.js",
     "sync:pc-data": "node ../scripts/sync_processed_to_public_data.js",
     "download:pc-data": "python ../scripts/download_pc_datasets.py",

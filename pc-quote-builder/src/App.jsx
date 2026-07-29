@@ -2,6 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import { useCatalog } from "./hooks/useCatalog";
 import { evaluateSelection } from "./lib/selectionEvaluation";
+import {
+  escapeCsvField,
+  parseCsvToQuote,
+  parsePriceCsv,
+  parsePriceJson,
+  buildPriceMap,
+} from "./lib/csvParser";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
@@ -585,83 +592,6 @@ function App() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/(^-|-$)+/g, "");
 
-  const escapeCsvField = (value) => {
-    if (value == null) return "";
-    const str = String(value);
-    if (/[",\n]/.test(str)) {
-      return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-  };
-
-  const parseCsvToQuote = (text) => {
-    const lines = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (!lines.length) throw new Error("El CSV está vacío.");
-
-    const normalizeHeader = (val) =>
-      val
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")
-        .replace(/[^a-z0-9]/g, "");
-
-    const headerRaw = lines.shift().split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
-    const headers = headerRaw.map(normalizeHeader);
-    const findIndex = (candidates) => {
-      const normalized = candidates.map(normalizeHeader);
-      return headers.findIndex((h) => normalized.includes(h));
-    };
-
-    const idxCategory = findIndex(["componente", "categoria"]);
-    const idxProduct = findIndex(["producto", "item", "modelo"]);
-    const idxStore = findIndex(["tienda", "store"]);
-    const idxOffer = findIndex(["preciooferta", "oferta"]);
-    const idxRegular = findIndex(["precionormal", "normal"]);
-    const idxNotes = findIndex(["notas", "comentarios", "notes"]);
-
-    if (idxCategory === -1 || idxProduct === -1) {
-      throw new Error("El CSV debe incluir columnas de componente y producto.");
-    }
-
-    const rows = [];
-    for (const line of lines) {
-      const cells = line
-        .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
-        .map((cell) =>
-          cell
-            .replace(/^"(.*)"$/, "$1")
-            .replace(/""/g, '"')
-            .trim()
-        );
-
-      // omitir líneas de totales
-      const firstCell = (cells[0] || "").toLowerCase();
-      if (firstCell.startsWith("total")) continue;
-
-      rows.push(
-        normalizeRow({
-          category: cells[idxCategory] || "",
-          product: cells[idxProduct] || "",
-          store: idxStore !== -1 ? cells[idxStore] || "" : "",
-          offerPrice: idxOffer !== -1 ? cells[idxOffer] || "" : "",
-          regularPrice: idxRegular !== -1 ? cells[idxRegular] || "" : "",
-          notes: idxNotes !== -1 ? cells[idxNotes] || "" : "",
-        })
-      );
-    }
-
-    return normalizeQuote(
-      {
-        name: "Importada CSV",
-        currency: "CLP",
-        rows,
-      },
-      "Importada CSV"
-    );
-  };
 
   const handleDownloadCSV = () => {
     if (!activeQuote) return;
@@ -731,7 +661,7 @@ function App() {
     try {
       const content = await file.text();
       const isJson = file.name.toLowerCase().endsWith(".json") || content.trim().startsWith("{") || content.trim().startsWith("[");
-      const importedQuotes = isJson ? buildQuotesFromJson(JSON.parse(content)) : [parseCsvToQuote(content)];
+      const importedQuotes = isJson ? buildQuotesFromJson(JSON.parse(content)) : [parseCsvToQuote(content, { normalizeRow, normalizeQuote })];
 
       setQuotes((prev) => {
         const next = [...prev, ...importedQuotes];
@@ -748,46 +678,6 @@ function App() {
     }
   };
 
-  const parsePriceCsv = (text) => {
-    const lines = text
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-    if (!lines.length) throw new Error("El CSV está vacío.");
-    const headerRaw = lines.shift().split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/);
-    const headers = headerRaw.map((h) => h.toLowerCase());
-    const idxId = headers.findIndex((h) => h.includes("id"));
-    const idxOffer = headers.findIndex((h) => h.includes("offer") || h.includes("oferta"));
-    const idxNormal = headers.findIndex((h) => h.includes("regular") || h.includes("normal"));
-    const idxStore = headers.findIndex((h) => h.includes("store") || h.includes("tienda"));
-    if (idxId === -1) throw new Error("El CSV debe tener columna id");
-    const items = [];
-    for (const line of lines) {
-      const cells = line
-        .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
-        .map((cell) =>
-          cell
-            .replace(/^"(.*)"$/, "$1")
-            .replace(/""/g, '"')
-            .trim()
-        );
-      items.push({
-        id: cells[idxId],
-        offerPrice: idxOffer !== -1 ? cells[idxOffer] || "" : "",
-        regularPrice: idxNormal !== -1 ? cells[idxNormal] || "" : "",
-        store: idxStore !== -1 ? cells[idxStore] || "" : "",
-      });
-    }
-    return items;
-  };
-
-  const parsePriceJson = (content) => {
-    const data = JSON.parse(content);
-    if (Array.isArray(data)) return data;
-    if (data && Array.isArray(data.items)) return data.items;
-    throw new Error("Formato JSON no reconocido para precios");
-  };
-
   const handleImportPrices = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -799,9 +689,10 @@ function App() {
         alert("No se encontraron precios para importar.");
         return;
       }
+      const priceMap = buildPriceMap(items);
       updateActiveQuote((q) => ({
         rows: q.rows.map((row) => {
-          const match = items.find((p) => p.id && p.id === row.itemId);
+          const match = priceMap.get(row.itemId);
           if (!match) return row;
           return {
             ...row,
