@@ -3,10 +3,7 @@
 Generated on 2026-07-29 against commit `63ecbca`. Execute in order unless a plan's dependency says otherwise. Executors must read the whole plan, honor STOP conditions, and update this table.
 
 | Plan | Title | Priority | Effort | Depends on | Status |
-|---|---|---:|---:|---|---|
-| 001 | Restore a green verification gate | P1 | S | — | DONE |
-| 002 | Preserve complete catalog compatibility data | P1 | S | 001 | DONE |
-| 003 | Validate deployed catalog artifacts | P1 | S | 001, 002 | DONE |
+|---|---:|---:|---:|---|---|
 | 004 | Pin scheduled catalog supply-chain inputs | P1 | M | 003 | TODO |
 | 005 | Upgrade vulnerable development tooling | P1 | M | 001 | TODO |
 | 006 | Characterize and harden quote import workflows | P2 | M | 001 | TODO |
@@ -14,6 +11,10 @@ Generated on 2026-07-29 against commit `63ecbca`. Execute in order unless a plan
 | 008 | Stage catalog loading by builder demand | P3 | M | 002, 006 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (state why) | REJECTED (state why).
+
+## Archiving
+
+Once a plan is marked DONE, move its markdown file from `plans/` to `plans/archive/` and remove its row from the table below. This keeps the active plan list focused on what remains.
 
 ## Dependency notes
 
