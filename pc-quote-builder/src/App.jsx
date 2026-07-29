@@ -250,7 +250,22 @@ function App() {
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
-  const [currencyDraft, setCurrencyDraft] = useState("");
+  const [currencyDraft, setCurrencyDraft] = useState(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEYS.quotes);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length) {
+          const storedId = localStorage.getItem(STORAGE_KEYS.activeQuoteId);
+          const active = storedId ? parsed.find((q) => q.id === storedId) : parsed[0];
+          return normalizeCurrency(active?.currency || "CLP");
+        }
+      }
+    } catch {
+      // ignore — fall through to default
+    }
+    return "CLP";
+  });
   const neededCategories = useMemo(() => {
     const step = builderStep;
     const cats = ["cpus"];

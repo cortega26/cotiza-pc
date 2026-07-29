@@ -552,6 +552,46 @@ describe("Row operations", () => {
   });
 });
 
+// ─────[plan 013] Currency input and draft behavior ──────────────────────
+
+describe("Currency input and draft behavior", () => {
+  it("shows the saved currency in the custom input field", async () => {
+    localStorageWithQuote({ currency: "USD" });
+    render(<App />);
+    await waitFor(() => {
+      const input = screen.getByLabelText("Moneda personalizada");
+      expect(input.value).toBe("USD");
+    });
+  });
+
+  it("does not crash when typing a partial currency code", async () => {
+    const { container } = render(<App />);
+    await waitFor(() => expect(screen.getByText("Catálogo cargado")).toBeTruthy());
+    const input = screen.getByLabelText("Moneda personalizada");
+    fireEvent.change(input, { target: { value: "G" } });
+    expect(container.querySelector(".totals")).toBeTruthy();
+  });
+
+  it("shows CLP by default in the currency input", async () => {
+    render(<App />);
+    await waitFor(() => {
+      const input = screen.getByLabelText("Moneda personalizada");
+      expect(input.value).toBe("CLP");
+    });
+  });
+
+  it("updates currency input on preset click", async () => {
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("USD")).toBeTruthy());
+    const radioInput = screen.getByRole("radio", { name: "USD" });
+    fireEvent.click(radioInput);
+    await waitFor(() => {
+      const input = screen.getByLabelText("Moneda personalizada");
+      expect(input.value).toBe("USD");
+    });
+  });
+});
+
 // ─────[plan 013] Quote CRUD and persistence — future work ───────────────
 
 describe("[plan 013] Quote CRUD and persistence", () => {

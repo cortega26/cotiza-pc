@@ -6,6 +6,18 @@ describe("parsePrice", () => {
     expect(parsePrice("1234567")).toEqual({ status: "valid", value: 1234567, raw: "1234567" });
   });
 
+  it("parses negative integer", () => {
+    expect(parsePrice("-50000")).toEqual({ status: "valid", value: -50000, raw: "-50000" });
+  });
+
+  it("parses negative CLP-formatted price", () => {
+    expect(parsePrice("-1.234.567", "CLP")).toEqual({ status: "valid", value: -1234567, raw: "-1.234.567" });
+  });
+
+  it("parses negative USD-formatted price", () => {
+    expect(parsePrice("-1,234.56", "USD")).toEqual({ status: "valid", value: -1234.56, raw: "-1,234.56" });
+  });
+
   it("parses CLP-style dotted thousands as integer", () => {
     expect(parsePrice("1.234.567", "CLP")).toEqual({ status: "valid", value: 1234567, raw: "1.234.567" });
   });
@@ -32,6 +44,14 @@ describe("parsePrice", () => {
 
   it("parses zero", () => {
     expect(parsePrice("0")).toEqual({ status: "valid", value: 0, raw: "0" });
+  });
+
+  it("parses zero in CLP mode", () => {
+    expect(parsePrice("0", "CLP")).toEqual({ status: "valid", value: 0, raw: "0" });
+  });
+
+  it("parses leading zeros as integer", () => {
+    expect(parsePrice("001234")).toEqual({ status: "valid", value: 1234, raw: "001234" });
   });
 
   it("returns missing for empty string", () => {
@@ -146,6 +166,24 @@ describe("computeTotals", () => {
     const result = computeTotals([row("100000", "80000")]);
     expect(result.saving).toBe(-20000);
   });
+
+  it("counts zero prices as valid and contributing to rowsWithPrice", () => {
+    const result = computeTotals([row("0", "0")]);
+    expect(result.totalOffer).toBe(0);
+    expect(result.totalRegular).toBe(0);
+    expect(result.saving).toBe(0);
+    expect(result.rowsWithPrice).toBe(1);
+    expect(result.savingRowCount).toBe(1);
+  });
+
+  it("does not count zero-side-only in savingRowCount", () => {
+    const result = computeTotals([row("0", "")]);
+    expect(result.totalOffer).toBe(0);
+    expect(result.totalRegular).toBe(0);
+    expect(result.saving).toBe(0);
+    expect(result.rowsWithPrice).toBe(1);
+    expect(result.savingRowCount).toBe(0);
+  });
 });
 
 describe("normalizeCurrency", () => {
@@ -153,8 +191,16 @@ describe("normalizeCurrency", () => {
     expect(normalizeCurrency(null)).toBe("CLP");
   });
 
+  it("returns CLP for undefined", () => {
+    expect(normalizeCurrency(undefined)).toBe("CLP");
+  });
+
   it("returns CLP for empty string", () => {
     expect(normalizeCurrency("")).toBe("CLP");
+  });
+
+  it("trims whitespace and normalizes", () => {
+    expect(normalizeCurrency(" usd ")).toBe("USD");
   });
 
   it("returns CLP for invalid code", () => {
