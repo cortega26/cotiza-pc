@@ -6,7 +6,7 @@ Generated on 2026-07-29 against commit `63ecbca`. Execute in order unless a plan
 |---|---|---:|---:|---|---|
 | 001 | Restore a green verification gate | P1 | S | — | DONE |
 | 002 | Preserve complete catalog compatibility data | P1 | S | 001 | DONE |
-| 003 | Validate deployable catalog artifacts | P1 | S | 001, 002 | DONE |
+| 003 | Validate deployed catalog artifacts | P1 | S | 001, 002 | DONE |
 | 004 | Pin scheduled catalog supply-chain inputs | P1 | M | 003 | TODO |
 | 005 | Upgrade vulnerable development tooling | P1 | M | 001 | TODO |
 | 006 | Characterize and harden quote import workflows | P2 | M | 001 | TODO |
