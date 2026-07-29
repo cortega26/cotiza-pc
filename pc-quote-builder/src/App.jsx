@@ -249,8 +249,19 @@ function App() {
   const importInputRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
+  const neededCategories = useMemo(() => {
+    const step = builderStep;
+    const cats = ["cpus"];
+    if (step >= 1) cats.push("motherboards");
+    if (step >= 2) cats.push("ram");
+    if (step >= 3) cats.push("gpus");
+    if (step >= 4) cats.push("psus");
+    if (step >= 5) cats.push("cases");
+    return cats;
+  }, [builderStep]);
+
   const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed } =
-    useCatalog(reloadToken);
+    useCatalog(reloadToken, neededCategories);
 
   const activeQuote = useMemo(
     () => quotes.find((q) => q.id === activeQuoteId),

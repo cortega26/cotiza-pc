@@ -9,7 +9,7 @@ Before creating, approving, or implementing a material plan, read [the Canonical
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---:|---:|---:|---:|---|---|
 | 007 | Consolidate catalog maintenance and onboarding | P2 | M | 003 | DONE |
-| 008 | Stage catalog loading by builder demand | P3 | M | 002, 006 | TODO |
+| 008 | Stage catalog loading by builder demand | P3 | M | 002, 006 | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (state why) | REJECTED (state why).
 
