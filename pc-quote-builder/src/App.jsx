@@ -629,12 +629,12 @@ function App() {
   const handleDownloadCSV = () => {
     if (!activeQuote) return;
 
-    const header = ["Componente", "Producto", "Tienda", "Precio oferta", "Precio normal", "Notas"];
+    const header = ["Componente", "Producto", "itemId", "Tienda", "Precio oferta", "Precio normal", "Notas"];
 
     const lines = [
       header.map(escapeCsvField).join(","),
       ...activeQuote.rows.map((row) =>
-        [row.category, row.product, row.store, row.offerPrice, row.regularPrice, row.notes]
+        [row.category, row.product, row.itemId, row.store, row.offerPrice, row.regularPrice, row.notes]
           .map(escapeCsvField)
           .join(",")
       ),
@@ -675,15 +675,26 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
+  const freshIds = (obj) => ({
+    ...obj,
+    id: undefined,
+    rows: Array.isArray(obj.rows)
+      ? obj.rows.map((r) => {
+          const { id: _omit, ...rest } = r;
+          return rest;
+        })
+      : obj.rows,
+  });
+
   const buildQuotesFromJson = (data) => {
     if (Array.isArray(data)) {
-      return data.map((q, idx) => normalizeQuote(q, q.name || `Importada ${idx + 1}`));
+      return data.map((q, idx) => normalizeQuote(freshIds(q), q.name || `Importada ${idx + 1}`));
     }
     if (data && Array.isArray(data.quotes)) {
-      return data.quotes.map((q, idx) => normalizeQuote(q, q.name || `Importada ${idx + 1}`));
+      return data.quotes.map((q, idx) => normalizeQuote(freshIds(q), q.name || `Importada ${idx + 1}`));
     }
     if (data && data.rows) {
-      return [normalizeQuote(data, data.name || "Importada JSON")];
+      return [normalizeQuote(freshIds(data), data.name || "Importada JSON")];
     }
     throw new Error("Formato JSON no reconocido.");
   };

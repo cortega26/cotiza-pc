@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   escapeCsvField,
+  unprotectFormulaField,
   parseCsv,
   parseCsvToQuote,
   parsePriceCsv,
@@ -53,6 +54,77 @@ describe("escapeCsvField", () => {
 
   it("wraps values containing carriage return + newline", () => {
     expect(escapeCsvField("a\r\nb")).toBe('"a\r\nb"');
+  });
+
+  it("prefixes = with single quote to prevent formula execution", () => {
+    expect(escapeCsvField("=SUM(A1:A10)")).toBe("'=SUM(A1:A10)");
+  });
+
+  it("prefixes + with single quote to prevent formula execution", () => {
+    expect(escapeCsvField("+SUM(A1:A10)")).toBe("'+SUM(A1:A10)");
+  });
+
+  it("prefixes - with single quote to prevent formula execution", () => {
+    expect(escapeCsvField("-1+1")).toBe("'-1+1");
+  });
+
+  it("prefixes @ with single quote to prevent formula execution", () => {
+    expect(escapeCsvField("@SUM(A1:A10)")).toBe("'@SUM(A1:A10)");
+  });
+
+  it("prefixes tab with single quote to prevent formula execution", () => {
+    expect(escapeCsvField("\t=cmd")).toBe("'\t=cmd");
+  });
+
+  it("does not prefix safe text", () => {
+    expect(escapeCsvField("hello")).toBe("hello");
+    expect(escapeCsvField("123")).toBe("123");
+    expect(escapeCsvField("equals in middle")).toBe("equals in middle");
+    expect(escapeCsvField("")).toBe("");
+  });
+
+  it("quotes a formula-prefixed value that also contains a comma", () => {
+    const result = escapeCsvField("=SUM(A1, A2)");
+    // RFC-4180 quoting wraps the entire prefixed value
+    expect(result).toBe('"\'=SUM(A1, A2)"');
+  });
+});
+
+describe("unprotectFormulaField", () => {
+  it("strips leading single quote before formula trigger", () => {
+    expect(unprotectFormulaField("'=SUM(A1)")).toBe("=SUM(A1)");
+    expect(unprotectFormulaField("'+1+1")).toBe("+1+1");
+    expect(unprotectFormulaField("'-hello")).toBe("-hello");
+    expect(unprotectFormulaField("'@hello")).toBe("@hello");
+    expect(unprotectFormulaField("'\t=cmd")).toBe("\t=cmd");
+  });
+
+  it("does not strip single quote from normal text", () => {
+    expect(unprotectFormulaField("'hello")).toBe("'hello");
+    expect(unprotectFormulaField("it's fine")).toBe("it's fine");
+  });
+
+  it("does not strip lone single quote", () => {
+    expect(unprotectFormulaField("'")).toBe("'");
+  });
+
+  it("returns null/undefined as-is", () => {
+    expect(unprotectFormulaField(null)).toBe(null);
+    expect(unprotectFormulaField(undefined)).toBe(undefined);
+  });
+
+  it("round-trips formula-prefixed value through escape + unprotect", () => {
+    const original = "=SUM(A1:A10)";
+    const exported = escapeCsvField(original);
+    const imported = unprotectFormulaField(exported);
+    expect(imported).toBe(original);
+  });
+
+  it("round-trips safe value unchanged", () => {
+    const original = "hello world";
+    const exported = escapeCsvField(original);
+    const imported = unprotectFormulaField(exported);
+    expect(imported).toBe(original);
   });
 });
 
@@ -261,6 +333,40 @@ describe("parseCsvToQuote", () => {
     expect(quote.rows).toHaveLength(1);
     expect(quote.rows[0].category).toBe("CPU");
     expect(quote.rows[0].product).toBe("Ryzen 5");
+  });
+
+  it("reads itemId column when present", () => {
+    const csv = "Componente,Producto,itemId\nCPU,Ryzen 5,cpu-001\nGPU,RTX 4060,gpu-002";
+    const quote = parseCsvToQuote(csv, helpers);
+    expect(quote.rows).toHaveLength(2);
+    expect(quote.rows[0].itemId).toBe("cpu-001");
+    expect(quote.rows[1].itemId).toBe("gpu-002");
+  });
+
+  it("accepts alternate itemId column names", () => {
+    const csv = "Componente,Producto,id_producto\nCPU,Ryzen 5,cpu-001";
+    const quote = parseCsvToQuote(csv, helpers);
+    expect(quote.rows[0].itemId).toBe("cpu-001");
+  });
+
+  it("defaults itemId to empty when column is missing (legacy CSV)", () => {
+    const csv = "Componente,Producto,Tienda\nCPU,Ryzen 5,StoreX";
+    const quote = parseCsvToQuote(csv, helpers);
+    expect(quote.rows).toHaveLength(1);
+    expect(quote.rows[0].itemId).toBe("");
+  });
+
+  it("round-trips formula-protected cells through export and import", () => {
+    const dangerousNote = "=SUM(A1:A10)";
+    const csvLine = [
+      escapeCsvField("CPU"),
+      escapeCsvField("Ryzen 5"),
+      escapeCsvField(dangerousNote),
+    ].join(",");
+    const csv = "Componente,Producto,Notas\n" + csvLine;
+    const quote = parseCsvToQuote(csv, helpers);
+    expect(quote.rows).toHaveLength(1);
+    expect(quote.rows[0].notes).toBe(dangerousNote);
   });
 });
 

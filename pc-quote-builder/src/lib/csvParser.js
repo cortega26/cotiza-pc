@@ -1,6 +1,23 @@
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+
+export function unprotectFormulaField(value) {
+  if (!value || typeof value !== "string") return value;
+  if (
+    value.startsWith("'") &&
+    value.length > 1 &&
+    FORMULA_TRIGGER.test(value[1])
+  ) {
+    return value.slice(1);
+  }
+  return value;
+}
+
 export const escapeCsvField = (value) => {
   if (value == null) return "";
-  const str = String(value);
+  let str = String(value);
+  if (FORMULA_TRIGGER.test(str)) {
+    str = "'" + str;
+  }
   if (/[",\n]/.test(str)) {
     return `"${str.replace(/"/g, '""')}"`;
   }
@@ -89,7 +106,7 @@ const findColumnIndex = (headers, candidates) => {
   return normalized.findIndex((h) => normalizedCandidates.includes(h));
 };
 
-const trimCell = (cell) => (cell || "").trim();
+const trimCell = (cell) => unprotectFormulaField((cell || "").trim());
 
 export const parseCsvToQuote = (text, { normalizeRow, normalizeQuote }) => {
   const { headers: rawHeaders, rows } = parseCsv(text);
@@ -99,6 +116,7 @@ export const parseCsvToQuote = (text, { normalizeRow, normalizeQuote }) => {
 
   const idxCategory = findColumnIndex(rawHeaders, ["componente", "categoria"]);
   const idxProduct = findColumnIndex(rawHeaders, ["producto", "item", "modelo"]);
+  const idxItemId = findColumnIndex(rawHeaders, ["itemid", "id_producto", "catalog_id"]);
   const idxStore = findColumnIndex(rawHeaders, ["tienda", "store"]);
   const idxOffer = findColumnIndex(rawHeaders, ["preciooferta", "oferta"]);
   const idxNormal = findColumnIndex(rawHeaders, ["precionormal", "normal"]);
@@ -117,6 +135,7 @@ export const parseCsvToQuote = (text, { normalizeRow, normalizeQuote }) => {
       normalizeRow({
         category: trimCell(cells[idxCategory]),
         product: trimCell(cells[idxProduct]),
+        itemId: idxItemId !== -1 ? trimCell(cells[idxItemId]) : "",
         store: idxStore !== -1 ? trimCell(cells[idxStore]) : "",
         offerPrice: idxOffer !== -1 ? trimCell(cells[idxOffer]) : "",
         regularPrice: idxNormal !== -1 ? trimCell(cells[idxNormal]) : "",

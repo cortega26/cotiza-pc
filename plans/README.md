@@ -10,7 +10,6 @@ Before approving or implementing any material plan, read [the Canonical Product 
 
 | Plan | Title | Priority | Effort | Depends on | Status |
 |---|---|---:|---:|---|---|
-| [015](015-harden-quote-interchange.md) | Separate local/catalog identity and make CSV spreadsheet-safe | P1 | M | 012 | TODO |
 | [016](016-extract-catalog-compiler.md) | Extract a pure, fixture-tested catalog compiler | P1 | L | 009, 011 | TODO |
 | [017](017-correct-case-form-factors.md) | Separate case chassis class from motherboard compatibility | P1 | M | 016 | TODO |
 | [018](018-guarantee-catalog-id-uniqueness.md) | Guarantee unique catalog IDs without orphaning saved quotes | P1 | L | 015, 016 | TODO |

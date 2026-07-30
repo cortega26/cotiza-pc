@@ -688,17 +688,133 @@ describe("[plan 014] Builder flow", () => {
 // ─────[plan 015] File boundaries — future work ──────────────────────────
 
 describe("[plan 015] File boundaries — import and export", () => {
-  it.todo("downloads CSV with correct headers and data rows [plan 015]");
-  it.todo("downloads CSV with totals lines [plan 015]");
-  it.todo("downloads JSON with quote data and totals [plan 015]");
-  it.todo("imports a valid CSV file [plan 015]");
-  it.todo("imports a valid JSON file with quotes array [plan 015]");
-  it.todo("imports a valid JSON file with single quote object [plan 015]");
-  it.todo("imports prices from CSV by itemId [plan 015]");
-  it.todo("imports prices from JSON by itemId [plan 015]");
-  it.todo("shows alert on successful import [plan 015]");
-  it.todo("shows alert on import error [plan 015]");
-  it.todo("triggers file input on import button click [plan 015]");
-  it.todo("triggers price import file input [plan 015]");
-  it.todo("handles empty CSV with error [plan 015]");
+  async function renderWithQuote() {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+  }
+
+  function findFileInput() {
+    return document.querySelector('input[accept=".csv,.json"][type="file"]:not([id="price-import-input"])');
+  }
+
+  function findPriceInput() {
+    return document.getElementById("price-import-input");
+  }
+
+  async function importFile(content, fileName = "test.csv") {
+    const input = findFileInput();
+    const file = new File([content], fileName, { type: "text/csv" });
+    file.text = vi.fn().mockResolvedValue(content);
+    await fireEvent.change(input, { target: { files: [file] } });
+  }
+
+  it("imports a valid CSV file and shows success alert [plan 015]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const csv = "Componente,Producto\nCPU,Ryzen 5\nGPU,RTX 4060";
+    await importFile(csv, "build.csv");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/éxito/i));
+    });
+    alertSpy.mockRestore();
+  });
+
+  it("imports a valid JSON file with single quote object and shows success [plan 015]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const json = JSON.stringify({ name: "JSON Import", rows: [{ category: "CPU", product: "Ryzen" }] });
+    await importFile(json, "build.json");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/éxito/i));
+    });
+    alertSpy.mockRestore();
+  });
+
+  it("imports a valid JSON file with quotes array [plan 015]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const json = JSON.stringify([{ name: "Import A", rows: [{ category: "CPU", product: "Ryzen" }] }]);
+    await importFile(json, "builds.json");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/éxito/i));
+    });
+    alertSpy.mockRestore();
+  });
+
+  it("shows error alert on invalid file content [plan 015]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    await importFile("not really csv", "bad.csv");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se pudo importar/i));
+    });
+    alertSpy.mockRestore();
+  });
+
+  it("handles empty CSV with error [plan 015]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    await importFile("", "empty.csv");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se pudo importar/i));
+    });
+    alertSpy.mockRestore();
+  });
+
+  it("triggers file input on import button click [plan 015]", async () => {
+    await renderWithQuote();
+    const clickSpy = vi.spyOn(findFileInput(), "click");
+    fireEvent.click(screen.getByText("Importar CSV/JSON"));
+    expect(clickSpy).toHaveBeenCalledOnce();
+    clickSpy.mockRestore();
+  });
+
+  it("triggers price import file input [plan 015]", async () => {
+    await renderWithQuote();
+    const input = findPriceInput();
+    const clickSpy = vi.spyOn(input, "click");
+    fireEvent.click(screen.getByText("Importar precios (por id)"));
+    expect(clickSpy).toHaveBeenCalledOnce();
+    clickSpy.mockRestore();
+  });
+
+  it("imports prices from CSV by itemId [plan 015]", async () => {
+    const quoteRows = [
+      { id: "r1", category: "CPU", product: "Intel i5", itemId: "cpu-001", store: "Store A", offerPrice: "", regularPrice: "", notes: "" },
+      { id: "r2", category: "GPU", product: "RTX 4060", itemId: "gpu-002", store: "Store B", offerPrice: "", regularPrice: "", notes: "" },
+    ];
+    localStorageWithQuote({ rows: quoteRows });
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const csv = "id,offerPrice,regularPrice\ncpu-001,30000,35000\ngpu-002,180000,200000";
+    const input = findPriceInput();
+    const file = new File([csv], "prices.csv", { type: "text/csv" });
+    file.text = vi.fn().mockResolvedValue(csv);
+    await fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/precios importados/i));
+    });
+    alertSpy.mockRestore();
+  });
+
+  it("imports prices from JSON by itemId [plan 015]", async () => {
+    const quoteRows = [
+      { id: "r1", category: "CPU", product: "Intel i5", itemId: "cpu-001", store: "Store A", offerPrice: "", regularPrice: "", notes: "" },
+    ];
+    localStorageWithQuote({ rows: quoteRows });
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    const json = JSON.stringify([{ id: "cpu-001", offerPrice: "30000", regularPrice: "35000" }]);
+    const input = findPriceInput();
+    const file = new File([json], "prices.json", { type: "application/json" });
+    file.text = vi.fn().mockResolvedValue(json);
+    await fireEvent.change(input, { target: { files: [file] } });
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/precios importados/i));
+    });
+    alertSpy.mockRestore();
+  });
 });
