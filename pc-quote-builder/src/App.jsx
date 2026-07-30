@@ -3,6 +3,7 @@ import TypeaheadSelect from "./components/TypeaheadSelect";
 import { useCatalog } from "./hooks/useCatalog";
 import { evaluateSelection } from "./lib/selectionEvaluation";
 import { parsePrice, computeTotals, normalizeCurrency } from "./lib/money";
+import { resolveCatalogId } from "./lib/catalogMapper";
 import {
   escapeCsvField,
   parseCsvToQuote,
@@ -324,17 +325,18 @@ function App() {
     return map;
   }, [cpus]);
 
-  const selection = useMemo(
-    () => ({
-      cpu: cpus.find((c) => c.id === builder.cpuId),
-      mobo: motherboards.find((m) => m.id === builder.moboId),
-      ram: ramKits.find((r) => r.id === builder.ramId),
-      gpu: gpus.find((g) => g.id === builder.gpuId),
-      psu: psus.find((p) => p.id === builder.psuId),
-      pcCase: pcCases.find((c) => c.id === builder.caseId),
-    }),
-    [builder, cpus, motherboards, ramKits, gpus, psus, pcCases]
-  );
+  const selection = useMemo(() => {
+    const aliases = compatMeta?.aliases || {};
+    const findOrAlias = (list, id) => list.find((item) => item.id === id) || list.find((item) => item.id === resolveCatalogId(id, aliases));
+    return {
+      cpu: findOrAlias(cpus, builder.cpuId),
+      mobo: findOrAlias(motherboards, builder.moboId),
+      ram: findOrAlias(ramKits, builder.ramId),
+      gpu: findOrAlias(gpus, builder.gpuId),
+      psu: findOrAlias(psus, builder.psuId),
+      pcCase: findOrAlias(pcCases, builder.caseId),
+    };
+  }, [builder, cpus, motherboards, ramKits, gpus, psus, pcCases, compatMeta?.aliases]);
 
   const optionsByStep = useMemo(() => {
     const options = {};
@@ -496,33 +498,35 @@ function App() {
 
   const handleBuilderChange = (key, value) => {
     const cleanValue = value || "";
+    const aliasMap = compatMeta?.aliases || {};
+    const findInList = (list, id) => list.find((item) => item.id === id) || list.find((item) => item.id === resolveCatalogId(id, aliasMap));
     setBuilder((prev) => {
       const next = { ...prev, [key]: cleanValue };
       if (key === "cpuId") {
-        const selectedCpu = cpus.find((c) => c.id === cleanValue);
+        const selectedCpu = findInList(cpus, cleanValue);
         if (selectedCpu) {
           setCpuBrand(selectedCpu.brand || "");
           setCpuFamily(selectedCpu.family || "");
         }
-        const cpu = cpus.find((c) => c.id === cleanValue);
-        const mobo = motherboards.find((m) => m.id === next.moboId);
-        const ram = ramKits.find((r) => r.id === next.ramId);
+        const cpu = findInList(cpus, cleanValue);
+        const mobo = findInList(motherboards, next.moboId);
+        const ram = findInList(ramKits, next.ramId);
         if (mobo && cpu && mobo.socket !== cpu.socket) next.moboId = "";
         if (ram && cpu && cpu.memoryTypeExplicit && ram.type !== cpu.memoryType) next.ramId = "";
       }
       if (key === "moboId") {
-        const mobo = motherboards.find((m) => m.id === cleanValue);
-        const ram = ramKits.find((r) => r.id === next.ramId);
+        const mobo = findInList(motherboards, cleanValue);
+        const ram = findInList(ramKits, next.ramId);
         if (mobo && ram && mobo.memoryTypeExplicit && ram.type !== mobo.memoryType) next.ramId = "";
-        const currentCase = pcCases.find((c) => c.id === next.caseId);
+        const currentCase = findInList(pcCases, next.caseId);
         if (mobo && currentCase && !currentCase.formFactors?.includes(mobo.formFactor)) {
           next.caseId = "";
         }
       }
       if (key === "gpuId") {
         next.useIntegratedGpu = false;
-        const gpu = gpus.find((g) => g.id === cleanValue);
-        const currentCase = pcCases.find((c) => c.id === next.caseId);
+        const gpu = findInList(gpus, cleanValue);
+        const currentCase = findInList(pcCases, next.caseId);
         if (gpu && currentCase && gpu.length > currentCase.maxGpuLength) {
           next.caseId = "";
         }
@@ -734,14 +738,23 @@ function App() {
         return;
       }
       const priceMap = buildPriceMap(items);
-      const matchCount = activeQuote ? activeQuote.rows.filter((r) => priceMap.has(r.itemId)).length : 0;
+      const aliases = compatMeta?.aliases || {};
+      for (const [oldId, newId] of Object.entries(aliases)) {
+        const entry = priceMap.get(newId) || priceMap.get(oldId);
+        if (entry) {
+          if (!priceMap.has(oldId)) priceMap.set(oldId, entry);
+          if (!priceMap.has(newId)) priceMap.set(newId, entry);
+        }
+      }
+      const resolveId = (id) => priceMap.has(id) ? id : resolveCatalogId(id, aliases);
+      const matchCount = activeQuote ? activeQuote.rows.filter((r) => priceMap.has(resolveId(r.itemId))).length : 0;
       if (matchCount === 0) {
         alert("No se encontraron precios para importar.");
         return;
       }
       updateActiveQuote((q) => ({
         rows: q.rows.map((row) => {
-          const match = priceMap.get(row.itemId);
+          const match = priceMap.get(resolveId(row.itemId));
           if (!match) return row;
           return {
             ...row,

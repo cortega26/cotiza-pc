@@ -16,6 +16,7 @@ import {
   mergeCooler,
   mergeFan,
   computeCompatibilityMeta,
+  deduplicateIds,
 } from "./lib/compiler.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -38,14 +39,14 @@ function build() {
   assert(Array.isArray(pcCpus) && pcCpus.length > 0, "CPU dataset vacio (pc-part-dataset).");
   assert((dbGpus?.length || 0) + (pcGpus?.length || 0) > 0, "GPU dataset vacio (dbgpu + pc-part-dataset).");
 
-  const mergedCpus = mergeGrouped([...bcCpus, ...pcCpus], mergeCpu).sort(stableIdSort);
-  const mergedGpus = mergeGrouped([...dbGpus, ...pcGpus], mergeGpu).sort(stableIdSort);
-  const mergedMobos = mergeGrouped([...mobos], mergeMobo).sort(stableIdSort);
-  const mergedPsus = mergeGrouped([...psus], mergePsu).sort(stableIdSort);
-  const mergedCases = mergeGrouped([...cases], mergeCase).sort(stableIdSort);
-  const mergedRam = mergeGrouped([...bcRam, ...pcRam], mergeRam).sort(stableIdSort);
-  const mergedCoolers = mergeGrouped([...coolers], mergeCooler).sort(stableIdSort);
-  const mergedFans = mergeGrouped([...fans], mergeFan).sort(stableIdSort);
+  const mergedCpus = deduplicateIds(mergeGrouped([...bcCpus, ...pcCpus], mergeCpu).sort(stableIdSort));
+  const mergedGpus = deduplicateIds(mergeGrouped([...dbGpus, ...pcGpus], mergeGpu).sort(stableIdSort));
+  const mergedMobos = deduplicateIds(mergeGrouped([...mobos], mergeMobo).sort(stableIdSort));
+  const mergedPsus = deduplicateIds(mergeGrouped([...psus], mergePsu).sort(stableIdSort));
+  const mergedCases = deduplicateIds(mergeGrouped([...cases], mergeCase).sort(stableIdSort));
+  const mergedRam = deduplicateIds(mergeGrouped([...bcRam, ...pcRam], mergeRam).sort(stableIdSort));
+  const mergedCoolers = deduplicateIds(mergeGrouped([...coolers], mergeCooler).sort(stableIdSort));
+  const mergedFans = deduplicateIds(mergeGrouped([...fans], mergeFan).sort(stableIdSort));
 
   const mins = {
     cpus: envNumber("PC_DATA_MIN_CPUS", 100),

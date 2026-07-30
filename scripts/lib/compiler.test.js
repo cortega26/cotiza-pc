@@ -15,6 +15,8 @@ import {
   mergeFan,
   computeCompatibilityMeta,
   canonicalizeFormFactors,
+  deduplicateIds,
+  computeLegacyAliases,
   SOURCE_TAGS,
 } from "./compiler.js";
 
@@ -197,6 +199,25 @@ describe("mergeCpu", () => {
     expect(result.meta.quality_score).toBe(0.8);
   });
 
+  it("includes legacy_id when slug changes for + in model", () => {
+    const cpu = { ...pcCpu, model: "Ryzen 5 5600+" };
+    const result = mergeCpu([cpu]);
+    expect(result.legacy_id).toBe("cpu_amd_ryzen_5_5600");
+    expect(result.id).toBe("cpu_amd_ryzen_5_5600+");
+  });
+
+  it("omits legacy_id when old and new IDs match", () => {
+    const result = mergeCpu([pcCpu]);
+    expect(result.legacy_id).toBeUndefined();
+  });
+
+  it("handles empty brand gracefully", () => {
+    const cpu = { ...pcCpu, brand: "" };
+    const result = mergeCpu([cpu]);
+    expect(result.id).toBe("cpu_ryzen_5_5600");
+    expect(result.brand).toBe("");
+  });
+
   it("returns null for empty records", () => {
     expect(mergeCpu([])).toBe(null);
   });
@@ -254,6 +275,34 @@ describe("mergeGpu", () => {
     expect(result.meta.conflict_flags).toContain("gpu_tdp_conflict");
   });
 
+  it("includes brand in the canonical id", () => {
+    const result = mergeGpu([{ ...dbGpu, brand: "NVIDIA", model: "RTX 4060" }]);
+    expect(result.id).toBe("gpu_nvidia_rtx_4060");
+  });
+
+  it("always includes legacy_id (GPU IDs were model-only before Plan 018)", () => {
+    const result = mergeGpu([{ ...dbGpu, brand: "NVIDIA", model: "GT 1030", chipset: "GT 1030" }]);
+    expect(result.legacy_id).toBe("gpu_gt_1030");
+    expect(result.id).toBe("gpu_nvidia_gt_1030");
+  });
+
+  it("includes legacy_id when model-only slug differs from brand+model slug", () => {
+    const result = mergeGpu([{ ...dbGpu, brand: "NVIDIA", model: "RX 6700 XT+", chipset: "RX 6700 XT+" }]);
+    expect(result.legacy_id).toBe("gpu_rx_6700_xt");
+    expect(result.id).toBe("gpu_nvidia_rx_6700_xt+");
+  });
+
+  it("handles missing brand gracefully", () => {
+    const result = mergeGpu([{ ...dbGpu, brand: undefined }]);
+    expect(result.id).toBe("gpu_rtx_4060");
+    expect(result.brand).toBe("");
+  });
+
+  it("handles missing model and chipset", () => {
+    const result = mergeGpu([{ source: "dbgpu", id: "db-null", normalized_key: "nvidia generic", brand: "NVIDIA" }]);
+    expect(result.id).toBe("gpu_nvidia_nvidia_generic");
+  });
+
   it("returns null for empty", () => {
     expect(mergeGpu([])).toBe(null);
   });
@@ -270,6 +319,14 @@ describe("mergeMobo", () => {
     expect(result.meta.created_from).toEqual(["pcpart"]);
   });
 
+  it("includes legacy_id when slug changes for + in model", () => {
+    const result = mergeMobo([
+      { source: "pcpart", brand: "ASUS", model: "B550+", socket: "AM4", form_factor: "ATX", normalized_key: "asus b550+" },
+    ]);
+    expect(result.legacy_id).toBe("mobo_asus_b550");
+    expect(result.id).toBe("mobo_asus_b550+");
+  });
+
   it("returns null for empty", () => {
     expect(mergeMobo([])).toBe(null);
   });
@@ -283,6 +340,14 @@ describe("mergePsu", () => {
     expect(result.id).toMatch(/^psu_/);
     expect(result.wattage_w).toBe(650);
     expect(result.form_factor).toBe("ATX");
+  });
+
+  it("includes legacy_id when slug changes for + in model", () => {
+    const result = mergePsu([
+      { source: "pcpart", brand: "Corsair", model: "RM650x+", wattage_w: 650, normalized_key: "corsair rm650x+" },
+    ]);
+    expect(result.legacy_id).toBe("psu_corsair_rm650x");
+    expect(result.id).toBe("psu_corsair_rm650x+");
   });
 });
 
@@ -344,6 +409,14 @@ describe("mergeCase", () => {
     expect(result.form_factor_evidence).toBe("inferred");
   });
 
+  it("includes legacy_id when slug changes for + in model", () => {
+    const result = mergeCase([
+      { source: "pcpart", brand: "Fractal", model: "Meshify C+", chassis_type: "ATX Mid Tower", normalized_key: "fractal meshify c+" },
+    ]);
+    expect(result.legacy_id).toBe("case_fractal_meshify_c");
+    expect(result.id).toBe("case_fractal_meshify_c+");
+  });
+
   it("returns null for empty", () => {
     expect(mergeCase([])).toBe(null);
   });
@@ -376,6 +449,14 @@ describe("mergeRam", () => {
     expect(result.type).toBe("DDR4");
     expect(result.speed_mts).toBe(3200);
   });
+
+  it("includes legacy_id when slug changes for + in model", () => {
+    const result = mergeRam([
+      { source: "pcpart", brand: "Corsair", model: "Vengeance+", type: "DDR4", speed_mts: 3200, normalized_key: "corsair vengeance+" },
+    ]);
+    expect(result.legacy_id).toBe("ram_corsair_vengeance");
+    expect(result.id).toBe("ram_corsair_vengeance+");
+  });
 });
 
 describe("mergeCooler", () => {
@@ -386,6 +467,14 @@ describe("mergeCooler", () => {
     expect(result.id).toMatch(/^cooler_/);
     expect(result.type).toBe("air");
   });
+
+  it("includes legacy_id when slug changes for + in model", () => {
+    const result = mergeCooler([
+      { source: "pcpart", brand: "Noctua", model: "NH-D15+", size_mm: 165, normalized_key: "noctua nh d15+" },
+    ]);
+    expect(result.legacy_id).toBe("cooler_noctua_nh_d15");
+    expect(result.id).toBe("cooler_noctua_nh_d15+");
+  });
 });
 
 describe("mergeFan", () => {
@@ -395,6 +484,81 @@ describe("mergeFan", () => {
     ]);
     expect(result.id).toMatch(/^fan_/);
     expect(result.pwm).toBe(true);
+  });
+
+  it("includes legacy_id when slug changes for + in model", () => {
+    const result = mergeFan([
+      { source: "pcpart", brand: "Noctua", model: "NF-A12x25+", size_mm: 120, normalized_key: "noctua nf a12x25+" },
+    ]);
+    expect(result.legacy_id).toBe("fan_noctua_nf_a12x25");
+    expect(result.id).toBe("fan_noctua_nf_a12x25+");
+  });
+});
+
+describe("deduplicateIds", () => {
+  it("returns items unchanged when all IDs are unique", () => {
+    const items = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    expect(deduplicateIds(items)).toEqual(items);
+  });
+
+  it("appends _2, _3 suffix to duplicate IDs", () => {
+    const items = [{ id: "a", name: "first" }, { id: "a", name: "second" }, { id: "a", name: "third" }];
+    const result = deduplicateIds(items);
+    expect(result[0].id).toBe("a");
+    expect(result[1].id).toBe("a_2");
+    expect(result[2].id).toBe("a_3");
+  });
+
+  it("preserves other properties on suffixed items", () => {
+    const items = [{ id: "x", value: 1 }, { id: "x", value: 2 }];
+    const result = deduplicateIds(items);
+    expect(result[1].value).toBe(2);
+  });
+
+  it("handles items whose id already ends with _N suffix", () => {
+    const items = [{ id: "a_2", value: 1 }, { id: "a", value: 2 }, { id: "a", value: 3 }];
+    const result = deduplicateIds(items);
+    expect(result[0].id).toBe("a_2");
+    expect(result[1].id).toBe("a");
+    expect(result[2].id).toBe("a_3");
+  });
+
+  it("handles empty list", () => {
+    expect(deduplicateIds([])).toEqual([]);
+  });
+});
+
+describe("computeLegacyAliases", () => {
+  it("maps legacy_id to new id for unambiguous items", () => {
+    const cpus = [{ id: "cpu_amd_ryzen_5_5600+", legacy_id: "cpu_amd_ryzen_5_5600" }];
+    const gpus = [{ id: "gpu_nvidia_rx_6700_xt+", legacy_id: "gpu_rx_6700_xt" }];
+    const aliases = computeLegacyAliases(cpus, gpus);
+    expect(aliases["cpu_amd_ryzen_5_5600"]).toBe("cpu_amd_ryzen_5_5600+");
+    expect(aliases["gpu_rx_6700_xt"]).toBe("gpu_nvidia_rx_6700_xt+");
+  });
+
+  it("skips legacy_id when multiple items share the same old ID (ambiguous)", () => {
+    const cpus = [
+      { id: "cpu_amd_ryzen_5_5600+", legacy_id: "cpu_amd_ryzen_5_5600" },
+      { id: "cpu_intel_ryzen_5_5600+", legacy_id: "cpu_amd_ryzen_5_5600" },
+    ];
+    const aliases = computeLegacyAliases(cpus);
+    expect(aliases["cpu_amd_ryzen_5_5600"]).toBeUndefined();
+  });
+
+  it("handles undefined legacy_id gracefully", () => {
+    const items = [{ id: "cpu_a" }, { id: "cpu_b" }];
+    expect(computeLegacyAliases(items)).toEqual({});
+  });
+
+  it("skips nullish category arrays", () => {
+    const cpus = [{ id: "cpu_a+", legacy_id: "cpu_a" }];
+    const aliases = computeLegacyAliases(cpus, null, undefined);
+    expect(aliases["cpu_a"]).toBe("cpu_a+");
+  });
+
+  it("handles empty input", () => {
+    expect(computeLegacyAliases()).toEqual({});
   });
 });
 
@@ -435,6 +599,28 @@ describe("computeCompatibilityMeta", () => {
     expect(meta.tiers.gpu).toHaveLength(1);
     expect(meta.sockets).toEqual({ AM4: { mobos: 1, cpus: 0 } });
     expect(meta.form_factors).toEqual({ ATX: { cases: 1, mobos: 0 } });
+  });
+
+  it("includes aliases derived from legacy_id fields", () => {
+    const cpuA = {
+      id: "cpu_amd_ryzen_5_5600+",
+      legacy_id: "cpu_amd_ryzen_5_5600",
+      tdp_w: 65,
+      cores: 6,
+      boost_clock_ghz: 4.0,
+    };
+    const meta = computeCompatibilityMeta({
+      mergedCpus: [cpuA],
+      mergedGpus: [],
+      mergedMobos: [],
+      mergedPsus: [],
+      mergedCases: [],
+      mergedRam: [],
+      mergedCoolers: [],
+      mergedFans: [],
+      provenance: null,
+    });
+    expect(meta.aliases).toEqual({ "cpu_amd_ryzen_5_5600": "cpu_amd_ryzen_5_5600+" });
   });
 
   it("propagates provenance through to output", () => {

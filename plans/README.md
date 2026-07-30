@@ -9,10 +9,10 @@ Before approving or implementing any material plan, read [the Canonical Product 
 ## Execution order and status
 
 | Plan | Title | Priority | Effort | Depends on | Status |
-|---|---|---:|---:|---|---|
+|---|---|---|---:|---:|---|---|
 | [016](archive/016-extract-catalog-compiler.md) | Extract a pure, fixture-tested catalog compiler | P1 | L | 009, 011 | DONE |
 | [017](archive/017-correct-case-form-factors.md) | Separate case chassis class from motherboard compatibility | P1 | M | 016 | DONE |
-| [018](018-guarantee-catalog-id-uniqueness.md) | Guarantee unique catalog IDs without orphaning saved quotes | P1 | L | 015, 016 | TODO |
+| [018](archive/018-guarantee-catalog-id-uniqueness.md) | Guarantee unique catalog IDs without orphaning saved quotes | P1 | L | 015, 016 | DONE |
 | [019](019-finish-staged-catalog-loading.md) | Finish staged catalog loading state and request semantics | P1 | M | 012, 014 | TODO |
 | [020](020-restore-mobile-core-actions.md) | Keep core quote actions available on mobile | P2 | M | 012 | TODO |
 | [021](021-reconcile-onboarding-and-product-docs.md) | Reconcile contributor, maintenance, product-state, and plan docs | P2 | M | 009, 010, 011 | TODO |

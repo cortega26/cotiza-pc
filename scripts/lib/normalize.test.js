@@ -3,6 +3,7 @@ import {
   deburr,
   normalizeKey,
   slug,
+  legacySlug,
   safeNumber,
   assert,
   envNumber,
@@ -55,9 +56,43 @@ describe("slug", () => {
     expect(slug("!hello!")).toBe("hello");
   });
 
+  it("preserves plus sign in slug", () => {
+    expect(slug("Ryzen 5 5600+")).toBe("ryzen_5_5600+");
+    expect(slug("RX 6700 XT+")).toBe("rx_6700_xt+");
+  });
+
+  it("handles plus-only string", () => {
+    expect(slug("+")).toBe("+");
+    expect(slug("+++")).toBe("+++");
+  });
+
+  it("handles leading plus", () => {
+    expect(slug("+Ryzen 5")).toBe("+ryzen_5");
+  });
+
   it("handles empty", () => {
     expect(slug("")).toBe("");
     expect(slug()).toBe("");
+  });
+});
+
+describe("legacySlug", () => {
+  it("lowercases and replaces separators with underscore", () => {
+    expect(legacySlug("AMD Ryzen 5")).toBe("amd_ryzen_5");
+  });
+
+  it("strips plus sign (unlike slug)", () => {
+    expect(legacySlug("Ryzen 5 5600+")).toBe("ryzen_5_5600");
+    expect(legacySlug("RX 6700 XT+")).toBe("rx_6700_xt");
+  });
+
+  it("strips leading/trailing underscores", () => {
+    expect(legacySlug("!hello!")).toBe("hello");
+  });
+
+  it("handles empty", () => {
+    expect(legacySlug("")).toBe("");
+    expect(legacySlug()).toBe("");
   });
 });
 

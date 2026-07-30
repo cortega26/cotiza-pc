@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTierMaps, mapProcessedToCatalog } from "./catalogMapper";
+import { buildTierMaps, mapProcessedToCatalog, resolveCatalogId } from "./catalogMapper";
 
 describe("catalogMapper", () => {
   it("normalizes processed data with inferred fields", () => {
@@ -215,5 +215,35 @@ describe("catalogMapper", () => {
     expect(mapped.psus[0].wattage).toBeNull();
     expect(mapped.pcCases[0].id).toBe("c1");
     expect(mapped.pcCases[0].maxGpuLength).toBeNull();
+  });
+});
+
+describe("resolveCatalogId", () => {
+  it("returns resolved id from aliases", () => {
+    const aliases = { "cpu_old": "cpu_new" };
+    expect(resolveCatalogId("cpu_old", aliases)).toBe("cpu_new");
+  });
+
+  it("returns original id when no alias found", () => {
+    expect(resolveCatalogId("cpu_unknown", { "cpu_old": "cpu_new" })).toBe("cpu_unknown");
+  });
+
+  it("returns original id when aliases is null or undefined", () => {
+    expect(resolveCatalogId("cpu_old", null)).toBe("cpu_old");
+    expect(resolveCatalogId("cpu_old", undefined)).toBe("cpu_old");
+  });
+
+  it("returns original id when aliases is empty", () => {
+    expect(resolveCatalogId("cpu_old", {})).toBe("cpu_old");
+  });
+
+  it("handles empty string oldId", () => {
+    const aliases = { "cpu_old": "cpu_new" };
+    expect(resolveCatalogId("", aliases)).toBe("");
+  });
+
+  it("resolves alias even when alias value is empty string", () => {
+    const aliases = { "cpu_old": "" };
+    expect(resolveCatalogId("cpu_old", aliases)).toBe("");
   });
 });

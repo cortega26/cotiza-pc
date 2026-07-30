@@ -14,6 +14,12 @@ export const normalizeKey = (brand = "", model = "") => {
 export const slug = (str = "") =>
   deburr(str)
     .toLowerCase()
+    .replace(/[^a-z0-9+]+/g, "_")
+    .replace(/^_|_$/g, "");
+
+export const legacySlug = (str = "") =>
+  deburr(str)
+    .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_|_$/g, "");
 

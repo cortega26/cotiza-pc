@@ -1,4 +1,4 @@
-import { safeNumber, slug, sortObjectKeys, stableIdSort } from "./normalize.js";
+import { safeNumber, slug, legacySlug, sortObjectKeys, stableIdSort } from "./normalize.js";
 
 export const SOURCE_TAGS = {
   BUILDCORES: "buildcores",
@@ -56,6 +56,7 @@ export function mergeCpu(records) {
   };
   const b = pick(({ buildcores, pcpart }) => buildcores || pcpart || records[0]);
   const canonicalId = `cpu_${slug(`${b.brand} ${b.model}`)}`;
+  const legacyCpuId = `cpu_${legacySlug(`${b.brand} ${b.model}`)}`;
   const tdpValues = records.map((r) => r.tdp_w).filter((v) => v != null);
   const conflict_flags = [];
   if (tdpValues.length > 1) {
@@ -80,6 +81,7 @@ export function mergeCpu(records) {
       buildcores_id: records.find((r) => r.source === SOURCE_TAGS.BUILDCORES)?.id || null,
       pcpart_id: records.find((r) => r.source === SOURCE_TAGS.PCPART)?.id || null,
     },
+    legacy_id: legacyCpuId !== canonicalId ? legacyCpuId : undefined,
     meta: {
       created_from: sources,
       conflict_flags,
@@ -98,7 +100,10 @@ export function mergeGpu(records) {
     return fn({ dbgpu, pcpart });
   };
   const base = pick(({ dbgpu, pcpart }) => dbgpu || pcpart || records[0]);
-  const canonicalId = `gpu_${slug(base.model || base.chipset || base.normalized_key)}`;
+  const brand = base.brand || "";
+  const gpuModel = base.model || base.chipset || base.normalized_key || "";
+  const canonicalId = `gpu_${slug(`${brand} ${gpuModel}`)}`;
+  const legacyId = `gpu_${legacySlug(gpuModel)}`;
   const tdpValues = records.map((r) => r.tdp_w).filter((v) => v != null);
   const conflict_flags = [];
   if (tdpValues.length > 1) {
@@ -108,8 +113,8 @@ export function mergeGpu(records) {
   }
   return {
     id: canonicalId,
-    name: `${base.brand} ${base.model || base.chipset}`.trim(),
-    brand: base.brand,
+    name: `${brand} ${base.model || base.chipset}`.trim(),
+    brand: brand,
     model: base.model || base.chipset,
     category: "gpu",
     chipset: pick(({ dbgpu, pcpart }) => dbgpu?.chipset || pcpart?.chipset || base.model),
@@ -131,6 +136,7 @@ export function mergeGpu(records) {
       dbgpu_id: records.find((r) => r.source === SOURCE_TAGS.DBGPU)?.id || null,
       pcpart_id: records.find((r) => r.source === SOURCE_TAGS.PCPART)?.id || null,
     },
+    legacy_id: legacyId !== canonicalId ? legacyId : undefined,
     meta: { created_from: sources, conflict_flags, quality_score: sources.length > 1 ? 0.9 : 0.8 },
     normalized_key: base.normalized_key,
   };
@@ -140,6 +146,7 @@ export function mergeMobo(records) {
   if (!records.length) return null;
   const b = records[0];
   const canonicalId = `mobo_${slug(`${b.brand} ${b.model}`)}`;
+  const legacyMoboId = `mobo_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
@@ -155,6 +162,7 @@ export function mergeMobo(records) {
     m2_slots: b.m2_slots || null,
     sata_ports: b.sata_ports || null,
     sources: { pcpart_id: b.id },
+    legacy_id: legacyMoboId !== canonicalId ? legacyMoboId : undefined,
     meta: { created_from: [SOURCE_TAGS.PCPART], conflict_flags: [], quality_score: 0.8 },
     normalized_key: b.normalized_key,
   };
@@ -164,6 +172,7 @@ export function mergePsu(records) {
   if (!records.length) return null;
   const b = records[0];
   const canonicalId = `psu_${slug(`${b.brand} ${b.model}`)}`;
+  const legacyPsuId = `psu_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
@@ -175,6 +184,7 @@ export function mergePsu(records) {
     efficiency_rating: b.efficiency_rating || "",
     pcie_power_connectors: b.pcie_power_connectors || {},
     sources: { pcpart_id: b.id },
+    legacy_id: legacyPsuId !== canonicalId ? legacyPsuId : undefined,
     meta: { created_from: [SOURCE_TAGS.PCPART], conflict_flags: [], quality_score: 0.8 },
     normalized_key: b.normalized_key,
   };
@@ -211,6 +221,7 @@ export function mergeCase(records) {
   if (!records.length) return null;
   const b = records[0];
   const canonicalId = `case_${slug(`${b.brand} ${b.model}`)}`;
+  const legacyCaseId = `case_${legacySlug(`${b.brand} ${b.model}`)}`;
   const { formFactors, evidence } = canonicalizeFormFactors(b.chassis_type);
   return {
     id: canonicalId,
@@ -224,6 +235,7 @@ export function mergeCase(records) {
     max_gpu_length_mm: b.max_gpu_length_mm || null,
     max_cpu_cooler_height_mm: b.max_cpu_cooler_height_mm || null,
     psu_form_factor: b.psu_form_factor || "ATX",
+    legacy_id: legacyCaseId !== canonicalId ? legacyCaseId : undefined,
     sources: { pcpart_id: b.id },
     meta: { created_from: [SOURCE_TAGS.PCPART], conflict_flags: [], quality_score: 0.8 },
     normalized_key: b.normalized_key,
@@ -234,6 +246,7 @@ export function mergeRam(records) {
   if (!records.length) return null;
   const b = records[0];
   const canonicalId = `ram_${slug(`${b.brand} ${b.model}`)}`;
+  const legacyRamId = `ram_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
@@ -245,6 +258,7 @@ export function mergeRam(records) {
     modules: b.modules || null,
     speed_mts: b.speed_mts || null,
     cas_latency: b.cas_latency || null,
+    legacy_id: legacyRamId !== canonicalId ? legacyRamId : undefined,
     sources: { source_id: b.id, source: b.source },
     meta: { created_from: [b.source], conflict_flags: [], quality_score: 0.8 },
     normalized_key: b.normalized_key,
@@ -255,6 +269,7 @@ export function mergeCooler(records) {
   if (!records.length) return null;
   const b = records[0];
   const canonicalId = `cooler_${slug(`${b.brand} ${b.model}`)}`;
+  const legacyCoolerId = `cooler_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
@@ -265,6 +280,7 @@ export function mergeCooler(records) {
     fan_rpm: b.fan_rpm || null,
     noise_level_db: b.noise_level_db || null,
     size_mm: b.size_mm || null,
+    legacy_id: legacyCoolerId !== canonicalId ? legacyCoolerId : undefined,
     sources: { pcpart_id: b.id },
     meta: { created_from: [b.source], conflict_flags: [], quality_score: 0.7 },
     normalized_key: b.normalized_key,
@@ -275,6 +291,7 @@ export function mergeFan(records) {
   if (!records.length) return null;
   const b = records[0];
   const canonicalId = `fan_${slug(`${b.brand} ${b.model}`)}`;
+  const legacyFanId = `fan_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
@@ -286,10 +303,50 @@ export function mergeFan(records) {
     airflow_cfm: b.airflow_cfm || null,
     noise_level_db: b.noise_level_db || null,
     pwm: Boolean(b.pwm),
+    legacy_id: legacyFanId !== canonicalId ? legacyFanId : undefined,
     sources: { pcpart_id: b.id },
     meta: { created_from: [b.source], conflict_flags: [], quality_score: 0.7 },
     normalized_key: b.normalized_key,
   };
+}
+
+export function deduplicateIds(items, retries = 5) {
+  const seen = new Map();
+  const result = [];
+  for (const item of items) {
+    let id = item.id;
+    let suffix = 2;
+    while (seen.has(id)) {
+      id = `${item.id}_${suffix}`;
+      suffix++;
+      if (suffix - 2 > retries) break; // safety
+    }
+    seen.set(id, true);
+    result.push(id !== item.id ? { ...item, id } : item);
+  }
+  return result;
+}
+
+export function computeLegacyAliases(...categories) {
+  const aliasMap = {};
+  const legacyCounts = {};
+  for (const items of categories) {
+    if (!items) continue;
+    for (const item of items) {
+      if (!item.legacy_id) continue;
+      legacyCounts[item.legacy_id] = (legacyCounts[item.legacy_id] || 0) + 1;
+    }
+  }
+  for (const items of categories) {
+    if (!items) continue;
+    for (const item of items) {
+      if (!item.legacy_id) continue;
+      if (legacyCounts[item.legacy_id] === 1) {
+        aliasMap[item.legacy_id] = item.id;
+      }
+    }
+  }
+  return aliasMap;
 }
 
 export function computeCompatibilityMeta({
@@ -353,6 +410,16 @@ export function computeCompatibilityMeta({
       cpu: cpuTiers,
       gpu: gpuTiers,
     },
+    aliases: computeLegacyAliases(
+      mergedCpus,
+      mergedGpus,
+      mergedMobos,
+      mergedPsus,
+      mergedCases,
+      mergedRam,
+      mergedCoolers,
+      mergedFans
+    ),
     notes: "Compatibilidad detallada se calcula en frontend (src/lib/compatibility.js); aquí se incluyen rangos y tiers.",
   };
 }

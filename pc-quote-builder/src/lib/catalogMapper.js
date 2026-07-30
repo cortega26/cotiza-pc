@@ -153,6 +153,11 @@ export const mapProcessedToCatalog = (processed) => {
   return { cpus, motherboards, ramKits, gpus, psus, pcCases, meta: data.compat || null };
 };
 
+export const resolveCatalogId = (oldId, aliases) => {
+  if (!aliases) return oldId;
+  return aliases[oldId] ?? oldId;
+};
+
 export const buildTierMaps = (compatMeta) => {
   const cpu = new Map();
   const gpu = new Map();
