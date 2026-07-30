@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
-import { cleanup, render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import App from "./App";
 import {
   buildDefaultCatalog, buildRichCatalog, buildRichTierMaps, buildDefaultTierMaps, buildCompatMeta,
@@ -751,11 +751,11 @@ describe("[plan 015] File boundaries — import and export", () => {
   }
 
   function findFileInput() {
-    return document.querySelector('input[accept=".csv,.json"][type="file"]:not([id="price-import-input"])');
+    return screen.getAllByTestId("import-file-input")[0];
   }
 
   function findPriceInput() {
-    return document.getElementById("price-import-input");
+    return screen.getAllByTestId("import-price-input")[0];
   }
 
   async function importFile(content, fileName = "test.csv") {
@@ -872,5 +872,127 @@ describe("[plan 015] File boundaries — import and export", () => {
       expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/precios importados/i));
     });
     alertSpy.mockRestore();
+  });
+
+  describe("mobile drawer [plan 020]", () => {
+    it("renders a mobile menu trigger button", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      expect(screen.getByLabelText("Abrir menú lateral")).toBeTruthy();
+    });
+
+    it("opens drawer on trigger click and shows sidebar content", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      const trigger = screen.getByLabelText("Abrir menú lateral");
+      fireEvent.click(trigger);
+      const dialog = await screen.findByRole("dialog", { name: /menú lateral/i });
+      await waitFor(() => {
+        expect(within(dialog).getByText("Descargar CSV")).toBeTruthy();
+        expect(within(dialog).getByText("+ Nueva cotización")).toBeTruthy();
+      });
+    });
+
+    it("closes drawer on Escape key", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      fireEvent.click(screen.getByLabelText("Abrir menú lateral"));
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).toBeNull();
+      });
+    });
+
+    it("closes drawer on backdrop click", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      fireEvent.click(screen.getByLabelText("Abrir menú lateral"));
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+      const backdrop = document.querySelector(".mobile-drawer-backdrop");
+      expect(backdrop).toBeTruthy();
+      fireEvent.click(backdrop);
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).toBeNull();
+      });
+    });
+
+    it("returns focus to trigger after closing drawer", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      const trigger = screen.getByLabelText("Abrir menú lateral");
+      fireEvent.click(trigger);
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+      await waitFor(() => {
+        expect(document.activeElement).toBe(trigger);
+      });
+    });
+
+    it("toggles drawer closed on second trigger click", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      const trigger = screen.getByLabelText("Abrir menú lateral");
+      fireEvent.click(trigger);
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+      fireEvent.click(trigger);
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).toBeNull();
+      });
+    });
+
+    it("locks body scroll when drawer is open", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      expect(document.body.style.overflow).toBe("");
+      fireEvent.click(screen.getByLabelText("Abrir menú lateral"));
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+      expect(document.body.style.overflow).toBe("hidden");
+      fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+      await waitFor(() => {
+        expect(document.body.style.overflow).toBe("");
+      });
+    });
+
+    it("closes drawer on resize above breakpoint", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      fireEvent.click(screen.getByLabelText("Abrir menú lateral"));
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+      window.innerWidth = 901;
+      fireEvent(window, new Event("resize"));
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).toBeNull();
+      });
+    });
+
+    it("does not render duplicate HTML IDs for price import input", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      const inputs = document.querySelectorAll('input[type="file"]');
+      const ids = Array.from(inputs).map((el) => el.id).filter(Boolean);
+      const uniqueIds = new Set(ids);
+      expect(ids.length).toBe(uniqueIds.size);
+    });
+
+    it("opens price import trigger via ref in drawer", async () => {
+      localStorageWithQuote();
+      render(<App />);
+      await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+      fireEvent.click(screen.getByLabelText("Abrir menú lateral"));
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeTruthy());
+      const drawer = screen.getByRole("dialog");
+      const importPriceBtn = within(drawer).getByText("Importar precios (por id)");
+      expect(importPriceBtn).toBeTruthy();
+    });
   });
 });

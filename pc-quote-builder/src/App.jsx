@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import { useCatalog } from "./hooks/useCatalog";
 import { evaluateSelection } from "./lib/selectionEvaluation";
@@ -249,7 +249,11 @@ function App() {
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
   const importInputRef = useRef(null);
+  const priceImportRef = useRef(null);
   const [builderStep, setBuilderStep] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuTriggerRef = useRef(null);
+  const drawerRef = useRef(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [currencyDraft, setCurrencyDraft] = useState(() => {
     try {
@@ -386,6 +390,32 @@ function App() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- activeQuote is derived from these, stable enough
   }, [activeQuote?.id, activeQuote?.currency]);
+
+  useEffect(() => {
+    if (mobileMenuOpen && drawerRef.current) {
+      drawerRef.current.focus();
+    }
+    if (mobileMenuOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileMenuOpen]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const BREAKPOINT = 900;
+    const handleResize = () => {
+      if (window.innerWidth > BREAKPOINT) {
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [mobileMenuOpen]);
 
   const cpuTier = useMemo(() => (selection.cpu ? tierMaps.cpu.get(selection.cpu.id) || null : null), [selection, tierMaps.cpu]);
   const gpuTier = useMemo(() => (selection.gpu ? tierMaps.gpu.get(selection.gpu.id) || null : null), [selection, tierMaps.gpu]);
@@ -823,7 +853,151 @@ function App() {
     setReloadToken((t) => t + 1);
   };
 
+  const toggleMobileMenu = useCallback(() => {
+    setMobileMenuOpen((prev) => !prev);
+  }, []);
+
+  const closeMobileMenu = useCallback(() => {
+    setMobileMenuOpen(false);
+    menuTriggerRef.current?.focus();
+  }, []);
+
+  const handleDrawerKeyDown = useCallback((e) => {
+    if (e.key === "Escape") {
+      closeMobileMenu();
+      return;
+    }
+    if (e.key !== "Tab" || !drawerRef.current) return;
+    const focusable = drawerRef.current.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }, [closeMobileMenu]);
+
+  const handleDrawerBackdropClick = useCallback((e) => {
+    if (e.target === e.currentTarget) closeMobileMenu();
+  }, [closeMobileMenu]);
+
   const currentStep = builderSteps[builderStep];
+
+  const renderSidebarContent = () => (
+    <>
+      <h1 className="app-title">PC Quote Builder</h1>
+      <p className="app-subtitle">Arma tus cotizaciones de PC y descárgalas.</p>
+
+      <div className="sidebar-section">
+        <h2>Mis cotizaciones</h2>
+        <div className="quote-tabs">
+          {quotes.map((quote) => (
+            <button
+              key={quote.id}
+              className={"quote-tab" + (quote.id === activeQuoteId ? " active" : "")}
+              onClick={() => setActiveQuoteId(quote.id)}
+            >
+              {quote.name || "Sin nombre"}
+            </button>
+          ))}
+        </div>
+        <div className="sidebar-actions">
+          <button className="secondary-btn" onClick={handleAddQuote}>
+            + Nueva cotización
+          </button>
+          <button className="secondary-btn" onClick={handleDuplicateQuote}>
+            ⧉ Duplicar actual
+          </button>
+          <button className="danger-btn" onClick={handleDeleteQuote} disabled={quotes.length === 1}>
+            🗑 Eliminar actual
+          </button>
+        </div>
+      </div>
+
+      <div className="sidebar-section">
+        <h2>Exportar</h2>
+        <button className="primary-btn" onClick={handleDownloadCSV}>
+          Descargar CSV
+        </button>
+        <button className="secondary-btn" onClick={handleDownloadJSON}>
+          Descargar JSON
+        </button>
+        <button className="secondary-btn" onClick={handleImportClick}>
+          Importar CSV/JSON
+        </button>
+        <button className="secondary-btn" onClick={handleReloadCatalog} disabled={catalogLoading}>
+          {catalogLoading ? "Cargando catálogo..." : "Recargar catálogo"}
+        </button>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".csv,.json"
+          style={{ display: "none" }}
+          data-testid="import-file-input"
+          onChange={handleImportFile}
+        />
+        <input
+          ref={priceImportRef}
+          type="file"
+          accept=".csv,.json"
+          style={{ display: "none" }}
+          data-testid="import-price-input"
+          onChange={handleImportPrices}
+        />
+        {catalogError && <p className="field-hint">Catálogo remoto: {catalogError}</p>}
+      </div>
+
+      <div className="sidebar-section">
+        <h2>Catálogo</h2>
+        <div className="catalog-meta">
+          <span className="meta-chip">
+            {(() => {
+              if (catalogLoading) return "Cargando...";
+              const pendingCats = neededCategories.filter((c) => categoryStates[c] === "loading" || categoryStates[c] === "empty");
+              const fallbackCats = neededCategories.filter((c) => categoryStates[c] === "fallback");
+              if (pendingCats.length) return "Cargando categorías...";
+              if (fallbackCats.length) return fallbackCats.length === 1 ? `Catálogo parcial (${fallbackCats[0]} fallback)` : `Catálogo parcial (${fallbackCats.length} categorías fallback)`;
+              return "Catálogo cargado";
+            })()}
+          </span>
+          {compatMeta?.generatedAt && (
+            <span className="meta-chip meta-chip-ghost">
+              Actualizado: {formatDateTime(compatMeta.generatedAt)}
+            </span>
+          )}
+          {typeof compatMeta?.schemaVersion === "number" && (
+            <span className="meta-chip meta-chip-ghost">Schema: v{compatMeta.schemaVersion}</span>
+          )}
+          {compatMeta?.provenance?.sources && (
+            <span className="meta-chip meta-chip-ghost" title="Versiones exactas de datasets usados para generar el catálogo">
+              Fuentes:{" "}
+              {(compatMeta.provenance.sources.buildcores?.sha || "").slice(0, 7) || "buildcores?"} ·{" "}
+              {(compatMeta.provenance.sources.pcpart?.sha || "").slice(0, 7) || "pcpart?"} ·{" "}
+              {compatMeta.provenance.sources.dbgpu?.version ? `dbgpu ${compatMeta.provenance.sources.dbgpu.version}` : "dbgpu?"}
+            </span>
+          )}
+          <button className="secondary-btn" onClick={() => priceImportRef.current?.click()}>
+            Importar precios (por id)
+          </button>
+          <p className="field-hint">Formato CSV/JSON: id, oferta, normal, tienda.</p>
+        </div>
+      </div>
+
+      <footer className="sidebar-footer">
+        <small>
+          Esta herramienta se provee "as is": puede contener errores, y no nos hacemos responsables por descripciones
+          incorrectas. Por la complejidad de estandarizar datos, es poco probable pero posible que el builder arroje
+          falsos positivos o negativos.
+        </small>
+      </footer>
+    </>
+  );
 
   if (!activeQuote) {
     return (
@@ -844,110 +1018,40 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <h1 className="app-title">PC Quote Builder</h1>
-        <p className="app-subtitle">Arma tus cotizaciones de PC y descárgalas.</p>
-
-        <div className="sidebar-section">
-          <h2>Mis cotizaciones</h2>
-          <div className="quote-tabs">
-            {quotes.map((quote) => (
-              <button
-                key={quote.id}
-                className={"quote-tab" + (quote.id === activeQuoteId ? " active" : "")}
-                onClick={() => setActiveQuoteId(quote.id)}
-              >
-                {quote.name || "Sin nombre"}
-              </button>
-            ))}
-          </div>
-          <div className="sidebar-actions">
-            <button className="secondary-btn" onClick={handleAddQuote}>
-              + Nueva cotización
-            </button>
-            <button className="secondary-btn" onClick={handleDuplicateQuote}>
-              ⧉ Duplicar actual
-            </button>
-            <button className="danger-btn" onClick={handleDeleteQuote} disabled={quotes.length === 1}>
-              🗑 Eliminar actual
-            </button>
-          </div>
-        </div>
-
-        <div className="sidebar-section">
-          <h2>Exportar</h2>
-          <button className="primary-btn" onClick={handleDownloadCSV}>
-            Descargar CSV
-          </button>
-          <button className="secondary-btn" onClick={handleDownloadJSON}>
-            Descargar JSON
-          </button>
-          <button className="secondary-btn" onClick={handleImportClick}>
-            Importar CSV/JSON
-          </button>
-          <button className="secondary-btn" onClick={handleReloadCatalog} disabled={catalogLoading}>
-            {catalogLoading ? "Cargando catálogo..." : "Recargar catálogo"}
-          </button>
-          <input
-            ref={importInputRef}
-            type="file"
-            accept=".csv,.json"
-            style={{ display: "none" }}
-            onChange={handleImportFile}
-          />
-          <input
-            id="price-import-input"
-            type="file"
-            accept=".csv,.json"
-            style={{ display: "none" }}
-            onChange={handleImportPrices}
-          />
-          {catalogError && <p className="field-hint">Catálogo remoto: {catalogError}</p>}
-        </div>
-
-        <div className="sidebar-section">
-          <h2>Catálogo</h2>
-          <div className="catalog-meta">
-            <span className="meta-chip">
-              {(() => {
-                if (catalogLoading) return "Cargando...";
-                const pendingCats = neededCategories.filter((c) => categoryStates[c] === "loading" || categoryStates[c] === "empty");
-                const fallbackCats = neededCategories.filter((c) => categoryStates[c] === "fallback");
-                if (pendingCats.length) return "Cargando categorías...";
-                if (fallbackCats.length) return fallbackCats.length === 1 ? `Catálogo parcial (${fallbackCats[0]} fallback)` : `Catálogo parcial (${fallbackCats.length} categorías fallback)`;
-                return "Catálogo cargado";
-              })()}
-            </span>
-            {compatMeta?.generatedAt && (
-              <span className="meta-chip meta-chip-ghost">
-                Actualizado: {formatDateTime(compatMeta.generatedAt)}
-              </span>
-            )}
-            {typeof compatMeta?.schemaVersion === "number" && (
-              <span className="meta-chip meta-chip-ghost">Schema: v{compatMeta.schemaVersion}</span>
-            )}
-            {compatMeta?.provenance?.sources && (
-              <span className="meta-chip meta-chip-ghost" title="Versiones exactas de datasets usados para generar el catálogo">
-                Fuentes:{" "}
-                {(compatMeta.provenance.sources.buildcores?.sha || "").slice(0, 7) || "buildcores?"} ·{" "}
-                {(compatMeta.provenance.sources.pcpart?.sha || "").slice(0, 7) || "pcpart?"} ·{" "}
-                {compatMeta.provenance.sources.dbgpu?.version ? `dbgpu ${compatMeta.provenance.sources.dbgpu.version}` : "dbgpu?"}
-              </span>
-            )}
-            <button className="secondary-btn" onClick={() => document.getElementById("price-import-input")?.click()}>
-              Importar precios (por id)
-            </button>
-            <p className="field-hint">Formato CSV/JSON: id, oferta, normal, tienda.</p>
-          </div>
-        </div>
-
-        <footer className="sidebar-footer">
-          <small>
-            Esta herramienta se provee "as is": puede contener errores, y no nos hacemos responsables por descripciones
-            incorrectas. Por la complejidad de estandarizar datos, es poco probable pero posible que el builder arroje
-            falsos positivos o negativos.
-          </small>
-        </footer>
+        {renderSidebarContent()}
       </aside>
+
+      <button
+        className="mobile-menu-trigger"
+        ref={menuTriggerRef}
+        onClick={toggleMobileMenu}
+        aria-label="Abrir menú lateral"
+        aria-expanded={mobileMenuOpen}
+      >
+        ☰
+      </button>
+
+      {mobileMenuOpen && (
+        <div
+          className="mobile-drawer-backdrop"
+          onClick={handleDrawerBackdropClick}
+        >
+          <div
+            className="mobile-drawer"
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú lateral"
+            tabIndex={-1}
+            onKeyDown={handleDrawerKeyDown}
+          >
+            <button className="mobile-drawer-close" onClick={closeMobileMenu} aria-label="Cerrar menú">
+              ✕
+            </button>
+            {renderSidebarContent()}
+          </div>
+        </div>
+      )}
 
       <main className="main">
         {(catalogError || fallbackUsed) && (
@@ -1364,10 +1468,11 @@ function App() {
               </span>
               {priceStatus.updatedAt && (
                 <span className="muted">
-                  Actualizado: {formatDateTime(priceStatus.updatedAt)} ·{" "}
-                  <button className="link-btn" onClick={() => document.getElementById("price-import-input")?.click()}>
+                    Actualizado: {formatDateTime(priceStatus.updatedAt)} ·{" "}
+                  <button className="link-btn" onClick={() => priceImportRef.current?.click()}>
                     Reimportar precios
                   </button>
+                  {/* TODO: centralize price import trigger — same ref used in renderSidebarContent */}
                 </span>
               )}
             </div>
