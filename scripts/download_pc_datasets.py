@@ -159,7 +159,19 @@ def export_dbgpu(force=False, skip=False):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Descarga/actualiza datasets de PC"
+        description="Descarga/actualiza datasets de PC",
+        epilog="""\
+Para refrescar los pins de upstream:
+
+  1. Encuentra el SHA deseado en la rama por defecto del upstream.
+  2. Actualiza PINNED_BUILDCORES_SHA y/o PINNED_PCPART_SHA (líneas 45-46).
+  3. Ejecuta: python scripts/download_pc_datasets.py --print-pins
+  4. Verifica que la proveniencia impresa coincida con lo esperado.
+  5. Confirma el cambio de SHA en un solo PR revisado.
+
+Dependencias Python (dbgpu) con hash lock en scripts/requirements.txt.
+Regenerar con: pip-compile --generate-hashes -o scripts/requirements.txt <<< "dbgpu==<version>"
+""",
     )
     parser.add_argument("--skip-buildcores", action="store_true")
     parser.add_argument("--skip-pcpart", action="store_true")
