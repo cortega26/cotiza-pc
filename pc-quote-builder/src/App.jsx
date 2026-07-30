@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import { useCatalog } from "./hooks/useCatalog";
+import { usePersistence } from "./hooks/usePersistence";
 import { evaluateSelection } from "./lib/selectionEvaluation";
 import { parsePrice, computeTotals, normalizeCurrency } from "./lib/money";
 import { resolveCatalogId } from "./lib/catalogMapper";
@@ -24,43 +25,7 @@ import {
 import { escapeCsvField, parseCsvToQuote, parsePriceCsv, parsePriceJson, buildPriceMap } from "./lib/csvParser";
 import { exportCSV, exportJSON, downloadFile, buildQuotesFromJson } from "./lib/fileIO";
 
-const STORAGE_KEYS = {
-  quotes: "pcqb:quotes:v1",
-  activeQuoteId: "pcqb:activeQuoteId:v1",
-  builder: "pcqb:builder:v1",
-};
-
-const getInitialQuotes = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.quotes);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length) {
-        return parsed.map((q, idx) =>
-          normalizeQuote(q, q.name || `Importada ${idx + 1}`)
-        );
-      }
-    }
-  } catch (err) {
-    console.warn("No se pudo cargar cotizaciones guardadas", err);
-  }
-  return [createEmptyQuote("Mi PC actual")];
-};
-
-const getInitialBuilder = () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEYS.builder);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...EMPTY_BUILDER, ...parsed };
-    }
-  } catch (err) {
-    console.warn("No se pudo cargar builder guardado", err);
-  }
-  return EMPTY_BUILDER;
-};
-
-const getOptionsForStep = (key, selection, catalog) => {
+function getOptionsForStep(key, selection, catalog) {
   const cpus = catalog.cpus || [];
   const motherboards = catalog.motherboards || [];
   const ramKits = catalog.ramKits || [];
@@ -74,7 +39,6 @@ const getOptionsForStep = (key, selection, catalog) => {
       if (!selection.cpu || !selection.cpu.socket) return motherboards;
       return motherboards.filter((m) => m.socket === selection.cpu.socket);
     case "ramId": {
-      // Avoid false negatives: only filter RAM when memory type is explicit (not inferred).
       const memoryType =
         (selection.mobo?.memoryTypeExplicit ? selection.mobo.memoryType : "") ||
         (selection.cpu?.memoryTypeExplicit ? selection.cpu.memoryType : "");
@@ -100,12 +64,10 @@ const getOptionsForStep = (key, selection, catalog) => {
     default:
       return [];
   }
-};
+}
 
 function App() {
-  const [quotes, setQuotes] = useState(getInitialQuotes);
-  const [activeQuoteId, setActiveQuoteId] = useState("");
-  const [builder, setBuilder] = useState(getInitialBuilder);
+  const { quotes, setQuotes, activeQuoteId, setActiveQuoteId, builder, setBuilder, currencyDraft, setCurrencyDraft } = usePersistence();
   const [builderStep, setBuilderStep] = useState(0);
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
@@ -115,22 +77,6 @@ function App() {
   const menuTriggerRef = useRef(null);
   const drawerRef = useRef(null);
   const [reloadToken, setReloadToken] = useState(0);
-  const [currencyDraft, setCurrencyDraft] = useState(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEYS.quotes);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) {
-          const storedId = localStorage.getItem(STORAGE_KEYS.activeQuoteId);
-          const active = storedId ? parsed.find((q) => q.id === storedId) : parsed[0];
-          return normalizeCurrency(active?.currency || "CLP");
-        }
-      }
-    } catch {
-      // ignore — fall through to default
-    }
-    return "CLP";
-  });
   const neededCategories = useMemo(() => {
     const step = builderStep;
     const cats = ["cpus"];
@@ -211,41 +157,7 @@ function App() {
   }, [selection, catalog]);
 
   useEffect(() => {
-    if (!activeQuoteId && quotes.length) {
-      const stored = localStorage.getItem(STORAGE_KEYS.activeQuoteId);
-      const validStored = stored && quotes.some((q) => q.id === stored);
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init guarded by condition; not cascading
-      setActiveQuoteId(validStored ? stored : quotes[0].id);
-    }
-  }, [quotes, activeQuoteId]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.quotes, JSON.stringify(quotes));
-    } catch (err) {
-      console.warn("No se pudo guardar cotizaciones", err);
-    }
-  }, [quotes]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.activeQuoteId, activeQuoteId);
-    } catch (err) {
-      console.warn("No se pudo guardar id de cotización activa", err);
-    }
-  }, [activeQuoteId]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.builder, JSON.stringify(builder));
-    } catch (err) {
-      console.warn("No se pudo guardar builder", err);
-    }
-  }, [builder]);
-
-  useEffect(() => {
     if (activeQuote) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing draft to active quote on switch; not cascading
       setCurrencyDraft(activeQuote.currency);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- activeQuote is derived from these, stable enough
