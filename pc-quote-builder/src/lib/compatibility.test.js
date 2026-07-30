@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkCpuMoboCompatibility,
   checkRamMoboCompatibility,
+  checkMoboCaseCompatibility,
   checkPsuPowerSufficiency,
   estimateCpuGpuBalance,
   checkGpuCaseCompatibility,
@@ -89,6 +90,46 @@ describe("compatibility helpers", () => {
   it("valida GPU ↔ case", () => {
     expect(checkGpuCaseCompatibility(gpu, { max_gpu_length_mm: 320 }).compatible).toBe(true);
     expect(checkGpuCaseCompatibility(gpuLong, { max_gpu_length_mm: 320 }).compatible).toBe(false);
+  });
+
+  it("valida case ↔ mobo con form factors canónicos", () => {
+    const moboAtx = { form_factor: "ATX" };
+    const moboMicroAtx = { form_factor: "Micro ATX" };
+    const moboMiniItx = { form_factor: "Mini ITX" };
+    const moboEatx = { form_factor: "E-ATX" };
+
+    const caseAtxMid = { supported_mobo_form_factors: ["ATX", "Micro ATX", "Mini ITX"] };
+    const caseMicroAtx = { supported_mobo_form_factors: ["Micro ATX", "Mini ITX"] };
+    const caseMiniItx = { supported_mobo_form_factors: ["Mini ITX"] };
+    expect(checkMoboCaseCompatibility(moboAtx, caseAtxMid).compatible).toBe(true);
+    expect(checkMoboCaseCompatibility(moboMicroAtx, caseAtxMid).compatible).toBe(true);
+    expect(checkMoboCaseCompatibility(moboMiniItx, caseAtxMid).compatible).toBe(true);
+
+    expect(checkMoboCaseCompatibility(moboAtx, caseMicroAtx).compatible).toBe(false);
+    expect(checkMoboCaseCompatibility(moboMicroAtx, caseMicroAtx).compatible).toBe(true);
+    expect(checkMoboCaseCompatibility(moboMiniItx, caseMicroAtx).compatible).toBe(true);
+
+    expect(checkMoboCaseCompatibility(moboAtx, caseMiniItx).compatible).toBe(false);
+    expect(checkMoboCaseCompatibility(moboMiniItx, caseMiniItx).compatible).toBe(true);
+
+    expect(checkMoboCaseCompatibility(moboEatx, caseAtxMid).compatible).toBe(false);
+    expect(checkMoboCaseCompatibility(moboEatx, caseMicroAtx).compatible).toBe(false);
+  });
+
+  it("case sin form factors → unknown, no fail", () => {
+    const mobo = { form_factor: "ATX" };
+    const result = checkMoboCaseCompatibility(mobo, { supported_mobo_form_factors: [] });
+    expect(result.status).toBe("unknown");
+    expect(result.compatible).toBe(false);
+
+    const nullResult = checkMoboCaseCompatibility(mobo, { supported_mobo_form_factors: null });
+    expect(nullResult.status).toBe("unknown");
+  });
+
+  it("checkMoboCaseCompatibility maneja campos camelCase", () => {
+    const mobo = { formFactor: "ATX" };
+    const pcCase = { formFactors: ["ATX", "Micro ATX"] };
+    expect(checkMoboCaseCompatibility(mobo, pcCase).compatible).toBe(true);
   });
 
   it("calcula PSU con margen 30% + 50W", () => {

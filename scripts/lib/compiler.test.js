@@ -14,6 +14,7 @@ import {
   mergeCooler,
   mergeFan,
   computeCompatibilityMeta,
+  canonicalizeFormFactors,
   SOURCE_TAGS,
 } from "./compiler.js";
 
@@ -285,18 +286,84 @@ describe("mergePsu", () => {
   });
 });
 
+describe("canonicalizeFormFactors", () => {
+  it("maps ATX Mid Tower to ATX + smaller", () => {
+    const { formFactors, evidence } = canonicalizeFormFactors("ATX Mid Tower");
+    expect(formFactors).toContain("ATX");
+    expect(formFactors).toContain("Micro ATX");
+    expect(formFactors).toContain("Mini ITX");
+    expect(evidence).toBe("inferred");
+  });
+
+  it("maps ATX Full Tower to E-ATX + all smaller", () => {
+    const { formFactors } = canonicalizeFormFactors("ATX Full Tower");
+    expect(formFactors).toEqual(["E-ATX", "ATX", "Micro ATX", "Mini ITX"]);
+  });
+
+  it("maps MicroATX to Micro ATX + Mini ITX", () => {
+    const { formFactors } = canonicalizeFormFactors("MicroATX Mini Tower");
+    expect(formFactors).toEqual(["Micro ATX", "Mini ITX"]);
+  });
+
+  it("maps Mini ITX to Mini ITX only", () => {
+    const { formFactors } = canonicalizeFormFactors("Mini ITX Tower");
+    expect(formFactors).toEqual(["Mini ITX"]);
+  });
+
+  it("returns unknown for unrecognized chassis types", () => {
+    const { formFactors, evidence } = canonicalizeFormFactors("HTPC Slim");
+    expect(formFactors).toEqual([]);
+    expect(evidence).toBe("unknown");
+  });
+
+  it("returns unknown for empty/null/undefined", () => {
+    expect(canonicalizeFormFactors("").evidence).toBe("unknown");
+    expect(canonicalizeFormFactors(null).evidence).toBe("unknown");
+    expect(canonicalizeFormFactors(undefined).evidence).toBe("unknown");
+  });
+
+  it("maps ATX Slim to ATX + smaller", () => {
+    const { formFactors } = canonicalizeFormFactors("ATX Slim");
+    expect(formFactors).toContain("ATX");
+  });
+
+  it("maps ATX Desktop to ATX + smaller", () => {
+    const { formFactors } = canonicalizeFormFactors("ATX Desktop");
+    expect(formFactors).toContain("ATX");
+  });
+});
+
 describe("mergeCase", () => {
-  it("passes through supported_mobo_form_factors from source", () => {
+  it("canonicalizes form factors from chassis_type", () => {
     const result = mergeCase([
-      { source: "pcpart", brand: "Fractal", model: "Meshify C", chassis_type: "ATX Mid Tower", supported_mobo_form_factors: "ATX Mid", max_gpu_length_mm: 315, normalized_key: "fractal meshify c" },
+      { source: "pcpart", brand: "Fractal", model: "Meshify C", chassis_type: "ATX Mid Tower", max_gpu_length_mm: 315, normalized_key: "fractal meshify c" },
     ]);
     expect(result.id).toMatch(/^case_/);
     expect(result.chassis_type).toBe("ATX Mid Tower");
-    expect(result.supported_mobo_form_factors).toBe("ATX Mid");
+    expect(result.supported_mobo_form_factors).toContain("ATX");
+    expect(result.form_factor_evidence).toBe("inferred");
   });
 
   it("returns null for empty", () => {
     expect(mergeCase([])).toBe(null);
+  });
+
+  it("handles missing chassis_type gracefully", () => {
+    const result = mergeCase([
+      { source: "pcpart", brand: "Corsair", model: "4000D", max_gpu_length_mm: 360, normalized_key: "corsair 4000d" },
+    ]);
+    expect(result.chassis_type).toBe("");
+    expect(result.supported_mobo_form_factors).toEqual([]);
+    expect(result.form_factor_evidence).toBe("unknown");
+  });
+
+  it("handles null chassis_type gracefully", () => {
+    const result = mergeCase([
+      { source: "pcpart", brand: "NZXT", model: "H510", chassis_type: null, normalized_key: "nzxt h510" },
+    ]);
+    expect(result.chassis_type).toBe("");
+    expect(result.supported_mobo_form_factors).toEqual([]);
+    expect(result.form_factor_evidence).toBe("unknown");
   });
 });
 

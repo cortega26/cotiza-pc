@@ -515,7 +515,7 @@ function App() {
         const ram = ramKits.find((r) => r.id === next.ramId);
         if (mobo && ram && mobo.memoryTypeExplicit && ram.type !== mobo.memoryType) next.ramId = "";
         const currentCase = pcCases.find((c) => c.id === next.caseId);
-        if (mobo && currentCase && !currentCase.formFactors.includes(mobo.formFactor)) {
+        if (mobo && currentCase && !currentCase.formFactors?.includes(mobo.formFactor)) {
           next.caseId = "";
         }
       }

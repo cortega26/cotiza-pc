@@ -127,6 +127,72 @@ describe("catalogMapper", () => {
     expect(mapped.pcCases[0].id).toBe("c1");
   });
 
+  it("normaliza form factors canónicos del pipeline nuevo", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case A", supported_mobo_form_factors: ["ATX", "Micro ATX", "Mini ITX"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["ATX", "Micro ATX", "Mini ITX"]);
+  });
+
+  it("normaliza form factors legacy del pipeline anterior (ATX Mid → ATX/mATX/ITX)", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case A", supported_mobo_form_factors: ["ATX Mid"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["ATX", "Micro ATX", "Mini ITX"]);
+  });
+
+  it("normaliza MicroATX Mid legacy", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case B", supported_mobo_form_factors: ["MicroATX Mid"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["Micro ATX", "Mini ITX"]);
+  });
+
+  it("normaliza ATX Test Bench legacy", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case C", supported_mobo_form_factors: ["ATX Test Bench"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["ATX", "Micro ATX", "Mini ITX"]);
+  });
+
+  it("normaliza Mini ITX Desktop legacy", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case D", supported_mobo_form_factors: ["Mini ITX Desktop"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["Mini ITX"]);
+  });
+
+  it("normaliza HTPC legacy", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case E", supported_mobo_form_factors: ["HTPC"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["Micro ATX", "Mini ITX"]);
+  });
+
+  it("deja vacío si el legacy no tiene mapeo", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case F", supported_mobo_form_factors: ["UnknownType"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["UnknownType"]);
+  });
+
+  it("normaliza usando fallback UI-shaped formFactors cuando no hay supported_mobo_form_factors", () => {
+    const mapped = mapProcessedToCatalog({
+      pcCases: [{ id: "c1", name: "Case G", formFactors: ["ATX", "Micro ATX"] }],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual(["ATX", "Micro ATX"]);
+  });
+
+  it("prioriza caso nuevo sobre UI-shaped cuando ambos existen", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [{ id: "c1", name: "Case New", supported_mobo_form_factors: ["ATX Full"] }],
+      pcCases: [{ id: "c2", name: "Case Old", formFactors: ["ITX"] }],
+    });
+    expect(mapped.pcCases).toHaveLength(1);
+    expect(mapped.pcCases[0].id).toBe("c1");
+    expect(mapped.pcCases[0].formFactors).toEqual(["E-ATX", "ATX", "Micro ATX", "Mini ITX"]);
+  });
+
   it("handles items with partial missing fields without crashing", () => {
     const mapped = mapProcessedToCatalog({
       cpus: [{ id: "cpu1" }],

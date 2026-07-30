@@ -180,10 +180,38 @@ export function mergePsu(records) {
   };
 }
 
+const FORM_FACTOR_RULES = [
+  { pattern: /atx\s*full/i, formFactors: ["E-ATX", "ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /atx\s*mid/i, formFactors: ["ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /atx\s*mini/i, formFactors: ["Micro ATX", "Mini ITX"] },
+  { pattern: /atx\s*slim/i, formFactors: ["ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /atx\s*desktop/i, formFactors: ["ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /^atx$/i, formFactors: ["ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /atx\s*tower/i, formFactors: ["ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /microatx.*mini/i, formFactors: ["Micro ATX", "Mini ITX"] },
+  { pattern: /microatx.*mid/i, formFactors: ["Micro ATX", "Mini ITX"] },
+  { pattern: /microatx/i, formFactors: ["Micro ATX", "Mini ITX"] },
+  { pattern: /mini.?itx/i, formFactors: ["Mini ITX"] },
+  { pattern: /full.?tower/i, formFactors: ["E-ATX", "ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /mid.?tower/i, formFactors: ["ATX", "Micro ATX", "Mini ITX"] },
+  { pattern: /mini.?tower/i, formFactors: ["Micro ATX", "Mini ITX"] },
+];
+
+export function canonicalizeFormFactors(chassisType) {
+  if (!chassisType) return { formFactors: [], evidence: "unknown" };
+  for (const rule of FORM_FACTOR_RULES) {
+    if (rule.pattern.test(chassisType)) {
+      return { formFactors: rule.formFactors, evidence: "inferred" };
+    }
+  }
+  return { formFactors: [], evidence: "unknown" };
+}
+
 export function mergeCase(records) {
   if (!records.length) return null;
   const b = records[0];
   const canonicalId = `case_${slug(`${b.brand} ${b.model}`)}`;
+  const { formFactors, evidence } = canonicalizeFormFactors(b.chassis_type);
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
@@ -191,7 +219,8 @@ export function mergeCase(records) {
     model: b.model,
     category: "case",
     chassis_type: b.chassis_type || "",
-    supported_mobo_form_factors: b.supported_mobo_form_factors || "",
+    supported_mobo_form_factors: formFactors,
+    form_factor_evidence: evidence,
     max_gpu_length_mm: b.max_gpu_length_mm || null,
     max_cpu_cooler_height_mm: b.max_cpu_cooler_height_mm || null,
     psu_form_factor: b.psu_form_factor || "ATX",

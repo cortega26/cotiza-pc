@@ -28,6 +28,31 @@ const resolveCpuMemoryType = (cpu) => {
   return { memoryType: normalizeMemoryType(inferMemoryTypeBySocket(inferSocket(cpu))), memoryTypeExplicit: false };
 };
 
+const CANONICAL_FORM_FACTORS = new Set(["E-ATX", "ATX", "Micro ATX", "Mini ITX"]);
+
+const LEGACY_FORM_FACTOR_MAP = {
+  "ATX Desktop": ["ATX", "Micro ATX", "Mini ITX"],
+  "ATX Full": ["E-ATX", "ATX", "Micro ATX", "Mini ITX"],
+  "ATX Mid": ["ATX", "Micro ATX", "Mini ITX"],
+  "ATX Mini": ["Micro ATX", "Mini ITX"],
+  "ATX Test Bench": ["ATX", "Micro ATX", "Mini ITX"],
+  HTPC: ["Micro ATX", "Mini ITX"],
+  "MicroATX Desktop": ["Micro ATX", "Mini ITX"],
+  "MicroATX Mid": ["Micro ATX", "Mini ITX"],
+  "MicroATX Mini": ["Micro ATX", "Mini ITX"],
+  "MicroATX Slim": ["Micro ATX", "Mini ITX"],
+  "Mini ITX": ["Mini ITX"],
+  "Mini ITX Desktop": ["Mini ITX"],
+  "Mini ITX Test Bench": ["Mini ITX"],
+};
+
+function normalizeCaseFormFactors(pcCase) {
+  const raw = pcCase.supported_mobo_form_factors ?? pcCase.formFactors ?? [];
+  if (raw.every((f) => CANONICAL_FORM_FACTORS.has(f))) return raw;
+  const mapped = raw.flatMap((f) => LEGACY_FORM_FACTOR_MAP[f] ?? f);
+  return [...new Set(mapped)];
+}
+
 const normalizeMotherboardsKey = (src) => {
   if (src.mobos) return src.mobos;
   if (src.motherboards) return src.motherboards;
@@ -118,9 +143,11 @@ export const mapProcessedToCatalog = (processed) => {
     normalizeCasesKey(data).map((pcCase) => ({
       id: pcCase.id,
       name: pcCase.name,
+      chassisType: pcCase.chassis_type ?? pcCase.chassisType ?? "",
       maxGpuLength: pcCase.max_gpu_length_mm ?? pcCase.maxGpuLength ?? null,
       coolerHeight: pcCase.max_cpu_cooler_height_mm ?? pcCase.coolerHeight ?? null,
-      formFactors: pcCase.supported_mobo_form_factors ?? pcCase.formFactors ?? [],
+      formFactors: normalizeCaseFormFactors(pcCase),
+      formFactorEvidence: pcCase.form_factor_evidence ?? pcCase.formFactorEvidence ?? "unknown",
     })) || [];
 
   return { cpus, motherboards, ramKits, gpus, psus, pcCases, meta: data.compat || null };

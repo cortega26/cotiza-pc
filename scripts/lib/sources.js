@@ -185,7 +185,6 @@ export function loadPcPart(rawDir) {
       brand,
       model,
       chassis_type: item.type || "",
-      supported_mobo_form_factors: item.type ? item.type.replace(/Tower/i, "").trim() : "",
       max_gpu_length_mm: safeNumber(item.max_gpu_length_mm || item.gpu_length || item.gpu_max_length),
       max_cpu_cooler_height_mm: safeNumber(item.max_cpu_cooler_height_mm || item.cpu_cooler || item.cpu_cooler_height),
       psu_form_factor: item.psu_form_factor || "ATX",
