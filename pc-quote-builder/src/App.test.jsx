@@ -22,6 +22,7 @@ function defaultMock() {
     loading: false,
     error: "",
     fallbackUsed: false,
+    categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
   };
 }
 
@@ -283,6 +284,7 @@ describe("Builder assessment and compatibility display", () => {
       loading: false,
       error: "",
       fallbackUsed: false,
+      categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
       ...mockOverrides,
     });
     render(<App />);
@@ -459,6 +461,7 @@ describe("Staged catalog demand and reload", () => {
       loading: false,
       error: "",
       fallbackUsed: false,
+      categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
       ...overrides,
     });
     render(<App />);
@@ -529,6 +532,59 @@ describe("Staged catalog demand and reload", () => {
     render(<App />);
     await waitFor(() => {
       expect(screen.getByText("Catálogo cargado")).toBeTruthy();
+    });
+  });
+
+  it("shows 'Cargando categorías...' when a needed category is not yet loaded (empty state)", async () => {
+    mockUseCatalog.mockReturnValue({
+      catalog: buildDefaultCatalog(),
+      compatMeta: null,
+      tierMaps: buildDefaultTierMaps(),
+      socketSet: new Set(),
+      loading: false,
+      error: "",
+      fallbackUsed: false,
+      categoryStates: { cpus: "empty", motherboards: "empty", ram: "empty", gpus: "empty", psus: "empty", cases: "empty" },
+    });
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Cargando categorías...")).toBeTruthy();
+    });
+  });
+
+  it("shows singular 'Catálogo parcial' when one needed category is fallback", async () => {
+    mockUseCatalog.mockReturnValue({
+      catalog: buildDefaultCatalog(),
+      compatMeta: null,
+      tierMaps: buildDefaultTierMaps(),
+      socketSet: new Set(),
+      loading: false,
+      error: "CPU fail",
+      fallbackUsed: true,
+      categoryStates: { cpus: "fallback", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+    });
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText("Catálogo parcial (cpus fallback)")).toBeTruthy();
+    });
+  });
+
+  it("shows plural 'Catálogo parcial' when multiple needed categories are fallback", async () => {
+    mockUseCatalog.mockReturnValue({
+      catalog: buildDefaultCatalog(),
+      compatMeta: null,
+      tierMaps: buildDefaultTierMaps(),
+      socketSet: new Set(),
+      loading: false,
+      error: "Multiple errors",
+      fallbackUsed: true,
+      categoryStates: { cpus: "fallback", motherboards: "fallback", ram: "empty", gpus: "empty", psus: "empty", cases: "empty" },
+    });
+    render(<App />);
+    // Advance to step 1 so both cpus and motherboards are needed
+    fireEvent.click(screen.getByText("Siguiente →"));
+    await waitFor(() => {
+      expect(screen.getByText("Catálogo parcial (2 categorías fallback)")).toBeTruthy();
     });
   });
 });

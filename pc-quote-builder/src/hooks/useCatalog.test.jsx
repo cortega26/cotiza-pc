@@ -239,4 +239,80 @@ describe("useCatalog", () => {
       expect(result.current.catalog.gpus).toHaveLength(1);
     });
   });
+
+  describe("categoryStates", () => {
+    it("returns 'empty' for all categories when none are requested", () => {
+      const { result } = renderHook(() => useCatalog(0, []));
+      for (const cat of ["cpus", "motherboards", "ram", "gpus", "psus", "cases"]) {
+        expect(result.current.categoryStates[cat]).toBe("empty");
+      }
+    });
+
+    it("returns 'loading' for requested categories while fetch is in-flight", () => {
+      loadCategoryFile.mockReturnValue(new Promise(() => {}));
+      loadCompatibilityFile.mockReturnValue(new Promise(() => {}));
+
+      const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+
+      expect(result.current.categoryStates.cpus).toBe("loading");
+      expect(result.current.categoryStates.motherboards).toBe("empty");
+    });
+
+    it("returns 'loaded' for categories that finished loading", async () => {
+      loadCategoryFile.mockResolvedValue([{ id: "cpu1" }]);
+      loadCompatibilityFile.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+
+      await waitFor(() => {
+        expect(result.current.categoryStates.cpus).toBe("loaded");
+        expect(result.current.categoryStates.gpus).toBe("empty");
+      });
+    });
+
+    it("returns 'fallback' for a category that failed to load", async () => {
+      loadCategoryFile.mockRejectedValue(new Error("fail"));
+      loadCompatibilityFile.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+
+      await waitFor(() => {
+        expect(result.current.categoryStates.cpus).toBe("fallback");
+        expect(result.current.categoryStates.gpus).toBe("empty");
+      });
+    });
+
+    it("transitions from loading to loaded when category completes", async () => {
+      const d = deferred();
+      loadCategoryFile.mockReturnValue(d.promise);
+      loadCompatibilityFile.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+
+      expect(result.current.categoryStates.cpus).toBe("loading");
+
+      await act(async () => d.resolve([{ id: "cpu1" }]));
+      await waitFor(() => {
+        expect(result.current.categoryStates.cpus).toBe("loaded");
+      });
+    });
+
+    it("tracks multiple categories independently", async () => {
+      loadCategoryFile.mockImplementation((_base, cat) => {
+        if (cat === "cpus") return Promise.resolve([{ id: "cpu1" }]);
+        if (cat === "gpus") return Promise.reject(new Error("GPU fail"));
+        return Promise.resolve([]);
+      });
+      loadCompatibilityFile.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useCatalog(0, ["cpus", "gpus"]));
+
+      await waitFor(() => {
+        expect(result.current.categoryStates.cpus).toBe("loaded");
+        expect(result.current.categoryStates.gpus).toBe("fallback");
+        expect(result.current.categoryStates.psus).toBe("empty");
+      });
+    });
+
+  });
 });

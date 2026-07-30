@@ -278,7 +278,7 @@ function App() {
     return cats;
   }, [builderStep]);
 
-  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed } =
+  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed, categoryStates } =
     useCatalog(reloadToken, neededCategories);
 
   const activeQuote = useMemo(
@@ -907,7 +907,16 @@ function App() {
         <div className="sidebar-section">
           <h2>Catálogo</h2>
           <div className="catalog-meta">
-            <span className="meta-chip">{catalogLoading ? "Cargando..." : "Catálogo cargado"}</span>
+            <span className="meta-chip">
+              {(() => {
+                if (catalogLoading) return "Cargando...";
+                const pendingCats = neededCategories.filter((c) => categoryStates[c] === "loading" || categoryStates[c] === "empty");
+                const fallbackCats = neededCategories.filter((c) => categoryStates[c] === "fallback");
+                if (pendingCats.length) return "Cargando categorías...";
+                if (fallbackCats.length) return fallbackCats.length === 1 ? `Catálogo parcial (${fallbackCats[0]} fallback)` : `Catálogo parcial (${fallbackCats.length} categorías fallback)`;
+                return "Catálogo cargado";
+              })()}
+            </span>
             {compatMeta?.generatedAt && (
               <span className="meta-chip meta-chip-ghost">
                 Actualizado: {formatDateTime(compatMeta.generatedAt)}

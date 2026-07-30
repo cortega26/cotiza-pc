@@ -13,7 +13,6 @@ Before approving or implementing any material plan, read [the Canonical Product 
 | [016](archive/016-extract-catalog-compiler.md) | Extract a pure, fixture-tested catalog compiler | P1 | L | 009, 011 | DONE |
 | [017](archive/017-correct-case-form-factors.md) | Separate case chassis class from motherboard compatibility | P1 | M | 016 | DONE |
 | [018](archive/018-guarantee-catalog-id-uniqueness.md) | Guarantee unique catalog IDs without orphaning saved quotes | P1 | L | 015, 016 | DONE |
-| [019](019-finish-staged-catalog-loading.md) | Finish staged catalog loading state and request semantics | P1 | M | 012, 014 | TODO |
 | [020](020-restore-mobile-core-actions.md) | Keep core quote actions available on mobile | P2 | M | 012 | TODO |
 | [021](021-reconcile-onboarding-and-product-docs.md) | Reconcile contributor, maintenance, product-state, and plan docs | P2 | M | 009, 010, 011 | TODO |
 | [022](022-decompose-app-after-characterization.md) | Decompose App into tested domain and UI boundaries | P2 | L | 013, 014, 015, 019, 020 | TODO |
@@ -69,9 +68,6 @@ Every net-positive finding from the 2026-07-29 deep audit is assigned:
 | CSV formula injection on spreadsheet open | 015 |
 | Case chassis types are misused as motherboard form factors | 016, 017 |
 | Catalog IDs collide across products | 016, 018 |
-| Staged controls can use undemanded fallback data | 019 |
-| Reload token remains permanently in reload mode | 019 |
-| In-flight catalog requests are not deduplicated | 019 |
 | App core workflows have only shallow integration coverage | 012 |
 | Downloader tests mutate ignored production-like raw provenance | 011 |
 | Catalog compiler lacks pure fixture-tested contracts | 016 |
@@ -98,7 +94,10 @@ Once a plan is DONE, move its file to `plans/archive/`, add completion commit/da
 
 - CSV multiline parsing and quadratic price lookup — resolved by archived Plan 006.
 - Dead root lockfile and parallel obsolete catalog fetch path — resolved by archived Plan 007.
-- Initial all-at-once catalog fetching — partially resolved by archived Plan 008; remaining correctness/performance gaps are Plan 019.
+- Initial all-at-once catalog fetching — partially resolved by archived Plan 008; remaining correctness/performance gaps resolved by Plan 019.
+- Staged controls using undemanded fallback data — resolved by Plan 019 (categoryStates tracks per-category readiness; chip shows partial/fallback states).
+- Reload token stuck in reload mode — resolved by Plan 019 (generationRef compares generations; isReload only fires on actual token change).
+- In-flight catalog requests not deduplicated — resolved by Plan 019 (pending promise cache in dataLoader deduplicates concurrent same-URL calls).
 
 ## Considered and rejected or deliberately deferred
 

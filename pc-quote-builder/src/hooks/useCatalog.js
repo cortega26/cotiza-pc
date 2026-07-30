@@ -21,6 +21,8 @@ const CATEGORY_META = {
   cases: { processedKey: "cases", catalogKey: "pcCases" },
 };
 
+const ALL_CATEGORIES = Object.keys(CATEGORY_META);
+
 function mapSingleCategory(category, data) {
   const meta = CATEGORY_META[category];
   if (!meta) return null;
@@ -43,10 +45,12 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
   const [error, setError] = useState("");
   const [fallbackUsed, setFallbackUsed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadedCategories, setLoadedCategories] = useState([]);
 
   const loadedRef = useRef(new Set());
   const currentTokenRef = useRef(null);
   const prevRequestedRef = useRef([]);
+  const generationRef = useRef(0);
 
   const baseUrl = useMemo(
     () => stripTrailingSlash(import.meta.env.BASE_URL || "/"),
@@ -58,16 +62,17 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
     const prev = prevRequestedRef.current;
     const curr = requestedCategories;
 
-    const isReload = reloadToken !== 0;
+    const isReload = reloadToken !== 0 && reloadToken !== generationRef.current;
     const needsCompat = (isReload || curr.length > 0) && !loadedRef.current.has("compat");
 
     let needed;
     if (isReload) {
+      generationRef.current = reloadToken;
       prevRequestedRef.current = curr;
       needed = CATEGORY_NAMES.slice();
       clearCatalogCache();
       loadedRef.current = new Set();
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- explicit reload resets all state; no cascade after initial mount
+      setLoadedCategories([]);
       setCatalog(fallbackCatalog);
       setCompatMeta(localCatalog?.compat || null);
       setTierMaps(buildTierMaps(localCatalog?.compat));
@@ -102,6 +107,7 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
                 setCatalog((prev) => ({ ...prev, [CATEGORY_META[cat].catalogKey]: mapped }));
               }
               loadedRef.current.add(cat);
+              setLoadedCategories((prev) => [...prev, cat]);
             })
             .catch((err) => {
               if (currentTokenRef.current !== token) return;
@@ -140,6 +146,23 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
     };
   }, [reloadToken, requestedCategories, dataBase]);
 
+  const categoryStates = useMemo(() => {
+    const loadedSet = new Set(loadedCategories);
+    const states = {};
+    for (const cat of ALL_CATEGORIES) {
+      if (loadedSet.has(cat)) {
+        states[cat] = "loaded";
+      } else if (requestedCategories.includes(cat) && loading) {
+        states[cat] = "loading";
+      } else if (requestedCategories.includes(cat) && fallbackUsed) {
+        states[cat] = "fallback";
+      } else {
+        states[cat] = "empty";
+      }
+    }
+    return states;
+  }, [loadedCategories, loading, fallbackUsed, requestedCategories]);
+
   const socketSet = useMemo(() => {
     const sockets = new Set();
     catalog.cpus?.forEach((cpu) => cpu.socket && sockets.add(cpu.socket));
@@ -155,5 +178,6 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
     loading,
     error,
     fallbackUsed,
+    categoryStates,
   };
 }
