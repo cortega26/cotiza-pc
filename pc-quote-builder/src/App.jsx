@@ -21,13 +21,8 @@ import {
   formatDateTime,
   buildRowsFromSelection,
 } from "./lib/quoteModel";
-import {
-  escapeCsvField,
-  parseCsvToQuote,
-  parsePriceCsv,
-  parsePriceJson,
-  buildPriceMap,
-} from "./lib/csvParser";
+import { escapeCsvField, parseCsvToQuote, parsePriceCsv, parsePriceJson, buildPriceMap } from "./lib/csvParser";
+import { exportCSV, exportJSON, downloadFile, buildQuotesFromJson } from "./lib/fileIO";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
@@ -515,86 +510,16 @@ function App() {
     setActiveQuoteId(remaining[0].id);
   };
 
-  const slugify = (text) =>
-    (text || "cotizacion")
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)+/g, "");
-
-
   const handleDownloadCSV = () => {
     if (!activeQuote) return;
-
-    const header = ["Componente", "Producto", "itemId", "Tienda", "Precio oferta", "Precio normal", "Notas"];
-
-    const lines = [
-      header.map(escapeCsvField).join(","),
-      ...activeQuote.rows.map((row) =>
-        [row.category, row.product, row.itemId, row.store, row.offerPrice, row.regularPrice, row.notes]
-          .map(escapeCsvField)
-          .join(",")
-      ),
-      "",
-      `Total oferta,${totals.totalOffer}`,
-      `Total normal,${totals.totalRegular}`,
-      `Ahorro,${totals.saving}`,
-    ];
-
-    const csvContent = lines.join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slugify(activeQuote.name)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const csvContent = exportCSV(activeQuote, totals, escapeCsvField);
+    downloadFile(csvContent, `${activeQuote.name}.csv`, "text/csv;charset=utf-8;");
   };
 
   const handleDownloadJSON = () => {
     if (!activeQuote) return;
-    const payload = {
-      ...activeQuote,
-      totals,
-      generatedAt: new Date().toISOString(),
-    };
-
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${slugify(activeQuote.name)}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
-  const freshIds = (obj) => ({
-    ...obj,
-    id: undefined,
-    rows: Array.isArray(obj.rows)
-      ? obj.rows.map((r) => {
-          const { id: _omit, ...rest } = r;
-          return rest;
-        })
-      : obj.rows,
-  });
-
-  const buildQuotesFromJson = (data) => {
-    if (Array.isArray(data)) {
-      return data.map((q, idx) => normalizeQuote(freshIds(q), q.name || `Importada ${idx + 1}`));
-    }
-    if (data && Array.isArray(data.quotes)) {
-      return data.quotes.map((q, idx) => normalizeQuote(freshIds(q), q.name || `Importada ${idx + 1}`));
-    }
-    if (data && data.rows) {
-      return [normalizeQuote(freshIds(data), data.name || "Importada JSON")];
-    }
-    throw new Error("Formato JSON no reconocido.");
+    const payload = exportJSON(activeQuote, totals);
+    downloadFile(JSON.stringify(payload, null, 2), `${activeQuote.name}.json`, "application/json");
   };
 
   const handleImportFile = async (event) => {
@@ -603,7 +528,7 @@ function App() {
     try {
       const content = await file.text();
       const isJson = file.name.toLowerCase().endsWith(".json") || content.trim().startsWith("{") || content.trim().startsWith("[");
-      const importedQuotes = isJson ? buildQuotesFromJson(JSON.parse(content)) : [parseCsvToQuote(content, { normalizeRow, normalizeQuote })];
+      const importedQuotes = isJson ? buildQuotesFromJson(JSON.parse(content), normalizeQuote) : [parseCsvToQuote(content, { normalizeRow, normalizeQuote })];
 
       setQuotes((prev) => {
         const next = [...prev, ...importedQuotes];
