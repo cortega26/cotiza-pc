@@ -5,6 +5,13 @@ import { evaluateSelection } from "./lib/selectionEvaluation";
 import { parsePrice, computeTotals, normalizeCurrency } from "./lib/money";
 import { resolveCatalogId } from "./lib/catalogMapper";
 import {
+  BUILDER_STEPS,
+  EMPTY_BUILDER,
+  getNextStep,
+  isStepDone,
+  builderComplete as isBuilderComplete,
+} from "./lib/builderReducer";
+import {
   createId,
   createEmptyRow,
   createEmptyQuote,
@@ -26,25 +33,6 @@ const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",
   activeQuoteId: "pcqb:activeQuoteId:v1",
   builder: "pcqb:builder:v1",
-};
-
-const builderSteps = [
-  { key: "cpuId", label: "CPU" },
-  { key: "moboId", label: "Placa madre" },
-  { key: "ramId", label: "RAM" },
-  { key: "gpuId", label: "GPU" },
-  { key: "psuId", label: "Fuente" },
-  { key: "caseId", label: "Gabinete" },
-];
-
-const emptyBuilder = {
-  cpuId: "",
-  moboId: "",
-  ramId: "",
-  gpuId: "",
-  psuId: "",
-  caseId: "",
-  useIntegratedGpu: false,
 };
 
 const getInitialQuotes = () => {
@@ -69,12 +57,12 @@ const getInitialBuilder = () => {
     const raw = localStorage.getItem(STORAGE_KEYS.builder);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...emptyBuilder, ...parsed };
+      return { ...EMPTY_BUILDER, ...parsed };
     }
   } catch (err) {
     console.warn("No se pudo cargar builder guardado", err);
   }
-  return emptyBuilder;
+  return EMPTY_BUILDER;
 };
 
 const getOptionsForStep = (key, selection, catalog) => {
@@ -123,11 +111,11 @@ function App() {
   const [quotes, setQuotes] = useState(getInitialQuotes);
   const [activeQuoteId, setActiveQuoteId] = useState("");
   const [builder, setBuilder] = useState(getInitialBuilder);
+  const [builderStep, setBuilderStep] = useState(0);
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
   const importInputRef = useRef(null);
   const priceImportRef = useRef(null);
-  const [builderStep, setBuilderStep] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const menuTriggerRef = useRef(null);
   const drawerRef = useRef(null);
@@ -221,7 +209,7 @@ function App() {
 
   const optionsByStep = useMemo(() => {
     const options = {};
-        for (const step of builderSteps) {
+        for (const step of BUILDER_STEPS) {
           options[step.key] = getOptionsForStep(step.key, selection, catalog);
         }
         return options;
@@ -306,8 +294,7 @@ function App() {
   const builderWarnings = assessment.warnings || [];
   const summaryVerdict = assessment.summaryVerdict || "";
   const usingIntegratedGpu = builder.useIntegratedGpu || false;
-  const isStepDone = (stepKey) => (stepKey === "gpuId" ? builder.gpuId || usingIntegratedGpu : builder[stepKey]);
-  const builderComplete = builderSteps.every((step) => isStepDone(step.key));
+  const builderComplete = isBuilderComplete(builder);
   const builderStatuses = assessment.statuses;
   const selectionChips = assessment.selectionChips;
   const builderInfo = useMemo(() => {
@@ -441,9 +428,9 @@ function App() {
       return next;
     });
 
-    const stepIndex = builderSteps.findIndex((step) => step.key === key);
-    if (cleanValue && stepIndex === builderStep && builderStep < builderSteps.length - 1) {
-      setBuilderStep(builderStep + 1);
+    const nextStep = getNextStep(builderStep, key, !!cleanValue);
+    if (nextStep !== builderStep) {
+      setBuilderStep(nextStep);
     }
   };
 
@@ -710,19 +697,19 @@ function App() {
   };
 
   const handleIntegratedGpuToggle = (checked) => {
-    const gpuStepIndex = builderSteps.findIndex((step) => step.key === "gpuId");
+    const gpuStepIndex = BUILDER_STEPS.findIndex((step) => step.key === "gpuId");
     setBuilder((prev) => ({
       ...prev,
       useIntegratedGpu: checked,
       gpuId: checked ? "" : prev.gpuId,
     }));
-    if (checked && builderStep === gpuStepIndex && builderStep < builderSteps.length - 1) {
+    if (checked && builderStep === gpuStepIndex && builderStep < BUILDER_STEPS.length - 1) {
       setBuilderStep(builderStep + 1);
     }
   };
 
   const handleClearBuilder = () => {
-    setBuilder({ ...emptyBuilder });
+    setBuilder({ ...EMPTY_BUILDER });
     setBuilderStep(0);
   };
 
@@ -764,7 +751,7 @@ function App() {
     if (e.target === e.currentTarget) closeMobileMenu();
   }, [closeMobileMenu]);
 
-  const currentStep = builderSteps[builderStep];
+  const currentStep = BUILDER_STEPS[builderStep];
 
   const renderSidebarContent = () => (
     <>
@@ -960,8 +947,8 @@ function App() {
               </button>
               <button
                 className="primary-btn"
-                onClick={() => setBuilderStep((s) => Math.min(builderSteps.length - 1, s + 1))}
-                disabled={builderStep >= builderSteps.length - 1}
+                onClick={() => setBuilderStep((s) => Math.min(BUILDER_STEPS.length - 1, s + 1))}
+                disabled={builderStep >= BUILDER_STEPS.length - 1}
               >
                 Siguiente →
               </button>
@@ -969,13 +956,13 @@ function App() {
           </div>
 
           <div className="stepper">
-            {builderSteps.map((step, index) => (
+            {BUILDER_STEPS.map((step, index) => (
               <button
                 key={step.key}
                 className={
                   "step-chip" +
                   (index === builderStep ? " active" : "") +
-                  (isStepDone(step.key) ? " done" : "")
+                  (isStepDone(builder, step.key) ? " done" : "")
                 }
                 onClick={() => setBuilderStep(index)}
               >
@@ -988,7 +975,7 @@ function App() {
           <div className="builder-layout">
             <div className="builder-card">
               <div className="builder-choices">
-                {builderSteps.map((step) => {
+                {BUILDER_STEPS.map((step) => {
                   const isActive = currentStep.key === step.key;
                   let options = optionsByStep[step.key] || [];
                   const value = builder[step.key] || "";
