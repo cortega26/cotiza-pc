@@ -88,6 +88,12 @@ describe("escapeCsvField", () => {
     // RFC-4180 quoting wraps the entire prefixed value
     expect(result).toBe('"\'=SUM(A1, A2)"');
   });
+
+  it("handles formula-prefixed value that also contains a double quote", () => {
+    const result = escapeCsvField('=SUM("A1","A2")');
+    // RFC-4180 quoting with escaped inner quotes wraps the prefixed value
+    expect(result).toBe('"\'=SUM(""A1"",""A2"")"');
+  });
 });
 
 describe("unprotectFormulaField", () => {
@@ -367,6 +373,13 @@ describe("parseCsvToQuote", () => {
     const quote = parseCsvToQuote(csv, helpers);
     expect(quote.rows).toHaveLength(1);
     expect(quote.rows[0].notes).toBe(dangerousNote);
+  });
+
+  it("strips formula protection from price columns on re-import", () => {
+    const csv = "Componente,Producto,Precio oferta,Precio normal\nCPU,Ryzen 5,'=5000,'=7000";
+    const quote = parseCsvToQuote(csv, helpers);
+    expect(quote.rows[0].offerPrice).toBe("=5000");
+    expect(quote.rows[0].regularPrice).toBe("=7000");
   });
 });
 
