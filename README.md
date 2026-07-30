@@ -31,6 +31,24 @@ Las recomendaciones deben ser explicables, neutrales y honestas sobre su incerti
 
 No ocultamos la incertidumbre detrás de una puntuación universal. Tampoco permitimos que afiliados, patrocinios o relaciones comerciales ordenen recomendaciones en secreto: cualquier relación comercial debe identificarse con claridad.
 
+## Estado actual
+
+Lo que ya funciona:
+
+- **Cotizaciones:** crear, duplicar, eliminar y nombrar cotizaciones; persistencia en localStorage.
+- **Editor de filas:** agregar, eliminar y editar componentes, precios y notas por fila.
+- **Importar/exportar:** descarga CSV y JSON; importación CSV/JSON; importación de precios por `itemId`.
+- **Compatibilidad:** filtros por socket, factor de forma, longitud de GPU, potencia mínima de PSU; evaluación de poder y tier; advertencias de incompatibilidad.
+- **Catálogo escalonado:** las categorías se cargan bajo demanda según el paso del builder; estado parcial/fallback visible.
+- **Diseño adaptable:** panel lateral de acciones en escritorio; menú tipo cajón en móvil (<900px).
+
+En desarrollo o planificado (ver [visión canónica](docs/PRODUCT_VISION.md)):
+
+- Asistente guiado para principiantes.
+- Análisis de cotizaciones existentes (terceras).
+- Comparación multipresupuesto y escenarios de actualización.
+- Recomendación explícita y explicable con incertidumbre visible.
+
 ## Visión canónica y gobierno del producto
 
 [La Visión de Producto Canónica](docs/PRODUCT_VISION.md) contiene los principios completos, los criterios de decisión y las reglas de enmienda. Es la fuente de verdad de mayor autoridad para decisiones de producto y debe leerse antes de proponer o implementar cambios materiales, planes de desarrollo, lógica de recomendaciones o compatibilidad, flujos principales, puntuaciones, estados de advertencia/desconocimiento, monetización, rankings o decisiones arquitectónicas que limiten el comportamiento futuro.
@@ -39,7 +57,7 @@ No ocultamos la incertidumbre detrás de una puntuación universal. Tampoco perm
 
 - **Heurística PSU:** ver [pc-quote-builder/PSU_HEURISTICS.md](pc-quote-builder/PSU_HEURISTICS.md).
 - **Compatibilidad:** lógica en `pc-quote-builder/src/lib/compatibility.js` y evaluaciones en `pc-quote-builder/src/lib/selectionEvaluation.js`.
-- **Instrucciones de contribución para agentes:** ver [AGENTS.md](AGENTS.md).
+- **Instrucciones de contribución:** ver [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Desarrollo y mantenimiento
 

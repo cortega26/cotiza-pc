@@ -9,6 +9,7 @@
 - **Priority**: P2; **Effort**: M; **Risk**: MED; **Depends on**: `003-validate-deployed-catalog-artifacts.md`
 - **Category**: tech-debt/docs
 - **Planned at**: commit `63ecbca`, 2026-07-29
+- **Status**: ✅ Done — consolidated by Plans 009, 010, 011 (runtime alignment, deployment isolation, downloader tests); READMEs and workflows updated to single canonical pipeline.
 
 ## Why this matters
 

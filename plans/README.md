@@ -14,7 +14,7 @@ Before approving or implementing any material plan, read [the Canonical Product 
 | [017](archive/017-correct-case-form-factors.md) | Separate case chassis class from motherboard compatibility | P1 | M | 016 | DONE |
 | [018](archive/018-guarantee-catalog-id-uniqueness.md) | Guarantee unique catalog IDs without orphaning saved quotes | P1 | L | 015, 016 | DONE |
 | [020](archive/020-restore-mobile-core-actions.md) | Keep core quote actions available on mobile | P2 | M | 012 | DONE |
-| [021](021-reconcile-onboarding-and-product-docs.md) | Reconcile contributor, maintenance, product-state, and plan docs | P2 | M | 009, 010, 011 | TODO |
+| [021](archive/021-reconcile-onboarding-and-product-docs.md) | Reconcile contributor, maintenance, product-state, and plan docs | P2 | M | 009, 010, 011 | DONE |
 | [022](022-decompose-app-after-characterization.md) | Decompose App into tested domain and UI boundaries | P2 | L | 013, 014, 015, 019, 020 | TODO |
 | [027](027-adopt-typescript-7-incrementally.md) | Adopt TypeScript 7 incrementally without a big-bang rewrite | P2 | L | 017, 018, 022 | TODO |
 | [023](023-profile-and-stabilize-typeahead.md) | Profile and conditionally stabilize typeahead rendering | P3 | S-M | 022 | TODO |
@@ -38,7 +38,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
                └─ 020 ─DONE─┤  │
                             └──┴─ 022 ── 023
 
-009 + 010 + 011 ── 021
+009 + 010 + 011 ── 021 ─DONE─
 
 017 + 018 + 022 ── 027
 ```

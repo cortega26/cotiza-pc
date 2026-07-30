@@ -9,6 +9,7 @@
 - **Priority**: P3; **Effort**: M; **Risk**: MED; **Depends on**: plans 002, 006
 - **Category**: perf
 - **Planned at**: commit `63ecbca`, 2026-07-29
+- **Status**: ✅ Done — superseded by Plan 019 (staged catalog loading with generationRef, categoryStates, pending-promise cache, per-category readiness UI).
 
 ## Why this matters
 
