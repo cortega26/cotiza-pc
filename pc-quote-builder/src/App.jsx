@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
+import QuoteEditor from "./components/QuoteEditor";
 import { useCatalog } from "./hooks/useCatalog";
 import { usePersistence } from "./hooks/usePersistence";
 import { evaluateSelection } from "./lib/selectionEvaluation";
@@ -341,11 +342,6 @@ function App() {
     }
   };
 
-  const handleQuoteNameChange = (e) => {
-    const newName = e.target.value;
-    updateActiveQuote(() => ({ name: newName }));
-  };
-
   const handleCurrencyChange = (e) => {
     const raw = e.target.value || "";
     setCurrencyDraft(raw);
@@ -358,36 +354,6 @@ function App() {
   const handleCurrencyPreset = (value) => {
     setCurrencyDraft(value);
     updateActiveQuote(() => ({ currency: value }));
-  };
-
-  const handleRowChange = (rowId, field, value) => {
-    const isPriceField = field === "offerPrice" || field === "regularPrice";
-    updateActiveQuote((q) => {
-      const rows = q.rows.map((row) =>
-        row.id === rowId
-          ? {
-              ...row,
-              [field]: isPriceField ? value.replace(/[^\d.,]/g, "") : value,
-            }
-          : row
-      );
-      return {
-        rows,
-        priceUpdatedAt: isPriceField ? new Date().toISOString() : q.priceUpdatedAt,
-      };
-    });
-  };
-
-  const handleAddRow = () => {
-    updateActiveQuote((q) => ({
-      rows: [...q.rows, createEmptyRow()],
-    }));
-  };
-
-  const handleRemoveRow = (rowId) => {
-    updateActiveQuote((q) => ({
-      rows: q.rows.filter((row) => row.id !== rowId),
-    }));
   };
 
   const handleAddQuote = () => {
@@ -1092,205 +1058,34 @@ function App() {
           </div>
         </section>
 
-        <header className="quote-header">
-            <div className="quote-header-main">
-              <label className="field">
-                <span>Nombre de la cotización</span>
-                <input
-                  type="text"
-                  value={activeQuote.name}
-                  onChange={handleQuoteNameChange}
-                  placeholder="Ej: PC Gamer RTX 4060"
-                />
-              </label>
-              <label className="field">
-                <span>Moneda</span>
-                <div className="currency-row">
-                  <div className="currency-pills">
-                    {["CLP", "USD", "EUR"].map((code) => (
-                      <label
-                        key={code}
-                        className={"currency-pill" + (activeQuote.currency === code ? " active" : "")}
-                      >
-                        <input
-                          type="radio"
-                          name="currency"
-                          value={code}
-                          checked={activeQuote.currency === code}
-                          onChange={() => handleCurrencyPreset(code)}
-                        />
-                        {code}
-                      </label>
-                    ))}
-                  </div>
-                  <div className="currency-custom">
-                    <span>Otra</span>
-                    <input
-                      className="currency-input"
-                      type="text"
-                      value={currencyDraft}
-                      onChange={handleCurrencyChange}
-                      maxLength={3}
-                      placeholder="Ej: GBP"
-                      aria-label="Moneda personalizada"
-                    />
-                  </div>
-                </div>
-              </label>
-            </div>
-
-          <div className="totals">
-            <div className="total-card">
-              <span className="total-label">Total oferta</span>
-              <span className="total-value">{currencyFormatter.format(totals.totalOffer || 0)}</span>
-            </div>
-            <div className="total-card">
-              <span className="total-label">Precio normal</span>
-              <span className="total-value">{currencyFormatter.format(totals.totalRegular || 0)}</span>
-            </div>
-            <div className="total-card total-card-saving">
-              <span className="total-label">Ahorro</span>
-              <span className="total-value">{currencyFormatter.format(totals.saving || 0)}</span>
-            </div>
-            <div className="total-card">
-              <span className="total-label">Ítems con precio</span>
-              <span className="total-value">
-                {totals.rowsWithPrice}/{activeQuote.rows.length}
-              </span>
-              {totals.rowsWithPrice === 0 && <span className="muted">Agrega precios para ver totales reales</span>}
-            </div>
-            <div className="total-card total-card-status">
-              <span className="total-label">Estado de precios</span>
-              <span
-                className={`status-chip ${priceStatus.className}`}
-                title={priceStatus.updatedAt ? `Actualizado: ${formatDateTime(priceStatus.updatedAt)}` : ""}
-              >
-                {priceStatus.label}
-              </span>
-              {priceStatus.updatedAt && (
-                <span className="muted">
-                    Actualizado: {formatDateTime(priceStatus.updatedAt)} ·{" "}
-                  <button className="link-btn" onClick={() => priceImportRef.current?.click()}>
-                    Reimportar precios
-                  </button>
-                  {/* TODO: centralize price import trigger — same ref used in renderSidebarContent */}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="store-totals">
-            {storeTotals.length === 0 ? (
-              <span className="muted">Aún no hay precios por tienda.</span>
-            ) : (
-              storeTotals.map((store) => (
-                <div key={store.store} className="store-pill">
-                  <div className="store-name">{store.store}</div>
-                  <div className="store-values">
-                    <span>Oferta: {currencyFormatter.format(store.offer)}</span>
-                    <span>Normal: {currencyFormatter.format(store.regular)}</span>
-                    <span>Ahorro: {currencyFormatter.format(store.saving)}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </header>
-
-        <section className="table-section">
-          <div className="table-wrapper">
-            <div className="table-toolbar">
-              <span className="muted">
-                {totals.rowsWithPrice === 0
-                  ? "Sin precios cargados; agrega manualmente o importa por id."
-                  : totals.rowsWithPrice === activeQuote.rows.length
-                  ? "Todos los ítems tienen precio."
-                  : "Faltan precios en algunos ítems."}
-              </span>
-            </div>
-            <table className="quote-table">
-              <thead>
-                <tr>
-                  <th style={{ width: "14%" }}>Componente</th>
-                  <th style={{ width: "28%" }}>Producto</th>
-                  <th style={{ width: "14%" }}>Tienda</th>
-                  <th style={{ width: "12%" }}>Oferta</th>
-                  <th style={{ width: "12%" }}>Normal</th>
-                  <th style={{ width: "16%" }}>Notas</th>
-                  <th style={{ width: "4%" }}></th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeQuote.rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <input
-                        type="text"
-                        value={row.category}
-                        onChange={(e) => handleRowChange(row.id, "category", e.target.value)}
-                        placeholder="Tarjeta de video, RAM…"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        value={row.product}
-                        onChange={(e) => handleRowChange(row.id, "product", e.target.value)}
-                        placeholder="Modelo exacto"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        value={row.store}
-                        onChange={(e) => handleRowChange(row.id, "store", e.target.value)}
-                        placeholder="Tienda"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={row.offerPrice}
-                        onChange={(e) => handleRowChange(row.id, "offerPrice", e.target.value)}
-                        placeholder="0"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        value={row.regularPrice}
-                        onChange={(e) => handleRowChange(row.id, "regularPrice", e.target.value)}
-                        placeholder="0"
-                      />
-                    </td>
-                    <td>
-                      <input
-                        type="text"
-                        value={row.notes}
-                        onChange={(e) => handleRowChange(row.id, "notes", e.target.value)}
-                        placeholder="Comentarios, links…"
-                      />
-                    </td>
-                    <td className="actions-cell">
-                      <button className="icon-btn" onClick={() => handleRemoveRow(row.id)} title="Eliminar fila">
-                        ✕
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                <tr>
-                  <td colSpan={7}>
-                    <button className="secondary-btn full-width" onClick={handleAddRow}>
-                      + Agregar componente
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <QuoteEditor
+          quote={activeQuote}
+          onNameChange={(v) => updateActiveQuote(() => ({ name: v }))}
+          currencyDraft={currencyDraft}
+          onCurrencyChange={handleCurrencyChange}
+          onCurrencyPreset={handleCurrencyPreset}
+          currencyFormatter={currencyFormatter}
+          totals={totals}
+          priceStatus={priceStatus}
+          onReimportPrices={() => priceImportRef.current?.click()}
+          storeTotals={storeTotals}
+          onRowChange={(rowId, field, value) => {
+            const isPriceField = field === "offerPrice" || field === "regularPrice";
+            updateActiveQuote((q) => ({
+              rows: q.rows.map((row) =>
+                row.id === rowId
+                  ? { ...row, [field]: isPriceField ? value.replace(/[^\d.,]/g, "") : value }
+                  : row
+              ),
+              priceUpdatedAt: isPriceField ? new Date().toISOString() : q.priceUpdatedAt,
+            }));
+          }}
+          onRemoveRow={(rowId) =>
+            updateActiveQuote((q) => ({ rows: q.rows.filter((row) => row.id !== rowId) }))
+          }
+          onAddRow={() => updateActiveQuote((q) => ({ rows: [...q.rows, createEmptyRow()] }))}
+          formatDateTime={formatDateTime}
+        />
       </main>
     </div>
   );
