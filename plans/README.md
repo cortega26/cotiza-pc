@@ -28,7 +28,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [023](archive/023-profile-and-stabilize-typeahead.md) | Profile and conditionally stabilize typeahead rendering | P3 | S-M | 022 | DONE |
 | [024](archive/024-design-quote-analyzer.md) | Design imported-quote analysis as the first decision-engine vertical | P2 | L | 014, 015 | DONE |
 | [025](archive/025-design-guided-and-expert-builders.md) | Define separate Guided and Expert Builder experiences | P2 | L | 014, 019 | DONE |
-| [026](026-design-scenario-comparison.md) | Design multi-quote comparison and upgrade scenarios | P3 | M | 013, 014, 024 | TODO |
+| [026](archive/026-design-scenario-comparison.md) | Design multi-quote comparison and upgrade scenarios | P3 | M | 013, 014, 024 | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -40,7 +40,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
      │               └─ 018
       └─ 012 ─┬─ 013 ──────────────┐
                 ├─ 014 ─┬─ 019 ─┐   │
-                │       ├─ 024 ─DONE─┼─ 026
+                │       ├─ 024 ─DONE─┼─ 026 ─DONE
                 │       └─ 025 ─DONE │
                  ├─ 015 ──────┐  │
                 └─ 020 ─DONE─┤  │
@@ -61,6 +61,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Plan 023 was conditional: profiling stayed below its 50 ms threshold (max one frame, 0/14 frames over 50 ms), so simple stabilization landed and indexing/virtualization were not justified. Measurement retained in the archived plan.
 - Plan 024 delivered `docs/design/quote-analyzer.md` (2026-07-30). Plans 025-026 remain design/data spikes. Design spikes do not authorize full feature builds; approved designs should generate new, sliced implementation plans. Plan 024's implementation additionally waits on the owner decision in design §12.1 (required-component set).
 - Plan 025 delivered `docs/design/builder-modes.md` (2026-07-30). The existing picker is confirmed as the Expert Builder baseline; Guided intake and recommendation contracts are designed but not encoded. Budget/value rules stay preference markers until a licensed price feed exists (catalog verified to carry no prices). Phase A (Expert evidence/alternatives/non-destructive conflicts) is production-safe; the Guided engine (Phase B+) stays gated on the Plan 024 analyzer contract in production + Milestone 2 quality gates. Owner decisions in design §8 (persona scope, budget semantics, performance-band mapping, guided timing, silent-clear replacement).
+- Plan 026 delivered `docs/design/scenario-comparison.md` (2026-07-30). Comparison is a consumer of the analyzer contract (`output/v1`), never a second engine; `hasWinner` is constant false in v1; acquisition cost excludes owned rows but keeps them in assessment; missing prices are never zero; mixed currencies mark price dimensions incomparable (no conversion — owner decision §9.1). Phase A (existing-engine quote diff/cost) is production-safe; Phase B+ gated on the Plan 024 analyzer in production. Owner decisions in design §9.
 
 ## Audit finding coverage
 

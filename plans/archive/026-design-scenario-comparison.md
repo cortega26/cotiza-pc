@@ -12,6 +12,7 @@
 - **Depends on**: `013-correct-quote-money-semantics.md`, `014-preserve-assessment-severity.md`, `024-design-quote-analyzer.md`
 - **Category**: direction
 - **Planned at**: commit `fabeb49`, 2026-07-29
+- **Completed**: 2026-07-30 (see completion record at end of file)
 
 ## Why this matters
 
@@ -78,3 +79,11 @@ Design fixtures: same build/different stores, cheaper but stale, upgrade using o
 ## Maintenance notes
 
 Comparison should consume the same analyzer outputs as individual quotes; never fork recommendation semantics into a second engine.
+
+## Completion record (2026-07-30)
+
+- **Delivered**: `docs/design/scenario-comparison.md` on branch `advisor/026-design-scenario-comparison`.
+- **Verified against code**: quote model (`quoteModel.js`), persistence (`usePersistence`), `computeTotals` never treating missing prices as zero (`money.js:66-91`), per-quote currency + freshness, global builder, analyzer contract §4 reused verbatim as the dimension model.
+- **Key decisions**: scenario wrapper `scenario-comparison/input/v1` with immutable quote snapshot + owned-part row ids + catalog provenance; `output/v1` with `hasWinner` constant false; seven analyzer dimensions + acquisition cost; incomparability rules (mixed currencies → price dims unknown, no conversion); upgrade = owned rows excluded from cost but included in assessment.
+- **STOP condition review**: analyzer contract available and suitable (gated on its production implementation); currency-conversion decision surfaced as owner decision §9.1 (not silently resolved); no hidden weighting or winner score.
+- No production code changed; no tests affected.
