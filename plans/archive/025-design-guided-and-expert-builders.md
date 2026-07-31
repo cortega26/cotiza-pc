@@ -12,6 +12,7 @@
 - **Depends on**: `014-preserve-assessment-severity.md`, `019-finish-staged-catalog-loading.md`
 - **Category**: direction
 - **Planned at**: commit `fabeb49`, 2026-07-29
+- **Completed**: 2026-07-30 (see completion record at end of file)
 
 ## Why this matters
 
@@ -81,3 +82,11 @@ Design fixtures must include gaming, development/workstation, constrained office
 ## Maintenance notes
 
 Guided and Expert modes should share normalized catalog and assessment contracts, not duplicate compatibility logic.
+## Completion record (2026-07-30)
+
+- **Delivered**: `docs/design/builder-modes.md` on branch `advisor/025-design-guided-and-expert-builders`.
+- **Verified against code**: current picker baseline (`BUILDER_STEPS`, `EMPTY_BUILDER`, `App.jsx:31-70` filters, `evaluateSelection`, tier maps); catalog data posture checked against `public/data/*.min.json` — tiers full (CPU 961, GPU 3869, bands 1-4), CPU `tdp_w` 100% (961/961), GPU `tdp_w` 8% (315/3869), PSU `pcie_power_connectors` 0/2128, **no prices anywhere in the catalog** (prices live only in imported quote rows).
+- **Key design consequence**: budget/value rules are preference markers in v1, not price-ranking rules; value dimension explicitly `unsupported` until a licensed price feed exists. This keeps recommendation quality independent of unavailable price data (STOP condition 1).
+- **STOP condition 3 (owner persona choice)**: the design adopts the vision beachhead (gaming) as the v1-encoded persona and lists it as owner decision §8.1 rather than resolving it silently.
+- **Sequencing**: Phase A (Expert evidence/alternatives/non-destructive conflicts) is production-safe now; Phase B+ (Guided engine, proposals, handoff) gated on the Plan 024 analyzer contract in production + Milestone 2 quality gates per plans/README. P3 workstation persona deliberately deferred (no benchmark data).
+- No production code changed; no recommendation rules encoded; no tests affected.

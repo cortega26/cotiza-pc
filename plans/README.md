@@ -27,7 +27,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [027](027-adopt-typescript-7-incrementally.md) | Adopt TypeScript 7 incrementally without a big-bang rewrite | P2 | L | 017, 018, 022 | BLOCKED: typescript-eslint 8.65.0 supports TS `<6.1.0`; TS 7 not yet officially supported |
 | [023](archive/023-profile-and-stabilize-typeahead.md) | Profile and conditionally stabilize typeahead rendering | P3 | S-M | 022 | DONE |
 | [024](archive/024-design-quote-analyzer.md) | Design imported-quote analysis as the first decision-engine vertical | P2 | L | 014, 015 | DONE |
-| [025](025-design-guided-and-expert-builders.md) | Define separate Guided and Expert Builder experiences | P2 | L | 014, 019 | TODO |
+| [025](archive/025-design-guided-and-expert-builders.md) | Define separate Guided and Expert Builder experiences | P2 | L | 014, 019 | DONE |
 | [026](026-design-scenario-comparison.md) | Design multi-quote comparison and upgrade scenarios | P3 | M | 013, 014, 024 | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
@@ -39,10 +39,10 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
      ├─ 011 ── 016 ─┬─ 017│
      │               └─ 018
       └─ 012 ─┬─ 013 ──────────────┐
-               ├─ 014 ─┬─ 019 ─┐   │
-               │       ├─ 024 ─DONE─┼─ 026
-               │       └─ 025  │
-                ├─ 015 ──────┐  │
+                ├─ 014 ─┬─ 019 ─┐   │
+                │       ├─ 024 ─DONE─┼─ 026
+                │       └─ 025 ─DONE │
+                 ├─ 015 ──────┐  │
                 └─ 020 ─DONE─┤  │
                              └──┴─ 022 ── 023 ─DONE─
 
@@ -60,6 +60,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Plan 027 follows catalog semantic fixes and App decomposition to avoid converting unstable contracts twice. Its first gate requires official stable typescript-eslint support for both TypeScript 7 and ESLint 10; the 2026-07-30 preflight confirmed typescript-eslint 8.65.0 still supports only TypeScript `<6.1.0`, so the plan is BLOCKED and must not be bypassed with canaries or warning suppression.
 - Plan 023 was conditional: profiling stayed below its 50 ms threshold (max one frame, 0/14 frames over 50 ms), so simple stabilization landed and indexing/virtualization were not justified. Measurement retained in the archived plan.
 - Plan 024 delivered `docs/design/quote-analyzer.md` (2026-07-30). Plans 025-026 remain design/data spikes. Design spikes do not authorize full feature builds; approved designs should generate new, sliced implementation plans. Plan 024's implementation additionally waits on the owner decision in design §12.1 (required-component set).
+- Plan 025 delivered `docs/design/builder-modes.md` (2026-07-30). The existing picker is confirmed as the Expert Builder baseline; Guided intake and recommendation contracts are designed but not encoded. Budget/value rules stay preference markers until a licensed price feed exists (catalog verified to carry no prices). Phase A (Expert evidence/alternatives/non-destructive conflicts) is production-safe; the Guided engine (Phase B+) stays gated on the Plan 024 analyzer contract in production + Milestone 2 quality gates. Owner decisions in design §8 (persona scope, budget semantics, performance-band mapping, guided timing, silent-clear replacement).
 
 ## Audit finding coverage
 
