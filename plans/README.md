@@ -26,7 +26,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | 022 | Decompose App into tested domain and UI boundaries | P2 | L | 013, 014, 015, 019, 020 | DONE |
 | [027](027-adopt-typescript-7-incrementally.md) | Adopt TypeScript 7 incrementally without a big-bang rewrite | P2 | L | 017, 018, 022 | BLOCKED: typescript-eslint 8.65.0 supports TS `<6.1.0`; TS 7 not yet officially supported |
 | [023](archive/023-profile-and-stabilize-typeahead.md) | Profile and conditionally stabilize typeahead rendering | P3 | S-M | 022 | DONE |
-| [024](024-design-quote-analyzer.md) | Design imported-quote analysis as the first decision-engine vertical | P2 | L | 014, 015 | TODO |
+| [024](archive/024-design-quote-analyzer.md) | Design imported-quote analysis as the first decision-engine vertical | P2 | L | 014, 015 | DONE |
 | [025](025-design-guided-and-expert-builders.md) | Define separate Guided and Expert Builder experiences | P2 | L | 014, 019 | TODO |
 | [026](026-design-scenario-comparison.md) | Design multi-quote comparison and upgrade scenarios | P3 | M | 013, 014, 024 | TODO |
 
@@ -38,13 +38,13 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 009 ─┬─ 010 ──────────────┐
      ├─ 011 ── 016 ─┬─ 017│
      │               └─ 018
-     └─ 012 ─┬─ 013 ──────────────┐
-              ├─ 014 ─┬─ 019 ─┐   │
-              │       ├─ 024 ─┼─ 026
-              │       └─ 025  │
-               ├─ 015 ──────┐  │
-               └─ 020 ─DONE─┤  │
-                            └──┴─ 022 ── 023 ─DONE─
+      └─ 012 ─┬─ 013 ──────────────┐
+               ├─ 014 ─┬─ 019 ─┐   │
+               │       ├─ 024 ─DONE─┼─ 026
+               │       └─ 025  │
+                ├─ 015 ──────┐  │
+                └─ 020 ─DONE─┤  │
+                             └──┴─ 022 ── 023 ─DONE─
 
 009 + 010 + 011 ── 021 ─DONE─
 
@@ -57,9 +57,9 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Plan 016 creates the pure compiler seam required to fix semantic catalog data safely. Plan 017 may then change form-factor meaning; Plan 018 additionally depends on interchange identity semantics from 015.
 - Plan 019 is the corrective completion of archived Plan 008. It depends on the assessment taxonomy from 014 so partial/fallback readiness cannot masquerade as valid.
 - Plan 022 is deliberately late: do not refactor `App` while its money, assessment, interchange, staged-loading, and mobile behavior are still moving.
-- Plan 027 follows catalog semantic fixes and App decomposition to avoid converting unstable contracts twice. Its first gate requires official stable typescript-eslint support for both TypeScript 7 and ESLint 10; as of 2026-07-29 that support is not yet declared, so do not bypass the preflight with canaries or warning suppression.
+- Plan 027 follows catalog semantic fixes and App decomposition to avoid converting unstable contracts twice. Its first gate requires official stable typescript-eslint support for both TypeScript 7 and ESLint 10; the 2026-07-30 preflight confirmed typescript-eslint 8.65.0 still supports only TypeScript `<6.1.0`, so the plan is BLOCKED and must not be bypassed with canaries or warning suppression.
 - Plan 023 was conditional: profiling stayed below its 50 ms threshold (max one frame, 0/14 frames over 50 ms), so simple stabilization landed and indexing/virtualization were not justified. Measurement retained in the archived plan.
-- Plans 024-026 are design/data spikes. They do not authorize full feature builds; approved designs should generate new, sliced implementation plans.
+- Plan 024 delivered `docs/design/quote-analyzer.md` (2026-07-30). Plans 025-026 remain design/data spikes. Design spikes do not authorize full feature builds; approved designs should generate new, sliced implementation plans. Plan 024's implementation additionally waits on the owner decision in design §12.1 (required-component set).
 
 ## Audit finding coverage
 

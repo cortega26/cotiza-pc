@@ -12,6 +12,7 @@
 - **Depends on**: `014-preserve-assessment-severity.md`, `015-harden-quote-interchange.md`
 - **Category**: direction
 - **Planned at**: commit `fabeb49`, 2026-07-29
+- **Status**: DONE — design spike delivered at `docs/design/quote-analyzer.md` (2026-07-30); implementation requires a new sliced plan and the owner decision in §12.1
 
 ## Why this matters
 
