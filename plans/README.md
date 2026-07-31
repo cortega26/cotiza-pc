@@ -24,7 +24,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [020](archive/020-restore-mobile-core-actions.md) | Keep core quote actions available on mobile | P2 | M | 012 | DONE |
 | [021](archive/021-reconcile-onboarding-and-product-docs.md) | Reconcile contributor, maintenance, product-state, and plan docs | P2 | M | 009, 010, 011 | DONE |
 | 022 | Decompose App into tested domain and UI boundaries | P2 | L | 013, 014, 015, 019, 020 | DONE |
-| [027](027-adopt-typescript-7-incrementally.md) | Adopt TypeScript 7 incrementally without a big-bang rewrite | P2 | L | 017, 018, 022 | TODO |
+| [027](027-adopt-typescript-7-incrementally.md) | Adopt TypeScript 7 incrementally without a big-bang rewrite | P2 | L | 017, 018, 022 | BLOCKED: typescript-eslint 8.65.0 supports TS `<6.1.0`; TS 7 not yet officially supported |
 | [023](archive/023-profile-and-stabilize-typeahead.md) | Profile and conditionally stabilize typeahead rendering | P3 | S-M | 022 | DONE |
 | [024](024-design-quote-analyzer.md) | Design imported-quote analysis as the first decision-engine vertical | P2 | L | 014, 015 | TODO |
 | [025](025-design-guided-and-expert-builders.md) | Define separate Guided and Expert Builder experiences | P2 | L | 014, 019 | TODO |

@@ -22,6 +22,18 @@
 - **Depends on**: `017-correct-case-form-factors.md`, `018-guarantee-catalog-id-uniqueness.md`, `022-decompose-app-after-characterization.md`
 - **Category**: migration / dx
 - **Planned at**: commit `7eebe14`, 2026-07-29
+- **Status**: BLOCKED — STOP condition hit at Step 1 preflight, 2026-07-30
+
+## STOP log
+
+- Step 1 ecosystem preflight failed: `typescript-eslint@8.65.0` (latest stable) declares
+  peer range `typescript: >=4.8.4 <6.1.0`; the official dependency-versions page
+  (<https://typescript-eslint.io/users/dependency-versions>) lists the same range, so
+  TypeScript `7.0.2` is not officially supported. ESLint 10 (`^10.0.0`) is supported.
+- Per the plan and `plans/README.md`, no canary release, unsupported-version warning
+  suppression, or temporary lint exclusion was used. No toolchain or source changes were
+  made; baseline `npm run check` remains green.
+- Re-run the Step 1 preflight after typescript-eslint declares TypeScript 7 support.
 
 ## Why this matters
 
