@@ -19,6 +19,7 @@ describe("compatibility helpers", () => {
   const gpuLong = { ...gpu, board_length_mm: 400 };
   const psu = { wattage_w: 850, pcie_power_connectors: { "8_pin": 2 } };
   const psuTight = { wattage_w: 650, pcie_power_connectors: { "8_pin": 1 } };
+  const psuSinDatos = { wattage_w: 750 };
 
   it("valida CPU ↔ mobo", () => {
     expect(checkCpuMoboCompatibility(cpu, mobo).compatible).toBe(true);
@@ -154,5 +155,25 @@ describe("compatibility helpers", () => {
   it("valida conectores PSU ↔ GPU", () => {
     expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("ok");
     expect(checkPsuConnectors(psuTight, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("fail");
+  });
+
+  it("no declara fail cuando la PSU no tiene datos de conectores", () => {
+    expect(checkPsuConnectors(psuSinDatos, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("unknown");
+    expect(checkPsuConnectors({ ...psuSinDatos, pcie_power_connectors: {} }, { ...gpu, power_connectors: "1x 12vhpwr" }).status).toBe("unknown");
+    expect(checkPsuConnectors({ ...psuSinDatos, pcie_power_connectors: {} }, { ...gpu, power_connectors: undefined }).status).toBe("unknown");
+  });
+
+  it("no declara ok cuando la GPU no tiene datos de conectores", () => {
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: null }).status).toBe("unknown");
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: undefined }).status).toBe("unknown");
+  });
+
+  it("valida GPU sin conectores externos (None) contra PSU con datos", () => {
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "None" }).status).toBe("ok");
+  });
+
+  it("mantiene fail real solo cuando hay datos conocidos e insuficientes", () => {
+    expect(checkPsuConnectors(psuTight, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("fail");
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "2x 12vhpwr" }).status).toBe("fail");
   });
 });

@@ -17,10 +17,10 @@ The existing picker is the production baseline for the Expert surface. It alread
 | Capability | Current state | Gap for Expert Builder |
 |---|---|---|
 | Component selection | 6 steps: CPU → Placa madre → RAM → GPU → Fuente → Gabinete (`BUILDER_STEPS`) | No persistent "apply to quote" evidence trail per component |
-| Dependency filtering | Mobo by CPU socket; RAM by mobo/CPU memory type; case by mobo form factor + GPU length; PSU by wattage floor `recommendedPsuWatts - 100` (`App.jsx:31-70`) | Filter reasons are not shown as evidence |
+| Dependency filtering | Mobo by CPU socket; RAM by mobo/CPU memory type; case by mobo form factor + GPU length (`App.jsx:31-70`); PSU by wattage floor `recommendedPsuWatts - 100` (`App.jsx:209-212`, `psuOptionsForStep`) | Filter reasons are not shown as evidence |
 | Auto-clear on conflict | CPU change clears mobo/ram; mobo change clears ram/case; GPU change clears case (`App.jsx:313-355`) | Destructive clears are silent — no "we cleared X because Y" |
 | Live assessment | `evaluateSelection`: issues, warnings, statuses, summaryVerdict, selectionChips (`App.jsx:197`) | No per-component explanation of *why this part was chosen* |
-| Power | `estimatePowerEnvelope`, `checkPsuPowerSufficiency`, `checkPsuConnectors` (compatibility.js) | GPU connector data missing for 100% of PSUs (0/2128 `pcie_power_connectors`) → connector checks report unknown, not verified |
+| Power | `estimatePowerEnvelope`, `checkPsuPowerSufficiency`, `checkPsuConnectors` (compatibility.js) | PSU connector data missing for 100% of PSUs (0/2128 `pcie_power_connectors`); `checkPsuConnectors` reports `unknown` on missing data — never a confirmed incompatibility (2026-07-30 fix) |
 | Tiers | CPU tier 1-4 (961 items), GPU tier 1-4 (3869 items) via `compatibility.min.json` | Tier is displayed raw, never translated to workload fit |
 | Data staging | Staged catalog loading by builder step (`useCatalog` `neededCategories`) | Prices are not part of the catalog at all |
 

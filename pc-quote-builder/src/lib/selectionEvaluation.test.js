@@ -72,6 +72,23 @@ describe("selectionEvaluation", () => {
     expect(res.issues.some((msg) => msg.toLowerCase().includes("no cabe"))).toBe(false);
   });
 
+  it("treats missing PSU connector data as unknown, not a confirmed incompatibility", () => {
+    const realCatalogPosture = {
+      cpu: { id: "cpu1", socket: "LGA1700", memoryType: "DDR5", tdp: 125 },
+      mobo: { id: "m1", socket: "LGA1700", memoryType: "DDR5", formFactor: "ATX" },
+      ram: { id: "ram1", type: "DDR5" },
+      gpu: { id: "gpu1", tdp: 220, length: 310, psuMin: 750, power_connectors: "2x 8-pin" },
+      psu: { id: "psu1", wattage: 850 },
+      pcCase: { id: "case1", formFactors: ["ATX"], maxGpuLength: 320 },
+    };
+    const res = evaluateSelection(realCatalogPosture, { cpu: new Map(), gpu: new Map() });
+    const conn = res.statuses.find((s) => s.label === "PSU conectores");
+    expect(conn?.unknown).toBe(true);
+    expect(conn?.ok).toBe(false);
+    expect(res.issues.some((msg) => msg.toLowerCase().includes("8-pin"))).toBe(false);
+    expect(res.summaryVerdict).not.toBe("fail");
+  });
+
   it("does not warn CPU↔RAM mismatch when CPU memoryType is inferred", () => {
     const inferredCpu = {
       cpu: { id: "cpu1", memoryType: "DDR5", memoryTypeExplicit: false },
