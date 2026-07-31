@@ -44,10 +44,14 @@ Lo que ya funciona:
 
 En desarrollo o planificado (ver [visión canónica](docs/PRODUCT_VISION.md)):
 
-- Asistente guiado para principiantes.
-- Análisis de cotizaciones existentes (terceras).
+- Análisis de cotizaciones existentes (terceras) como primer vertical del motor de decisión.
+- Base de crecimiento orgánico con contenido indexable, útil y respaldado por evidencia.
+- Builder manual/experto como superficie de edición y revisión.
+- Asistente guiado para principiantes después de validar el motor de evaluación compartido.
 - Comparación multipresupuesto y escenarios de actualización.
 - Recomendación explícita y explicable con incertidumbre visible.
+
+La estrategia actual prioriza tráfico orgánico no asociado a la marca que se convierta en decisiones de compra calificadas. La monetización queda explícitamente postergada hasta demostrar, durante un período sostenido, utilidad del producto, calidad de recomendaciones, activación orgánica y una operación de datos sostenible. Ver [hitos y criterios de avance](docs/PRODUCT_VISION.md#milestones-and-decision-gates).
 
 ## Visión canónica y gobierno del producto
 

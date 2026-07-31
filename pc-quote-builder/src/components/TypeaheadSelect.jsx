@@ -17,21 +17,44 @@ function TypeaheadSelect({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const containerRef = useRef(null);
 
-  const selected = options.find((option) => option.id === value);
+  const labelCache = useMemo(() => {
+    const map = new Map();
+    for (const opt of options) {
+      const label = getOptionLabel(opt);
+      map.set(opt, label ? label.toLowerCase() : "");
+    }
+    return map;
+  }, [options, getOptionLabel]);
+
+  const optionById = useMemo(() => {
+    const map = new Map();
+    for (const opt of options) {
+      if (!map.has(opt.id)) {
+        map.set(opt.id, opt);
+      }
+    }
+    return map;
+  }, [options]);
+
+  const selected = optionById.get(value);
   const selectedLabel = selected ? getOptionLabel(selected) : "";
   const inputValue = isEditing ? query : selectedLabel;
 
   const filtered = useMemo(() => {
+    const limit = Math.max(0, maxItems);
     const q = inputValue.trim().toLowerCase();
-    if (!q) return options.slice(0, maxItems);
+    if (!q) return options.slice(0, limit);
     const tokens = q.split(/\s+/).filter(Boolean);
-    return options
-      .filter((opt) => {
-        const label = getOptionLabel(opt).toLowerCase();
-        return tokens.every((token) => label.includes(token));
-      })
-      .slice(0, maxItems);
-  }, [options, inputValue, maxItems, getOptionLabel]);
+    const result = [];
+    for (let i = 0; i < options.length && result.length < limit; i++) {
+      const opt = options[i];
+      const label = labelCache.get(opt);
+      if (tokens.every((token) => label.includes(token))) {
+        result.push(opt);
+      }
+    }
+    return result;
+  }, [options, inputValue, maxItems, labelCache]);
 
   const activeIndex = open && highlightedIndex >= 0 && highlightedIndex < filtered.length ? highlightedIndex : -1;
 

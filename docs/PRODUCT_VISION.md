@@ -55,6 +55,26 @@ The objective is not to claim that there is one universally perfect build. Diffe
 
 Instead, cotiza-pc must identify strong configurations according to the user’s intended use, budget, preferences, existing components, and practical constraints.
 
+### Current strategic focus and beachhead
+
+The long-term product vision remains broad, but the current product strategy must be deliberately narrow enough to validate.
+
+The initial beachhead is:
+
+> A Chile-based, non-expert buyer who already has an itemized desktop gaming-PC quotation and expects to make a purchase decision within approximately 30 days.
+
+The primary job to be done is:
+
+> Before I pay, help me understand what can be verified, what could cost me money or performance, what remains uncertain, and which one to three changes I should question first.
+
+This is a **working strategic thesis**, not a claim that product-market fit has already been proven. It must be validated with real quotations, observed user decisions, recommendation-quality evidence, and organic acquisition behavior.
+
+The current-stage promise is therefore:
+
+> Show us the PC quotation you are considering. cotiza-pc will identify what is supported by evidence, what may be incompatible or poor value, what cannot yet be verified, and which changes deserve attention before you buy.
+
+The product may expand beyond Chilean desktop gaming quotations only after the relevant milestone and quality gates in this document are met. “Anyone who wants to purchase a PC intelligently” remains the long-term ambition, not the current acceptance boundary.
+
 ### Main user experiences
 
 #### Guided Builder
@@ -109,9 +129,62 @@ cotiza-pc should evaluate it and answer:
 
 This is a central differentiator. Many users do not need to create a PC from scratch; they need to know whether the quotation already in front of them is good.
 
+### Current product sequence and MVP boundary
+
+The three main experiences do not have equal current priority.
+
+1. **Quote Analyzer — primary current product direction.** Build the first trustworthy end-to-end decision-engine vertical around structured or explicitly user-confirmed quotations.
+2. **Expert Builder — supporting surface.** Preserve manual editing, inspection, alternatives, and overrides. It should consume the same assessment contract as the Quote Analyzer.
+3. **Guided Builder — later expansion.** Build intent-first automatic recommendations only after the shared assessment engine can reliably evaluate the configurations it would generate.
+
+The initial Quote Analyzer should support:
+
+- Chilean desktop gaming quotations
+- CPU, motherboard, RAM, GPU or explicitly confirmed integrated graphics, PSU, and case
+- User-provided budget, target resolution or performance expectation, and price/assembly scope
+- Exact catalog identity or explicit user confirmation of ambiguous components
+- Compatibility and completeness conclusions only where their required evidence exists
+- A concise verdict, explicit unknowns, and the one to three findings most likely to change the decision
+
+The initial product must explicitly defer:
+
+- Automatic full-build generation
+- Unsupported non-gaming workload recommendations
+- International retailer pricing
+- Unconfirmed fuzzy or AI-only product matching
+- Opaque universal scores
+- Public community features
+- Professional CRM, inventory, and store tooling
+- Claims about market price, performance, thermals, noise, durability, BIOS support, or upgrade paths when their evidence requirements are not met
+
 ### Decision intelligence
 
 Every completed quotation should include an assessment across several dimensions.
+
+#### Decision and evidence contract
+
+Every assessment dimension must identify the kind of judgment it produces:
+
+- **Deterministic:** directly entailed by complete, authoritative input data
+- **Derived:** reproducibly calculated from disclosed inputs and formulas
+- **Heuristic:** a rule of thumb with known limitations and validation evidence
+- **Probabilistic:** a calibrated estimate with an interpretable confidence range
+- **Preference-dependent:** valid only under explicit user priorities
+- **Unsupported:** the product lacks enough evidence to make the judgment
+
+Every warning or recommendation must carry:
+
+- Conclusion and severity
+- Affected components and input values
+- Decision type
+- Evidence source and freshness
+- Data and rule version
+- Confidence and known limitations
+- Recommended next action
+
+Identical inputs evaluated against the same data and rule versions must produce identical results. A material change in conclusion must be explainable as a change in user input, source data, or assessment rules.
+
+An assessment dimension is not supported merely because the interface can display it. It is supported only when its required inputs, coverage, validation method, and reliability threshold are defined and met.
 
 #### Compatibility
 
@@ -222,6 +295,32 @@ Prices must always display their freshness.
 
 A quotation built from outdated prices can be technically correct and still be commercially useless.
 
+#### Data strategy and operating model
+
+cotiza-pc must treat the following as separate governed data products:
+
+1. Product identity and specifications
+2. Compatibility relationships
+3. Performance and workload evidence
+4. Chilean retailer offers, availability, shipping, payment, and warranty context
+5. User-provided quotation snapshots
+6. Assessment rules, versions, and validation outcomes
+
+Each data product must define:
+
+- Accountable owner
+- Approved sources, licenses, and attribution requirements
+- Schema and product-identity policy
+- Required fields for each supported conclusion
+- Freshness and completeness thresholds
+- Conflict-resolution and correction rules
+- Behavior when a provider, API, page structure, identifier, or source becomes unavailable
+- Operating and maintenance cost appropriate to the current stage
+
+Catalog size is not a success metric. A product may be present in the catalog while remaining unsupported for one or more assessment dimensions. Inferred fields must remain distinguishable from explicit source data.
+
+Missing, stale, ambiguous, or conflicting data must degrade only the affected conclusion to an honest uncertainty state. It must not silently reuse stale confidence or imply that the entire configuration is valid or invalid.
+
 ### Recommendation output
 
 A completed build should produce a concise, understandable verdict, for example:
@@ -291,6 +390,51 @@ Users should be able to:
 - Revisit a quotation and understand what prices or assumptions have changed
 
 A shared quotation must remain understandable even to someone who did not create it.
+
+### Organic growth and distribution strategy
+
+The current growth priority is to earn **qualified, non-branded organic traffic before pursuing monetization**.
+
+Organic growth is not successful merely because page views increase. It is successful when people discover cotiza-pc through a real PC-purchase question, receive a useful and trustworthy answer, and proceed into an evidence-qualified product decision.
+
+The initial organic strategy should focus on Spanish-language, Chile-relevant search intent such as:
+
+- Whether a specific quotation or component combination is worth buying
+- Common compatibility and power-supply questions
+- How to identify weak, oversized, missing, or unnecessarily expensive components
+- How price, target resolution, and intended games change a recommendation
+- What can and cannot be verified from a quotation
+
+Search content must:
+
+- Answer a specific user decision rather than target a keyword without product value
+- State its evidence, assumptions, scope, freshness, and unsupported conclusions
+- Use stable, crawlable, canonical URLs with unique titles and descriptions
+- Link naturally to related explanations and the relevant product workflow
+- Remain understandable without requiring the SPA to execute successfully
+- Avoid thin, duplicated, mass-generated, or misleading programmatic pages
+- Use structured data only when the visible page genuinely satisfies the relevant schema
+
+Programmatic content may be introduced only when the underlying component identity, data coverage, page differentiation, and refresh process are reliable enough that every indexed page provides standalone value.
+
+Communities, creators, and direct outreach may support research, citations, backlinks, and early feedback, but the primary growth milestone is qualified organic discovery and product activation.
+
+### Business-model sequencing
+
+Monetization is deliberately deferred.
+
+The product should first demonstrate:
+
+- Reliable and useful purchase guidance
+- Sustained non-branded organic acquisition
+- Meaningful activation from organic landing pages
+- Trust and recommendation-quality guardrails
+- Evidence that users change, confirm, negotiate, compare, or defer a purchase because of the product
+- An operating model whose data and maintenance costs are understood
+
+Meeting a traffic target alone does not authorize monetization. Monetization may be considered only after the organic product-success gates below are met for a sustained period.
+
+The product may remain free if that best serves its adoption and trust. If monetization is later explored, it must begin as a separate product hypothesis and comply with the commercial-neutrality rules in this document. Affiliate rate, sponsorship, retailer relationships, lead value, or payment must never affect an assessment or recommendation order.
 
 ### Long-term positioning
 
@@ -366,6 +510,95 @@ A summary score may be considered in the future only if:
 - It does not replace the underlying explanations
 - It cannot imply precision unsupported by the available data
 
+## Milestones and decision gates
+
+Milestones are outcome gates, not calendar promises. Work may overlap where dependencies allow, but a later milestone must not be treated as achieved until its exit criteria are met.
+
+Numeric targets below are initial operating thresholds. They may be amended through the governance process when real baseline data justifies a change, but they must not be lowered merely to declare success.
+
+### Milestone 0 — Strategic and measurement baseline
+
+**Objective:** Make the current strategic thesis testable.
+
+Exit criteria:
+
+- The Chile-first desktop gaming Quote Analyzer beachhead and explicit MVP exclusions are reflected in product plans and public product-state documentation.
+- A versioned analyzer input, finding, evidence, and output contract is approved.
+- Supported and unsupported assessment dimensions are inventoried against actual data coverage.
+- Organic acquisition, activation, decision action, recommendation reliability, and trust guardrails have operational definitions.
+- Privacy-respecting measurement can separate non-branded organic visits, product starts, qualified activations, and decision actions.
+- At least 30 real, anonymized Chilean gaming quotations are collected or scheduled for the initial validation corpus.
+
+### Milestone 1 — Search and evidence foundation
+
+**Objective:** Become technically indexable and publish a small body of genuinely useful decision content.
+
+Exit criteria:
+
+- The production site has an appropriate Spanish language declaration, unique descriptive titles and meta descriptions, canonical URLs, crawlable internal links, a valid `robots.txt`, and a canonical-only XML sitemap.
+- Search Console or an equivalent search-observation process is configured.
+- The information architecture supports stable, indexable pages outside a single opaque SPA state.
+- At least 12 high-intent pages answer distinct Chilean PC-purchase questions with visible evidence, scope, freshness, and a relevant product call to action.
+- No indexed page is created solely by swapping component names into otherwise duplicated text.
+- At least 80% of submitted canonical pages are indexed or have a documented, investigated exclusion reason.
+
+### Milestone 2 — Evidence-qualified Quote Analyzer MVP
+
+**Objective:** Convert relevant search intent into a trustworthy purchase assessment.
+
+Exit criteria:
+
+- Users can enter or import a quote, state gaming intent and budget context, confirm component identity, and receive the versioned recommendation output.
+- At least 80% of required components in the validation corpus resolve exactly or after one explicit user confirmation.
+- Independent expert review reaches at least 95% agreement on deterministic compatibility conclusions and at least 80% agreement on the most important gaming-balance concern.
+- The controlled launch corpus contains zero dangerous confirmed incompatibility false negatives.
+- Every high-severity finding exposes evidence, freshness, confidence, rule version, and next action.
+- Median time from product start to an evidence-qualified verdict is under seven minutes in the target cohort.
+
+### Milestone 3 — Organic product validation
+
+**Objective:** Prove that organic discovery repeatedly produces useful product decisions.
+
+Exit criteria, sustained for three consecutive months:
+
+- At least 1,000 monthly non-branded organic sessions
+- At least 100 monthly evidence-qualified Quote Analyzer activations
+- At least 10% of qualified organic landing sessions start the relevant product workflow
+- At least 40% of product starts reach an evidence-qualified verdict
+- At least 40% of followed-up activated users report that the analysis changed or materially confirmed their decision
+- Recommendation reliability, uncertainty, freshness, and commercial-neutrality guardrails continue to pass
+
+Failure to reach these thresholds should trigger diagnosis of search intent, content usefulness, product friction, or problem severity before expanding product scope.
+
+### Milestone 4 — Organic scale and repeat decision value
+
+**Objective:** Demonstrate that the product has a durable audience and more than one useful interaction within the purchase journey.
+
+Exit criteria, sustained for three consecutive months:
+
+- At least 5,000 monthly non-branded organic sessions
+- At least 300 monthly evidence-qualified purchase decisions
+- At least 20% of activated users return within 30 days to recheck, compare, update, or continue a decision, or share a report that produces a qualified recipient session
+- Organic growth is distributed across evidence-backed decision pages rather than depending on one anomalous query or page
+- Content and catalog refresh operations meet their defined freshness and correction SLAs
+- The recurring data, content, infrastructure, and expert-review cost is measured and considered sustainable for the next stage
+
+### Milestone 5 — Optional monetization exploration
+
+**Objective:** Decide whether a business model can support the product without weakening trust.
+
+This milestone may begin only after Milestone 4 is achieved and explicitly acknowledged by the project owner.
+
+Exit criteria for beginning monetization experiments:
+
+- Organic product success and trust guardrails have remained stable
+- Users have demonstrated a concrete unmet need worth paying for
+- The proposed paid value is separable from recommendation order and assessment outcomes
+- Commercial influence can be disclosed and audited
+- The experiment has explicit success, failure, and shutdown thresholds
+
+Possible future hypotheses include monitoring, multi-quote comparison, durable evidence reports, or optional human verification. None is part of current product scope, and the product is not required to monetize if remaining free creates greater value.
+
 ## Mandatory product-decision checklist
 
 Every material feature, plan, or product-affecting refactor must answer:
@@ -383,6 +616,10 @@ Every material feature, plan, or product-affecting refactor must answer:
 - [ ] How will missing or conflicting data be handled?
 - [ ] How will data freshness and provenance be communicated?
 - [ ] Does the feature create meaningful user value relative to its implementation and maintenance cost?
+- [ ] Which milestone does this advance, and which exit criterion will prove it?
+- [ ] If this creates an indexable page, does it provide unique standalone decision value with appropriate evidence, freshness, canonicalization, and internal linking?
+- [ ] Does it improve qualified organic acquisition or activation rather than traffic volume alone?
+- [ ] Does it introduce monetization before the product has passed the required organic success gate?
 - [ ] Does it preserve appropriate beginner and expert workflows?
 - [ ] Does it move the project toward becoming a decision engine rather than merely a component picker?
 - [ ] How will the behavior be tested?
@@ -419,3 +656,20 @@ When a proposed feature conflicts with this vision, the correct action is to:
 2. Explain the trade-off.
 3. Request or record an explicit owner decision when required.
 4. Amend the vision only if the owner deliberately chooses to change product direction.
+
+### Amendment record — 2026-07-30
+
+This amendment was explicitly requested by the project owner after reviewing the [Product Vision Red-Team Audit](PRODUCT_VISION_RED_TEAM_AUDIT.md).
+
+The owner clarified that the current priority is to earn organic traffic and demonstrate a successful product before considering monetization.
+
+The amendment:
+
+- Establishes a working Chile-first desktop gaming Quote Analyzer beachhead
+- Sequences Quote Analyzer before automatic Guided Builder expansion
+- Adds decision/evidence and data-operating requirements
+- Defines organic growth as qualified discovery that converts into useful product decisions
+- Adds outcome-based milestones and reliability gates
+- Defers monetization to an optional later milestone requiring explicit owner acknowledgement
+
+It preserves the original long-term ambition, uncertainty taxonomy, explainability rules, multidimensional assessment model, commercial-neutrality principles, and amendment governance.

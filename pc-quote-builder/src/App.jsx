@@ -26,6 +26,8 @@ import {
 import { escapeCsvField, parseCsvToQuote, parsePriceCsv, parsePriceJson, buildPriceMap } from "./lib/csvParser";
 import { exportCSV, exportJSON, downloadFile, buildQuotesFromJson } from "./lib/fileIO";
 
+const getNameLabel = (opt) => opt.name;
+
 function getOptionsForStep(key, selection, catalog) {
   const cpus = catalog.cpus || [];
   const motherboards = catalog.motherboards || [];
@@ -198,6 +200,16 @@ function App() {
   const suggestedWatts = power?.recommended_min_psu_w || 0;
   const gpuPsuRequirement = selection.gpu?.psuMin || 0;
   const recommendedPsuWatts = Math.max(suggestedWatts, gpuPsuRequirement || 0);
+  const cpuOptionsForStep = useMemo(() => {
+    const base = optionsByStep.cpuId || [];
+    return base
+      .filter((opt) => (!cpuBrand || opt.brand === cpuBrand))
+      .filter((opt) => (!cpuFamily || opt.family === cpuFamily));
+  }, [optionsByStep.cpuId, cpuBrand, cpuFamily]);
+  const psuOptionsForStep = useMemo(() => {
+    const base = optionsByStep.psuId || [];
+    return base.filter((opt) => opt.wattage >= Math.max(recommendedPsuWatts - 100, 0));
+  }, [optionsByStep.psuId, recommendedPsuWatts]);
   const builderIssues = assessment.issues;
   const builderWarnings = assessment.warnings || [];
   const summaryVerdict = assessment.summaryVerdict || "";
@@ -854,13 +866,11 @@ function App() {
                           <label className="field">
                             <span>{step.label}</span>
                             <TypeaheadSelect
-                              options={options
-                                .filter((opt) => (!cpuBrand || opt.brand === cpuBrand))
-                                .filter((opt) => (!cpuFamily || opt.family === cpuFamily))}
+                              options={cpuOptionsForStep}
                               value={value}
                               onChange={(id) => handleBuilderChange(step.key, id)}
                               placeholder={`Selecciona ${step.label}`}
-                              getOptionLabel={(opt) => opt.name}
+                              getOptionLabel={getNameLabel}
                               renderOption={(opt) =>
                                 `${opt.name} · ${opt.socket || "?"}${opt.memoryType ? ` · ${opt.memoryType}` : ""} · ${opt.tdp || "?"}W`
                               }
@@ -891,7 +901,7 @@ function App() {
                                 value={value}
                                 onChange={(id) => handleBuilderChange(step.key, id)}
                                 placeholder={`Selecciona ${step.label}`}
-                                getOptionLabel={(opt) => opt.name}
+                                getOptionLabel={getNameLabel}
                                 renderOption={(opt) => {
                                   const tier = tierMaps.gpu.get(opt.id) || "-";
                                   return `${opt.name} · ${opt.tdp || "?"}W · ${opt.length || "-"}mm · Tier ${tier}`;
@@ -906,13 +916,13 @@ function App() {
                           <TypeaheadSelect
                             options={
                               step.key === "psuId"
-                                ? options.filter((opt) => opt.wattage >= Math.max(recommendedPsuWatts - 100, 0))
+                                ? psuOptionsForStep
                                 : options
                             }
                             value={value}
                             onChange={(id) => handleBuilderChange(step.key, id)}
                             placeholder={`Selecciona ${step.label}`}
-                            getOptionLabel={(opt) => opt.name}
+                            getOptionLabel={getNameLabel}
                             renderOption={(opt) => {
                               if (step.key === "moboId")
                                 return `${opt.name} · ${opt.socket || "?"}${

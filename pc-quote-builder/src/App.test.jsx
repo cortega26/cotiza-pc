@@ -719,6 +719,22 @@ describe("Quote CRUD and persistence", () => {
 // ─────[plan 014] Builder flow — future work ──────────────────────────────
 
 describe("[plan 014] Builder flow", () => {
+  function renderWithBuilder(builderState, mockOverrides = {}) {
+    localStorage.setItem("pcqb:builder:v1", JSON.stringify(builderState));
+    mockUseCatalog.mockReturnValue({
+      catalog: buildRichCatalog(),
+      compatMeta: null,
+      tierMaps: buildDefaultTierMaps(),
+      socketSet: new Set(),
+      loading: false,
+      error: "",
+      fallbackUsed: false,
+      categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+      ...mockOverrides,
+    });
+    render(<App />);
+  }
+
   it.todo("navigates forward through steps [plan 014]");
   it.todo("navigates backward through steps [plan 014]");
   it.todo("clicking stepper chip jumps to that step [plan 014]");
@@ -727,16 +743,72 @@ describe("[plan 014] Builder flow", () => {
   it.todo("filter RAM by selected CPU memory type (explicit) [plan 014]");
   it.todo("filters cases by motherboard form factor [plan 014]");
   it.todo("filters cases by GPU length [plan 014]");
-  it.todo("filters PSU by minimum wattage recommendation [plan 014]");
-  it.todo("deselects incompatible mobo when CPU socket changes [plan 014]");
+  it("filters PSU by minimum wattage recommendation", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-2", psuId: "", caseId: "case-1",
+      useIntegratedGpu: false,
+    });
+    const psuInput = await screen.findByLabelText("Fuente");
+    fireEvent.focus(psuInput);
+
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0].textContent).toContain("Corsair RM750x");
+  });
+
+  it("shows all PSUs when no GPU demands extra wattage", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-1", psuId: "", caseId: "case-1",
+      useIntegratedGpu: false,
+    });
+    const psuInput = await screen.findByLabelText("Fuente");
+    fireEvent.focus(psuInput);
+
+    expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(2);
+  });
+
+  it("deselects incompatible mobo when CPU socket changes [plan 014]");
   it.todo("deselects incompatible case when mobo form factor changes [plan 014]");
   it.todo("deselects case when GPU length exceeds max [plan 014]");
   it.todo("integrated GPU toggle clears GPU selection [plan 014]");
   it.todo("integrated GPU toggle advances step when on GPU step [plan 014]");
   it.todo("clearing builder resets builder state and steps [plan 014]");
   it.todo("clearing builder does NOT reset cpuBrand/cpuFamily [plan 014]");
-  it.todo("CPU brand and family filters are applied to Typeahead options [plan 014]");
-  it.todo("apply builder to quote inserts selection rows [plan 014]");
+  it("applies CPU brand and family filters to typeahead options", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    const brandSelect = await screen.findByLabelText("Marca CPU");
+    fireEvent.change(brandSelect, { target: { value: "AMD" } });
+
+    const cpuInput = screen.getByLabelText("CPU");
+    fireEvent.focus(cpuInput);
+
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0].textContent).toContain("AMD Ryzen 5 7600");
+  });
+
+  it("applies the family filter on top of the brand filter", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    const brandSelect = await screen.findByLabelText("Marca CPU");
+    fireEvent.change(brandSelect, { target: { value: "Intel" } });
+    const familySelect = screen.getByLabelText("Línea");
+    fireEvent.change(familySelect, { target: { value: "Core i7" } });
+
+    const cpuInput = screen.getByLabelText("CPU");
+    fireEvent.focus(cpuInput);
+
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(1);
+    expect(options[0].textContent).toContain("Intel Core i7-14700K");
+  });
+
+  it("apply builder to quote inserts selection rows [plan 014]");
   it.todo("duplicate builder selection creates new quote [plan 014]");
   it.todo("apply builder empty selection shows alert [plan 014]");
 });

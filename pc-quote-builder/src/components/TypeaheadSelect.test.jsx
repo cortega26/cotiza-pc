@@ -148,4 +148,67 @@ describe("TypeaheadSelect", () => {
     const items = screen.getAllByRole("option");
     expect(items[items.length - 1].getAttribute("aria-selected")).toBe("true");
   });
+
+  it("does not crash when an option has no label (getOptionLabel returns undefined)", () => {
+    render(
+      <TypeaheadSelect
+        options={[{ id: "1" }, { id: "2", name: "Ryzen 5 7600" }]}
+        value=""
+        onChange={() => {}}
+        placeholder="CPU"
+        getOptionLabel={(opt) => opt.name}
+      />
+    );
+    const input = screen.getByRole("combobox");
+    fireEvent.change(input, { target: { value: "ryzen" } });
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+    expect(screen.getByText(/Ryzen 5 7600/)).toBeTruthy();
+  });
+
+  it("shows the first option when ids are duplicated", () => {
+    render(
+      <TypeaheadSelect
+        options={[
+          { id: "dup", name: "First" },
+          { id: "dup", name: "Second" },
+        ]}
+        value="dup"
+        onChange={() => {}}
+        placeholder="CPU"
+      />
+    );
+    expect(screen.getByRole("combobox").value).toBe("First");
+  });
+
+  it("renders no options when maxItems is zero", () => {
+    render(<TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" maxItems={0} />);
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("clamps a negative maxItems to zero", () => {
+    render(<TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" maxItems={-5} />);
+    fireEvent.focus(screen.getByRole("combobox"));
+    expect(screen.queryAllByRole("option")).toHaveLength(0);
+  });
+
+  it("returns the first maxItems matches in catalog order", () => {
+    const many = Array.from({ length: 100 }, (_, i) => ({ id: String(i), name: `Item ${i}` }));
+    render(<TypeaheadSelect options={many} value="" onChange={() => {}} placeholder="CPU" maxItems={5} />);
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "Item 1" } });
+
+    const items = screen.getAllByRole("option");
+    expect(items.map((el) => el.textContent)).toEqual(["Item 1", "Item 10", "Item 11", "Item 12", "Item 13"]);
+  });
+
+  it("stays correct when getOptionLabel identity changes between renders", () => {
+    const { rerender } = render(
+      <TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" getOptionLabel={(opt) => opt.name} />
+    );
+    rerender(
+      <TypeaheadSelect options={options} value="" onChange={() => {}} placeholder="CPU" getOptionLabel={(opt) => opt.name} />
+    );
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "ryzen" } });
+    expect(screen.getAllByRole("option")).toHaveLength(1);
+  });
 });
