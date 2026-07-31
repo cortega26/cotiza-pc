@@ -12,3 +12,8 @@ data/raw/
 .codegraph/
 .continue/
 skills-lock.json
+
+# Plan 029: private validation corpus and reviewer exports — never committed
+cotiza-pc-corpus/
+*.corpus-export.json
+*.corpus-export.csv

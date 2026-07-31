@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "quote-analyzer-corpus/report/v1",
+  "generatedAt": "2026-08-01T13:00:00.000Z",
+  "corpus": {
+    "caseCount": 2,
+    "rejectedCount": 0,
+    "rejectedCaseIds": []
+  },
+  "metrics": {
+    "identityResolutionRate": 1,
+    "expertAgreementDeterministic": 1,
+    "expertAgreementPairs": 8,
+    "expertAgreementTopConcern": 1,
+    "expertAgreementTopConcernPairs": 2,
+    "dangerousFalseNegativeCount": 0,
+    "dangerousNearMissCount": 0,
+    "evidenceCompletenessRate": 1,
+    "timeToVerdictMsMedian": 2500,
+    "unknownVsOkMatrix": {
+      "ok->ok": 8
+    },
+    "perFindingConfusion": {
+      "price-freshness-catalog": {
+        "expected": 0,
+        "emitted": 2,
+        "tp": 0,
+        "fp": 2,
+        "fn": 0
+      }
+    }
+  },
+  "gates": {
+    "identityResolution": {
+      "pass": true,
+      "rate": 1,
+      "threshold": 0.8,
+      "assessable": true
+    },
+    "expertAgreementDeterministic": {
+      "pass": true,
+      "rate": 1,
+      "threshold": 0.95,
+      "assessable": true
+    },
+    "expertAgreementTopConcern": {
+      "pass": true,
+      "rate": 1,
+      "threshold": 0.8,
+      "assessable": true
+    },
+    "dangerousFalseNegatives": {
+      "pass": true,
+      "rate": 0,
+      "threshold": 0,
+      "assessable": true
+    },
+    "schemaRejection": {
+      "pass": true,
+      "rate": 0,
+      "threshold": 0,
+      "assessable": true
+    }
+  },
+  "cases": [
+    {
+      "caseId": "CASE-0001",
+      "resolvedCount": 6,
+      "requiredCount": 6,
+      "verdict": "ok"
+    },
+    {
+      "caseId": "CASE-0002",
+      "resolvedCount": 6,
+      "requiredCount": 6,
+      "verdict": "ok"
+    }
+  ],
+  "failingCaseIds": {
+    "dangerousFalseNegatives": [],
+    "dangerousNearMisses": [],
+    "disagreementsWithoutAdjudication": []
+  },
+  "corpusDir": "/tmp/opencode/qa-cli-smoke"
+}

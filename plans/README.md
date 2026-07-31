@@ -44,7 +44,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [025](archive/025-design-guided-and-expert-builders.md) | Define separate Guided and Expert Builder experiences | P2 | L | 014, 019 | DONE |
 | [026](archive/026-design-scenario-comparison.md) | Design multi-quote comparison and upgrade scenarios | P3 | M | 013, 014, 024 | DONE |
 | [028](archive/028-implement-quote-analyzer-core.md) | Implement the pure Quote Analyzer v1 core | P1 | L | 014, 015, 018, 024 | DONE |
-| [029](029-establish-analyzer-validation-corpus.md) | Establish the Quote Analyzer validation corpus and offline harness | P1 | L | 028 (harness; protocol may start in parallel) | TODO |
+| [029](029-establish-analyzer-validation-corpus.md) | Establish the Quote Analyzer validation corpus and offline harness | P1 | L | 028 (harness; protocol may start in parallel) | IN PROGRESS: protocol + harness shipped; collection BLOCKED until ≥1 qualified reviewer is named |
 | [030](030-generate-assessment-coverage-contract.md) | Generate the assessment coverage and evidence contract | P1 | M | 028 | TODO |
 | [031](031-define-decision-funnel-measurement.md) | Define the privacy-preserving decision-funnel measurement contract | P1 | M | 028 | TODO |
 | [032](032-ship-confirmation-driven-analyzer-ui.md) | Ship the confirmation-driven Quote Analyzer workflow | P1 | L | 028, 029, 030, 031 | TODO |
