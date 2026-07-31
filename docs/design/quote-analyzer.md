@@ -24,12 +24,12 @@ approved before building the analyzer UI.
 | Question | Answer in this design |
 |---|---|
 | Problem/users/value | Chilean non-expert buyers with an existing desktop gaming quotation who must decide within ~30 days whether to buy. The design answers: what can be verified, what may cost money/performance, what is uncertain, which 1-3 changes to question first. |
-| Evidence/uncertainty | Every finding carries a `decisionType` (deterministic/derived/heuristic/probabilistic/preference-dependent/unsupported), confidence, and evidence sources. Unmatched text never becomes a confident product match (§5, §7). |
+| Evidence/uncertainty | Every finding carries a `decisionType` (deterministic/derived/heuristic/probabilistic/preference-dependent/unsupported), confidence, and evidence sources. Unmatched text never becomes a confident product match (§3). |
 | Explanation/precision | Findings expose detection, reason, source fields, evidence, confidence, and next action. There is no opaque universal score; the verdict is derived from visible dimensions (§6). |
 | Commercial bias | No retailer/product preference, affiliate ordering, or ranking. Price findings report completeness/freshness only in v1; value-for-money conclusions are deferred (§7). |
-| Failure paths | Missing IDs, ambiguous products, incomplete quotes, stale prices, unsupported categories, conflicting specs, and no stated use case are first-class states in the input/output contracts and fixtures (§5, §8). |
+| Failure paths | Missing IDs, ambiguous products, incomplete quotes, stale prices, unsupported categories, conflicting specs, and no stated use case are first-class states in the input/output contracts and fixtures (§3, §8). |
 | Freshness/provenance | Quote snapshot timestamp and catalog `generatedAt` remain separate and visible on every finding's evidence block (§6). |
-| Beginner/expert | Concise verdict with expandable evidence; manual component confirmation preserves user control (§5, §8, UI backlog). |
+| Beginner/expert | Concise verdict with expandable evidence; manual component confirmation preserves user control (§3, §8, §10-E). |
 | Tests/acceptance | Seven fixture classes prove valid, incompatible, warning, unknown, ambiguous, stale/partial, and malformed cases (§8, §11). |
 
 ### Vision decision-checklist (abridged answers)
@@ -99,10 +99,16 @@ Resolution is performed per quote row, in this order:
 |---|---|---|
 | `exact-id` | `itemId` (after `resolveCatalogId` aliases) matches a unique catalog item in the supported category | Full assessment of that component |
 | `user-mapped` | No exact id; user explicitly selected a catalog item for the row (manual confirmation) | Full assessment of that component; finding records `source: "user"` |
-| `ambiguous` | No exact id; the product text matches 2+ catalog items in the category (same normalized name tokens) | Component excluded from findings; row listed as needing confirmation; verdict state contributes `unknown` |
+| `ambiguous` | No exact id; the product text yields **one or more** candidate catalog items (normalized name-token match) that the user has not yet confirmed. One candidate → single-confirmation prompt; 2+ candidates → choice prompt | Component excluded from findings until confirmed; row listed as needing confirmation; verdict state contributes `unknown` |
 | `unmatched-text` | No exact id and no catalog match | Excluded; never becomes a product match; verdict contributes `unknown`; info finding explains why |
 | `unsupported-category` | Category outside the six supported (e.g., cooler, storage, monitor) | Excluded from v1 assessment; info finding lists it as out of scope |
 | `integrated-gpu` | No GPU row and user explicitly confirms integrated graphics | GPU checks treated as satisfied-with-evidence; mirrors builder's `useIntegratedGpu` |
+
+Candidate matching basis: the same normalized token-inclusion rule the
+typeahead uses (lowercased label split on whitespace; every token must be
+included). A single unconfirmed text candidate is `ambiguous` (not
+`unmatched-text`), because the text alone must never be treated as an
+identity.
 
 **Invariant (STOP-condition guard):** free text alone never resolves to a
 product. `exact-id` and `user-mapped` are the only states that produce
@@ -245,7 +251,7 @@ dimensions + findings + verdict
 | `compat-mobo-ram-memory` | mobo memory type ↔ RAM type | deterministic | fail / warning |
 | `compat-mobo-case-ff` | mobo formFactor ↔ case formFactors | deterministic / unknown (formFactorEvidence) | fail / unknown |
 | `compat-gpu-case-length` | GPU length ↔ case maxGpuLength | deterministic when both present | fail / unknown |
-| `power-psu-headroom` | estimated load vs PSU wattage (est. from CPU+GPU TDP) | derived | fail if below recommended; warning if margin thin |
+| `power-psu-headroom` | estimated load vs PSU wattage (est. from CPU+GPU TDP) | derived | fail if below recommended; warning if margin thin. Subsumes the builder's GPU `psuMin`-vs-wattage warning (a `psuMin` above PSU wattage always yields at least `warning` here) |
 | `power-connectors-pcie` | GPU connectors vs PSU PCIe cables | deterministic when both present | fail if missing |
 | `completeness-missing-required` | required components absent from resolution | deterministic | critical when a required category is missing |
 | `completeness-required-resolution-gap` | required component in ambiguous/unmatched state | derived | warning; blocks verdict with unknown |
@@ -278,10 +284,12 @@ thresholds are defined.
 
 ## 8. Fixture classes and wire-level examples (Step 5)
 
-All fixtures use the existing `src/test/fixtures.js` catalog values
+All fixtures build on the existing `src/test/fixtures.js` catalog values
 (`cpuIntel`, `cpuAmd`, `moboLga`, `moboAm5`, `ramDdr5_1`, `gpuLow`,
 `gpuHigh`, `psu750`, `psu500`, `caseAtx`, `caseItx`) so the implementation
-plan reuses one fixture universe.
+plan reuses one fixture universe. F3 and F4 require two additions to that
+universe: a marginal PSU with two 8-pin cables (`psuMarginal`, 550 W) and
+sparse records with `tdp: null` for the insufficient-evidence case.
 
 ### F1 — Exact-ID valid quote → verdict `ok`
 
@@ -303,29 +311,36 @@ decisionType deterministic, confidence high, evidence
 
 ### F3 — Warning-only → verdict `warning`
 
-Rows: cpu-1 + mobo-1 + ram-1 + gpu-2 (RX 7800 XT, psuMin 650) + psu-2 (500W)
-+ case-1.
+Rows: cpu-1 + mobo-1 + ram-1 + gpu-2 (RX 7800 XT, psuMin 650) + `psuMarginal`
+(550 W, 2x 8-pin — new fixture) + case-1.
 
-Expected: `power-psu-headroom` warning (500W < recommended for ~263W GPU) and
-`power-connectors-pcie`/psuMin warning; verdict `warning`, no critical.
+Expected: `power-psu-headroom` warning (550 W ≥ 438 W estimated load but
+< 650 W recommended), connectors satisfied (2x 8-pin), all compatibility
+checks ok; verdict `warning`, no critical.
+
+Note: using the existing `psu-2` (500 W, 1x 8-pin) instead produces a
+connector failure (`Faltan 8-pin`) and verdict `fail`, which is why the
+warning-only fixture needs `psuMarginal`.
 
 ### F4 — Insufficient evidence → verdict `unknown`
 
-Rows: exact-id components whose catalog records have `tdp: null`, and no
-`priceUpdatedAt`.
+Rows: exact-id components whose catalog records have `tdp: null` (sparse
+fixture records — new), and no `priceUpdatedAt`.
 
-Expected: power dimension `unknown` (no TDP); price freshness `unknown`;
-verdict `unknown`; findings carry confidence `low` and
-`decisionType: "unsupported"` where checks could not run.
+Expected: power dimension `unknown` (no TDP, no PSU conclusion);
+`price-freshness-age` warning with an absent timestamp (existing staleness
+semantics: an unverifiable date degrades to warning, not `ok`); verdict
+`unknown` driven by the power evidence gap; findings carry confidence `low`
+and `decisionType: "unsupported"` where checks could not run.
 
 ### F5 — Ambiguous identity → verdict `unknown` (no false claims)
 
-Rows: `itemId: ""`, product text "Intel i5" (matches cpu-1 and cpu-3 by name
-tokens).
+Rows: `itemId: ""`, product text "Intel Core" (token-matches cpu-1 and cpu-3
+by name).
 
-Expected: resolution `ambiguous` for that row; no compatibility finding claims
-the CPU; `completeness-required-resolution-gap` warning; verdict `unknown`.
-The output never names a product for that row.
+Expected: resolution `ambiguous` for that row (2 candidates); no
+compatibility finding claims the CPU; `completeness-required-resolution-gap`
+warning; verdict `unknown`. The output never names a product for that row.
 
 ### F6 — Stale/partial price → verdict `warning` (prices only)
 
