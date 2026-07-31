@@ -56,7 +56,7 @@ comparison = {
   schemaVersion: "scenario-comparison/output/v1",
   scenarios: [ { scenarioId, label, currency, verdict, dimensions, cost, gaps } ],
   deltas: {
-    componentDiff: [ { category, role, rows: [ { scenarioId, itemId, label } ] } ],  // aligned by category
+    componentDiff: [ { category, rows: [ { scenarioId, itemId, label } ] } ],  // aligned by category
     dimensionTable: [ { dimension, perScenario: { [scenarioId]: DimensionOutcome }, comparable: boolean, notComparableReason? } ],
     acquisitionCost: { perScenario: { [scenarioId]: CostSummary }, comparable: boolean }
   },
@@ -65,12 +65,16 @@ comparison = {
 }
 
 CostSummary = {
-  pricedRows: number, totalRows: number,
-  pricedTotal: number,                         // sum of valid offer prices (regular fallback)
+  pricedRows: number, totalRows: number,   // row is priced when it has a valid offer OR regular price
+  offerTotal: number,                      // sum of valid offer prices (exactly computeTotals.totalOffer)
+  regularTotal: number,                    // sum of valid regular prices (exactly computeTotals.totalRegular)
+  saving: number,
   ownedRowsExcluded: number,
-  missingPriceRows: number                     // never counted as zero
+  missingPriceRows: number                 // rows with neither price — never counted as zero
 }
 ```
+
+Cost semantics follow the app exactly: offer and regular totals are **separate** — there is no offer-with-regular-fallback merge (QuoteEditor renders "Total oferta" and "Precio normal" as independent totals, `QuoteEditor.jsx:66-78`). v1 acquisition cost is the scenario's `offerTotal`, with `regularTotal` shown alongside; a row with only a regular price counts as priced (`pricedRows`) but contributes to `regularTotal` only, and the comparison labels it "sin oferta" instead of silently falling back.
 
 - `hasWinner` is a constant `false` in v1. Any "better for X" statement requires an explicit user priority and renders as a **preference-dependent explanation**, never a score (checklist: no opaque winner/score; no hidden weighting).
 - `dimensionTable` reuses the analyzer's seven dimensions (compatibility, completeness, power, connectors, caseFit, priceFreshness, priceCompleteness) plus the derived `acquisitionCost` row. Dimensions the analyzer marks `unknown` stay `unknown` in comparison; they are never re-scored.
@@ -83,14 +87,14 @@ CostSummary = {
 | Different currencies in the group | Price-related dimensions (`acquisitionCost`, `priceFreshness`, `priceCompleteness`) → `unknown` with `notComparableReason: "monedas distintas"`. Non-price dimensions still compare. **No exchange-rate conversion in v1** (owner decision §9.1). |
 | Different `catalogProvenance.generatedAt` | Catalog-dependent dimensions → `unknown` with reason; the design recommends forcing a re-analysis with one catalog version. |
 | Different intent (`useCase`/`targetResolution`) | Comparison allowed but the summary shows "distintos objetivos de uso" and the intent per scenario; verdicts are not cross-compared as apples-to-apples. |
-| Missing prices in one scenario | `acquisitionCost.pricedTotal` is labeled partial (`pricedRows/totalRows`); never zero, never presented as complete (`computeTotals` semantics preserved). |
+| Missing prices in one scenario | `acquisitionCost` is labeled partial (`pricedRows/totalRows`); rows with only a regular price are counted but flagged "sin oferta"; never zero, never presented as complete (`computeTotals` semantics preserved). |
 | Unmatched text rows (analyzer resolution gap) | Those rows are excluded from `componentDiff` alignment and flagged in that scenario's `gaps`; assessment for affected dimensions is `unknown`. |
 | Owned rows with missing prices | Excluded from cost entirely (no price needed — already owned); still assessed for compatibility. |
 | More than two scenarios | Multi-scenario view (§7) with pairwise subset selection; dimension table supports N columns. |
 
 ## 6. Acquisition cost and upgrade treatment
 
-- `acquisitionCost` = sum of valid offer prices (regular as fallback) over **non-owned** rows only. `ownedRowsExcluded` counts what was removed.
+- `acquisitionCost` = `offerTotal` over **non-owned** rows only, `regularTotal` shown as reference (exactly `computeTotals` field semantics, applied to the non-owned subset). `ownedRowsExcluded` counts what was removed.
 - Missing-price rows are counted (`missingPriceRows`) and excluded from the sum, never treated as zero.
 - **Upgrade scenario**: a scenario whose `ownedPartRowIds` is non-empty and whose snapshot contains new rows. Its cost is the *delta* spend (new parts). Its compatibility assessment includes owned parts — so an upgrade that reuses an incompatible mobo/PSU fails honestly rather than hiding the reused part.
 - A "PC nuevo" scenario is the same model with `ownedPartRowIds: []` — the natural baseline for the vision's "upgrade vs new PC" question.
@@ -112,7 +116,7 @@ Fixtures (deterministic, from the plan's test plan):
 | Fixture | Expected output |
 |---|---|
 | F1 same build, two stores | Cost differs; all other dimensions equal; no winner |
-| F2 cheaper but stale | Stale scenario shows freshness warning; cost still lower; no winner; stale dimension `unknown`-safe |
+| F2 cheaper but stale | Stale scenario shows the freshness warning (14-day rule); cost still lower; warning never escalates to fail or unknown; no winner |
 | F3 upgrade with owned parts | Owned rows excluded from cost, included in compat; upgrade cost = delta |
 | F4 incompatible cheaper option | Fail dimension + lower cost both visible; no winner; fail not hidden by price |
 | F5 different currencies | Price dims `unknown` with `monedas distintas`; non-price dims compare |
