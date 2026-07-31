@@ -44,6 +44,19 @@ export const psu500 = {
   id: "psu-2", name: "EVGA 500W", wattage: 500, wattage_w: 500,
   pcieCables: 1, pcie_power_connectors: { "8_pin": 1 },
 };
+export const psuMarginal = {
+  id: "psu-3", name: "Be Quiet Pure Power 550W", wattage: 550, wattage_w: 550,
+  pcieCables: 2, pcie_power_connectors: { "8_pin": 2 },
+};
+
+export const cpuSparse = {
+  id: "cpu-4", name: "Intel Core i5-13600K", brand: "Intel", family: "Core i5",
+  socket: "LGA1700", memoryType: "DDR5", memoryTypeExplicit: true, tdp: null, tdp_w: null,
+};
+export const gpuSparse = {
+  id: "gpu-3", name: "NVIDIA GeForce RTX 4060", tdp: null, tdp_w: null,
+  length: 240, psuMin: null, power_connectors: "1x 8-pin",
+};
 
 export const caseAtx = {
   id: "case-1", name: "NZXT H510 Flow", maxGpuLength: 350, formFactors: ["ATX", "Micro-ATX"],

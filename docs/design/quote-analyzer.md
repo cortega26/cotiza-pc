@@ -122,6 +122,7 @@ matching indefinitely (unmatched rows simply remain unknown).
 ```
 {
   schemaVersion: "quote-analyzer/input/v1",
+  evaluatedAt: string,                       // caller-supplied ISO timestamp; determinism anchor (§4.4)
   quote: {
     id, name, currency, priceUpdatedAt,            // from normalizeQuote
     rows: [{ id, category, product, itemId, store, offerPrice, regularPrice, notes }]
@@ -150,7 +151,7 @@ Notes:
 ```
 {
   schemaVersion: "quote-analyzer/output/v1",
-  generatedAt: string,
+  generatedAt: string,                      // copies input.evaluatedAt verbatim; never Date.now() (§4.4)
   verdict: {
     overall: "fail" | "warning" | "unknown" | "ok" | "incomplete",
     summary: string                      // 1-3 sentence verdict
@@ -212,6 +213,18 @@ Verdict precedence (reuses the builder's established severity order):
 - Identical inputs + same catalog snapshot + same `rulesVersion` → identical
   output (pure, deterministic).
 
+### 4.4 Determinism (Plan 028 correction — approved 2026-07-31)
+
+Determinism takes priority over wall-clock convenience. The analyzer is a
+pure function and must never call `Date.now()` or construct a timestamp
+itself. The caller supplies `evaluatedAt` (an ISO 8601 timestamp) in
+`quote-analyzer/input/v1`; it anchors every freshness computation (quote price
+age, catalog age, 14-day staleness) and is copied verbatim to output
+`generatedAt`. All freshness semantics therefore depend only on the distance
+between `evaluatedAt` and the quote/catalog timestamps, never on the moment
+the function runs. Schema name `quote-analyzer/input/v1` is preserved; this
+correction is part of the approved Plan 028 defaults.
+
 ## 5. Resolution and assembly pipeline (pure seam)
 
 ```
@@ -259,7 +272,7 @@ dimensions + findings + verdict
 | `price-freshness-age` | `priceUpdatedAt` older than 14 days (or absent) | derived | warning |
 | `price-freshness-catalog` | catalog `generatedAt` age reported as info | derived | info |
 
-Required components for a verdict (proposal — **owner decision**, §12):
+Required components for a verdict (**approved 2026-07-31 — §12.1**):
 
 - CPU, GPU or confirmed integrated graphics, PSU, case; motherboard and RAM
   required for full technical-validity verdict but a quote missing them
@@ -404,20 +417,34 @@ file APIs. No snapshots, no second test runner.
 
 ## 12. Open decisions for the project owner
 
-1. **Required-component set for the `ok` verdict.** Proposal: CPU + GPU (or
-   confirmed integrated) + PSU + case required; motherboard and RAM required
-   for full technical-validity but degrade to `unknown` when absent. Confirm
-   or amend before the implementation plan.
-2. **GPU tier display.** `compatMeta` tiers exist; propose surfacing CPU/GPU
-   tier as `decisionType: "heuristic"` info only (never a finding). Confirm
-   whether v1 shows it at all.
-3. **14-day price staleness.** Reuse the builder's existing 14-day threshold;
-   confirm it is also the analyzer threshold.
-4. **Validation corpus.** Milestone 0 requires ≥30 anonymized Chilean gaming
-   quotations. Decide owner/process for collection before Phase G.
-5. **Ambiguous-row UX.** One explicit user confirmation is allowed
-   (`user-mapped`); decide whether confirmation stores a mapping for reuse
-   (localStorage) or is per-analysis only. Proposal: per-analysis only in v1.
+> **Resolution record (Plan 028, approved 2026-07-31).** The project owner
+> approved all six v1 defaults below. They are binding for the v1 core and
+> must not be silently amended by a later plan:
+
+1. **Required-component set for the `ok` verdict.** **Approved:** a fully
+   `ok` technical verdict requires CPU, motherboard, RAM, PSU, case, and
+   either a resolved GPU or explicit integrated-graphics confirmation. A
+   missing or unresolved required component produces `unknown`/`incomplete`,
+   never a fabricated compatibility failure.
+2. **GPU tier display.** **Approved:** CPU/GPU tiers are not findings and are
+   not exposed by the v1 report. Any future tier surfacing requires a new
+   owner decision after corpus validation.
+3. **14-day price staleness.** **Approved:** quote prices become stale after
+   14 days, matching existing builder behavior and measured against
+   `evaluatedAt`.
+4. **Validation corpus.** Collection process is owned by Plan 029; the corpus
+   consumes this contract's stable output.
+5. **Ambiguous-row UX.** **Approved:** a user-confirmed mapping
+   (`user-mapped`) applies only to the current analysis; it is never silently
+   persisted as a global alias. Persistence is a separate owner decision.
+6. **`useCase` and budget.** **Approved (Plan 028 default):** `useCase` is
+   `gaming` only; budget is stored as context but produces no value or
+   affordability conclusion in v1.
+
+> The original decision proposals above are superseded by the resolution
+> record; they remain visible in git history. Also updated by Plan 028: the
+> v1 defaults for required components (§6), tier non-exposure (§7), and the
+> per-analysis mapping scope (§3) align with §12 above.
 
 ## 13. STOP-condition review
 
