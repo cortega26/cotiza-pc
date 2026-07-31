@@ -13,41 +13,41 @@
         "unknown": 2,
         "fail": 1
       },
-      "compat-mobo-ram-memoryType": {
+      "compat-cpu-ram-memory": {
         "ok": 1,
         "boundary": 1,
         "unknown": 2,
         "fail": 1
       },
-      "compat-mobo-ram-maxMemorySpeedMts": {
+      "compat-mobo-ram-memory": {
+        "ok": 1,
+        "boundary": 3,
+        "unknown": 2,
+        "fail": 3
+      },
+      "compat-mobo-case-ff": {
         "ok": 1,
         "boundary": 1,
         "unknown": 2,
         "fail": 1
       },
-      "compat-gpu-case-lengthMm": {
-        "ok": 1,
+      "compat-gpu-case-length": {
+        "ok": 2,
         "boundary": 1,
         "unknown": 2,
         "fail": 1
       },
-      "power-psu-totalLoad": {
+      "power-psu-headroom": {
         "ok": 1,
-        "boundary": 2,
+        "boundary": 3,
         "unknown": 2,
-        "fail": 1
+        "fail": 2
       },
-      "connectors-gpu-psu": {
+      "power-connectors-pcie": {
         "ok": 1,
         "boundary": 1,
         "unknown": 2,
-        "fail": 1
-      },
-      "caseFit-mobo-case-formFactors": {
-        "ok": 1,
-        "boundary": 1,
-        "unknown": 2,
-        "fail": 1
+        "fail": 2
       }
     },
     "criticalFalseNegativeCount": 0
@@ -104,6 +104,6 @@
   "limitations": [
     "No expert validation",
     "No universal real-world false-negative estimate",
-    "Coverage corpus must be supplied explicitly"
+    "No gaming-balance validation"
   ]
 }

@@ -164,7 +164,7 @@ export const FACT_UNITS = Object.freeze({
   "cpu.tdp": "W",
   "gpu.tdp": "W",
   "psu.wattage": "W",
-  "psu.connectorCounts": 'connector count map, e.g. { "8_pin": 2, "6_2_pin": 0 }',
+  "psu.connectorCounts": 'connector count map, e.g. { "8_pin": 2, "6+2": 0, "12vhpwr": 1 }',
   "gpu.powerConnectors": 'connector requirement string, e.g. "1x 8-pin", "1x 12vhpwr"',
   ...Object.fromEntries(IDENTITY_FACTS.map((fact) => [fact, "free-text product identifier (identity only)"])),
 });
@@ -182,6 +182,7 @@ const isIsoDate = (value) => {
 
 const isIsoDateTime = (value) => {
   if (!isNonEmptyString(value)) return false;
+  if (!/^\d{4}-\d{2}-\d{2}/.test(value.trim())) return false;
   return !Number.isNaN(Date.parse(value));
 };
 
@@ -331,12 +332,15 @@ export function validateNegativeControl(control, conformanceCases) {
   } else {
     const base = conformanceCases.find((c) => c.caseId === control.conformanceCaseId);
     const rule = base ? getRule(base.ruleId) : null;
+    if (base && base.expected.dangerous !== true) {
+      errors.push("conformanceCaseId must reference a dangerous fail case");
+    }
     if (!isPlainObject(control.mutatedOutput.dimensions)) {
       errors.push("mutatedOutput.dimensions must be an object");
     } else if (rule) {
       const mutatedStatus = control.mutatedOutput.dimensions[rule.dimension]?.status;
-      if (!EXPECTED_STATUSES.includes(mutatedStatus)) {
-        errors.push(`mutatedOutput must set a known status for dimension ${rule.dimension}`);
+      if (mutatedStatus !== undefined && mutatedStatus !== null && !EXPECTED_STATUSES.includes(mutatedStatus)) {
+        errors.push(`mutatedOutput must use a known status or omit dimension ${rule.dimension}`);
       } else if (mutatedStatus === "fail") {
         errors.push("mutatedOutput must not be a pass (a fail mutation is not unsafe)");
       }
@@ -495,6 +499,10 @@ export function loadCoverageCorpus(dir) {
  */
 export function runConformanceCase(c, analyze) {
   const failures = [];
+  const rule = getRule(c.ruleId);
+  if (!rule) {
+    return { ok: false, failures: [{ kind: "unknown-rule", detail: `ruleId ${JSON.stringify(c.ruleId)} is not in the assurance registry` }], caseId: c.caseId };
+  }
   let first;
   let second;
   try {
@@ -510,7 +518,6 @@ export function runConformanceCase(c, analyze) {
   if (JSON.stringify(first) !== JSON.stringify(second)) {
     failures.push({ kind: "non-deterministic", detail: "output differs between identical runs" });
   }
-  const rule = getRule(c.ruleId);
   const dimensionStatus = first?.dimensions?.[rule.dimension]?.status ?? null;
   const actualFindingIds = Array.isArray(first?.findings)
     ? first.findings.map((f) => f.id)
@@ -550,7 +557,7 @@ export function classifyMutatedOutput(mutatedOutput, baseCase) {
   const rule = getRule(baseCase.ruleId);
   if (!rule || baseCase.expected.status !== "fail") return null;
   const status = mutatedOutput.dimensions[rule.dimension]?.status;
-  if (status !== "fail" && EXPECTED_STATUSES.includes(status)) return "dangerous-false-negative";
+  if (status !== "fail") return "dangerous-false-negative";
   return null;
 }
 
@@ -699,9 +706,11 @@ export function computeCoverageMetrics(cases, analyze) {
 
 /**
  * Evaluate all gates (Plan 035 Step 7). A gate without enough data is
- * unevaluable and therefore failing unless --report-only is used. Coverage
- * gates only apply when a coverage corpus was explicitly requested: the
- * committed synthetic gate must pass with no corpus at all.
+ * unevaluable and therefore failing. Coverage gates only apply when a
+ * coverage corpus was explicitly requested: the committed synthetic gate
+ * must pass with no corpus at all. Exit policy is the caller's (the CLI
+ * suppresses exit failure with --report-only; the report still shows the
+ * failing gates).
  * @param {object} conformance evaluateConformance result
  * @param {object} coverage computeCoverageMetrics result
  * @returns {object} gates
@@ -794,11 +803,10 @@ export function buildAssuranceReport({ generatedAt, conformance, coverage, gates
  * @param {string} options.conformanceDir committed conformance fixture directory
  * @param {string|null} [options.coverageCorpusDir] private corpus directory (never defaulted)
  * @param {(input: object) => object} options.analyze black-box analyzer
- * @param {boolean} [options.reportOnly=false] permit incomplete collection
  * @param {string} [options.generatedAt] ISO timestamp for the report
  * @returns {{ report: object, gates: object, pass: boolean }}
  */
-export function runAssurance({ conformanceDir, coverageCorpusDir = null, analyze, reportOnly = false, generatedAt }) {
+export function runAssurance({ conformanceDir, coverageCorpusDir = null, analyze, generatedAt }) {
   const corpusRequested = coverageCorpusDir !== null;
   const { cases, controls } = loadConformanceSuite(conformanceDir);
   const conformance = evaluateConformance(cases, controls, analyze);

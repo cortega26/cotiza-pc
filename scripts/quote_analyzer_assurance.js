@@ -49,7 +49,6 @@ function main() {
       conformanceDir: args.conformanceDir,
       coverageCorpusDir: args.coverageCorpusDir,
       analyze: analyzeQuote,
-      reportOnly: args.reportOnly,
       generatedAt: args.generatedAt ?? new Date().toISOString(),
     });
   } catch (error) {
@@ -58,7 +57,15 @@ function main() {
     return;
   }
   const output = `${JSON.stringify(result.report, null, 2)}\n`;
-  if (args.out) writeFileSync(args.out, output);
+  if (args.out) {
+    try {
+      writeFileSync(args.out, output);
+    } catch (error) {
+      console.error(error.message);
+      process.exitCode = 2;
+      return;
+    }
+  }
   process.stdout.write(output);
   if (!result.pass && !args.reportOnly) process.exitCode = 1;
 }

@@ -102,9 +102,11 @@ deliberadamente insegura:
 
 Los controles negativos nunca alimentan métricas del Analyzer. La puerta exige
 que el harness rechace todos los controles enumerados. El `rulesVersion` debe
-coincidir con el del caso de conformidad referenciado; la salida mutada se
-construye sobre la salida real del caso y toda desviación no segura sobre una
-base crítica se rechaza como `dangerous-false-negative`.
+coincidir con el del caso de conformidad referenciado, y `conformanceCaseId`
+debe referenciar un caso crítico peligroso (`expected.dangerous: true`). La
+salida mutada puede degradar el estado de la dimensión de la regla o
+omitirlo/ponerlo en `null` (peligro oculto); toda desviación no `fail` sobre
+una base crítica se rechaza como `dangerous-false-negative`.
 
 ## Caso privado de cobertura — `quote-analyzer-assurance/coverage-case/v1`
 

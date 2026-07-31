@@ -279,7 +279,25 @@ describe("negative-control schema validation", () => {
       ...valid(),
       mutatedOutput: { dimensions: { compatibility: { status: "banana" } } },
     };
-    expect(validateNegativeControl(unknownStatus, s.cases).join(";")).toContain("known status");
+    expect(validateNegativeControl(unknownStatus, s.cases).join(";")).toContain("known status or omit");
+  });
+
+  it("rejects controls whose base conformance case is not a dangerous fail", () => {
+    const s = suite();
+    const base = caseById(s, "CONF-CPU-SOCKET-OK-001");
+    const control = { ...valid(), conformanceCaseId: base.caseId, rulesVersion: base.rulesVersion };
+    expect(validateNegativeControl(control, s.cases).join(";")).toContain("dangerous fail case");
+  });
+
+  it("accepts hidden-hazard mutations that omit or null the dimension status", () => {
+    const s = suite();
+    const omitted = { ...valid(), mutatedOutput: { dimensions: { compatibility: {} } } };
+    expect(validateNegativeControl(omitted, s.cases)).toEqual([]);
+    const nulled = {
+      ...valid(),
+      mutatedOutput: { dimensions: { compatibility: { status: null } } },
+    };
+    expect(validateNegativeControl(nulled, s.cases)).toEqual([]);
   });
 });
 
@@ -301,6 +319,13 @@ describe("coverage-case schema validation", () => {
     expect(validateCoverageCase({ ...valid, recruitmentSource: "crowd" }).join(";")).toContain("recruitmentSource");
     expect(validateCoverageCase({ ...valid, caseId: "C-1" }).join(";")).toContain("COVERAGE-");
     expect(validateCoverageCase({ ...valid, elapsedMs: -5 }).join(";")).toContain("elapsedMs");
+  });
+
+  it("rejects ambiguous date-only or malformed snapshot timestamps", () => {
+    const valid = coverageCase("COVERAGE-VALID", loadFixtureSuite().cases[0].analyzerInput);
+    expect(validateCoverageCase({ ...valid, quoteSnapshotAt: "2026" }).join(";")).toContain("quoteSnapshotAt");
+    expect(validateCoverageCase({ ...valid, quoteSnapshotAt: "2026-08-01" })).toEqual([]);
+    expect(validateCoverageCase({ ...valid, quoteSnapshotAt: "not a date" }).join(";")).toContain("quoteSnapshotAt");
   });
 });
 
@@ -382,6 +407,14 @@ describe("black-box conformance execution (Steps 2-3)", () => {
     expect(result.failures[0].kind).toBe("analyzer-crash");
   });
 
+  it("fails cleanly when the case references a rule outside the registry", () => {
+    const suite = loadFixtureSuite();
+    const c = { ...caseById(suite, "CONF-CPU-SOCKET-OK-001"), ruleId: "compat-something-new" };
+    const result = runConformanceCase(c, analyzeQuote);
+    expect(result.ok).toBe(false);
+    expect(result.failures[0].kind).toBe("unknown-rule");
+  });
+
   it("flags non-deterministic analyzers", () => {
     const suite = loadFixtureSuite();
     const c = caseById(suite, "CONF-CPU-SOCKET-OK-001");
@@ -392,6 +425,28 @@ describe("black-box conformance execution (Steps 2-3)", () => {
     };
     const result = runConformanceCase(c, flaky);
     expect(result.failures.map((f) => f.kind)).toContain("non-deterministic");
+  });
+
+  it("treats a null or empty analyzer output as a mismatch, never a pass", () => {
+    const suite = loadFixtureSuite();
+    const failCase = caseById(suite, "CONF-CPU-SOCKET-FAIL-001");
+    const nullResult = runConformanceCase(failCase, () => null);
+    expect(nullResult.ok).toBe(false);
+    expect(nullResult.failures.map((f) => f.kind)).toContain("status-mismatch");
+    const emptyResult = runConformanceCase(failCase, () => ({}));
+    expect(emptyResult.ok).toBe(false);
+  });
+
+  it("accepts a missing dimension verdict for unknown-class cases (unknown admits null)", () => {
+    const suite = loadFixtureSuite();
+    const unknownCase = caseById(suite, "CONF-CPU-SOCKET-UNKNOWN-001");
+    const silent = (input) => ({
+      verdict: { overall: "unknown" },
+      dimensions: {},
+      findings: [{ id: "compat-cpu-mobo-socket" }],
+    });
+    const result = runConformanceCase(unknownCase, silent);
+    expect(result.ok).toBe(true);
   });
 });
 
@@ -481,6 +536,15 @@ describe("negative controls (Step 4)", () => {
     expect(classifyMutatedOutput({ dimensions: { compatibility: { status: "fail" } } }, base)).toBeNull();
   });
 
+  it("classifies hidden-hazard mutations (omitted or null status) as dangerous false negatives", () => {
+    const suite = loadFixtureSuite();
+    const base = caseById(suite, "CONF-CPU-SOCKET-FAIL-001");
+    expect(classifyMutatedOutput({ dimensions: { compatibility: {} } }, base)).toBe("dangerous-false-negative");
+    expect(
+      classifyMutatedOutput({ dimensions: { compatibility: { status: null } } }, base)
+    ).toBe("dangerous-false-negative");
+  });
+
   it("does not classify mutations against non-fail base cases", () => {
     const suite = loadFixtureSuite();
     const base = caseById(suite, "CONF-CPU-SOCKET-OK-001");
@@ -519,6 +583,10 @@ describe("coverage corpus (Step 6)", () => {
       expect(() => loadCoverageCorpus(dir)).toThrow("unreadable JSON");
     });
     withTempDir((dir) => {
+      writeFileSync(join(dir, "array.json"), "[1, 2, 3]");
+      expect(() => loadCoverageCorpus(dir)).toThrow("non-object JSON");
+    });
+    withTempDir((dir) => {
       const c = coverageCase("COVERAGE-1", fullInput());
       writeCases(dir, [c, { ...c, schemaVersion: "quote-analyzer-assurance/coverage-case/v9" }]);
       expect(() => loadCoverageCorpus(dir)).toThrow("unexpected schemaVersion");
@@ -550,7 +618,7 @@ describe("coverage corpus (Step 6)", () => {
 });
 
 describe("gates and report (Step 7)", () => {
-  const runWithCorpus = (count, reportOnly) =>
+  const runWithCorpus = (count) =>
     withTempDir((dir) => {
       const inputs = [];
       for (let index = 0; index < count; index += 1) {
@@ -561,7 +629,6 @@ describe("gates and report (Step 7)", () => {
         conformanceDir: FIXTURE_DIR,
         coverageCorpusDir: dir,
         analyze: analyzeQuote,
-        reportOnly,
         generatedAt: "2026-08-01T00:00:00.000Z",
       });
     });
@@ -580,15 +647,22 @@ describe("gates and report (Step 7)", () => {
     expect(gates.minimumCoverageCases.applicable).toBe(false);
   });
 
-  it("fails coverage gates when the corpus is too small, unless report-only", () => {
-    const small = runWithCorpus(2, false);
+  it("fails coverage gates when the corpus is too small", () => {
+    const small = runWithCorpus(2);
     expect(small.gates.minimumCoverageCases.pass).toBe(false);
     expect(small.gates.identityResolution.pass).toBe(false);
     expect(small.pass).toBe(false);
+  });
 
-    const lenient = runWithCorpus(2, true);
-    expect(lenient.gates.minimumCoverageCases.pass).toBe(false);
-    expect(lenient.pass).toBe(false);
+  it("fails when the corpus directory is missing or unreadable", () => {
+    expect(() =>
+      runAssurance({
+        conformanceDir: FIXTURE_DIR,
+        coverageCorpusDir: join(ROOT, "no-such-corpus"),
+        analyze: analyzeQuote,
+        generatedAt: "2026-08-01T00:00:00.000Z",
+      })
+    ).toThrow("not readable");
   });
 
   it("passes every gate with at least 30 resolved coverage cases", () => {
@@ -646,6 +720,12 @@ describe("CLI argument parsing", () => {
     expect(
       parseCliArgs(["--conformance-dir", "x", "--generated-at", "yesterday"]).error
     ).toContain("ISO 8601");
+    expect(parseCliArgs(["--conformance-dir", "x", "--generated-at", "2026"]).error).toContain(
+      "ISO 8601"
+    );
+    expect(
+      parseCliArgs(["--conformance-dir", "x", "--generated-at", "2026-08-01"]).error
+    ).toBeUndefined();
   });
 
   it("parses the supported options", () => {
@@ -697,6 +777,28 @@ describe("CLI integration", () => {
     const result = runCli(["--conformance-dir", join(ROOT, "no-such-dir")]);
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("not readable");
+  });
+
+  it("exits 2 when the coverage corpus directory is missing", () => {
+    const result = runCli([
+      "--conformance-dir",
+      FIXTURE_DIR,
+      "--coverage-corpus-dir",
+      join(ROOT, "no-such-corpus"),
+    ]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("not readable");
+  });
+
+  it("exits 2 with a clean message when --out is not writable", () => {
+    const result = runCli([
+      "--conformance-dir",
+      FIXTURE_DIR,
+      "--out",
+      join(ROOT, "no-such-dir", "report.json"),
+    ]);
+    expect(result.status).toBe(2);
+    expect(result.stderr).not.toContain("at ");
   });
 
   it("exits 1 in normal mode and 0 with --report-only on an incomplete corpus", () => {
