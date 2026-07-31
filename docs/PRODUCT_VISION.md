@@ -550,8 +550,17 @@ Exit criteria:
 
 - Users can enter or import a quote, state gaming intent and budget context, confirm component identity, and receive the versioned recommendation output.
 - At least 80% of required components in the validation corpus resolve exactly or after one explicit user confirmation.
-- Independent expert review reaches at least 95% agreement on deterministic compatibility conclusions and at least 80% agreement on the most important gaming-balance concern.
-- The controlled launch corpus contains zero dangerous confirmed incompatibility false negatives.
+- Every supported deterministic or derived rule passes a versioned,
+  implementation-independent automated conformance suite built from explicit
+  source facts and boundary cases. The suite covers `ok`, `fail`, and
+  insufficient-evidence outcomes for every supported rule.
+- The conformance suite detects every enumerated critical false-negative
+  negative control, and the production Analyzer produces zero dangerous false
+  negatives for those explicitly supported hazard classes. This is a bounded
+  software-assurance result, not a claim of zero real-world false negatives.
+- Missing or conflicting required evidence resolves to `unknown`, never
+  `ok`. Gaming-balance conclusions remain unsupported until a separately
+  validated performance model and evidence source exist.
 - Every high-severity finding exposes evidence, freshness, confidence, rule version, and next action.
 - Median time from product start to an evidence-qualified verdict is under seven minutes in the target cohort.
 
@@ -581,7 +590,9 @@ Exit criteria, sustained for three consecutive months:
 - At least 20% of activated users return within 30 days to recheck, compare, update, or continue a decision, or share a report that produces a qualified recipient session
 - Organic growth is distributed across evidence-backed decision pages rather than depending on one anomalous query or page
 - Content and catalog refresh operations meet their defined freshness and correction SLAs
-- The recurring data, content, infrastructure, and expert-review cost is measured and considered sustainable for the next stage
+- The recurring data, content, infrastructure, source-verification, and
+  automated-assurance cost is measured and considered sustainable for the next
+  stage
 
 ### Milestone 5 — Optional monetization exploration
 
@@ -673,3 +684,29 @@ The amendment:
 - Defers monetization to an optional later milestone requiring explicit owner acknowledgement
 
 It preserves the original long-term ambition, uncertainty taxonomy, explainability rules, multidimensional assessment model, commercial-neutrality principles, and amendment governance.
+
+### Amendment record — 2026-07-31: automated Analyzer assurance
+
+This amendment was explicitly requested by the project owner after determining
+that recurring independent expert labeling is not feasible for the project's
+solo, free operating model.
+
+The amendment replaces the human-review launch gate with two separate evidence
+assets:
+
+- a versioned, implementation-independent automated conformance suite for
+  deterministic and disclosed derived rules; and
+- a private, unlabeled real-quote coverage corpus used to measure identity
+  resolution, evidence availability, `unknown` frequency, and workflow
+  performance.
+
+The change does not relabel AI output as expert judgment and does not lower a
+failed threshold to declare success. Instead, it narrows the supported claim:
+automated assurance can establish conformance for enumerated rule and hazard
+classes, but cannot establish a universal real-world false-negative rate or
+validate subjective gaming-balance advice. Product usefulness and decision
+value still require real-user behavior and outcome evidence.
+
+Plan 029's uncompleted independent-review workflow is superseded by Plan 035.
+Its already-built reviewer harness remains historical implementation until the
+replacement plan removes or isolates it.

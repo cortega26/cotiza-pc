@@ -1,84 +1,68 @@
 {
-  "schemaVersion": "quote-analyzer-corpus/report/v1",
+  "schemaVersion": "quote-analyzer-assurance/report/v1",
   "generatedAt": "2026-08-01T13:00:00.000Z",
-  "corpus": {
-    "caseCount": 2,
-    "rejectedCount": 0,
-    "rejectedCaseIds": []
-  },
-  "metrics": {
-    "identityResolutionRate": 1,
-    "expertAgreementDeterministic": 1,
-    "expertAgreementPairs": 8,
-    "expertAgreementTopConcern": 1,
-    "expertAgreementTopConcernPairs": 2,
-    "dangerousFalseNegativeCount": 0,
-    "dangerousNearMissCount": 0,
-    "evidenceCompletenessRate": 1,
-    "timeToVerdictMsMedian": 2500,
-    "unknownVsOkMatrix": {
-      "ok->ok": 8
-    },
-    "perFindingConfusion": {
-      "price-freshness-catalog": {
-        "expected": 0,
-        "emitted": 2,
-        "tp": 0,
-        "fp": 2,
-        "fn": 0
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "conformance": {
+    "caseCount": 24,
+    "passed": 24,
+    "failedCaseIds": [],
+    "ruleCoverage": {
+      "compat-cpu-mobo-socket": {
+        "ok": 1,
+        "fail": 1,
+        "unknown": 1,
+        "boundary": 1
       }
-    }
+    },
+    "criticalFalseNegativeCount": 0
+  },
+  "negativeControls": {
+    "caseCount": 4,
+    "rejected": 4,
+    "missedControlIds": []
+  },
+  "coverageCorpus": {
+    "caseCount": 30,
+    "identityResolutionRate": 0.84,
+    "dimensionStateCounts": {
+      "ok": 72,
+      "warning": 18,
+      "fail": 6,
+      "unknown": 24,
+      "incomplete": 0
+    },
+    "evidenceCompletenessRate": 0.81,
+    "timeToVerdictMsMedian": 285000
   },
   "gates": {
+    "conformance": {
+      "pass": true,
+      "expected": 24,
+      "observed": 24
+    },
+    "criticalNegativeControls": {
+      "pass": true,
+      "expectedRejected": 4,
+      "observedRejected": 4
+    },
+    "missingEvidenceIsUnknown": {
+      "pass": true,
+      "violations": 0
+    },
     "identityResolution": {
       "pass": true,
-      "rate": 1,
-      "threshold": 0.8,
-      "assessable": true
+      "rate": 0.84,
+      "threshold": 0.8
     },
-    "expertAgreementDeterministic": {
+    "minimumCoverageCases": {
       "pass": true,
-      "rate": 1,
-      "threshold": 0.95,
-      "assessable": true
-    },
-    "expertAgreementTopConcern": {
-      "pass": true,
-      "rate": 1,
-      "threshold": 0.8,
-      "assessable": true
-    },
-    "dangerousFalseNegatives": {
-      "pass": true,
-      "rate": 0,
-      "threshold": 0,
-      "assessable": true
-    },
-    "schemaRejection": {
-      "pass": true,
-      "rate": 0,
-      "threshold": 0,
-      "assessable": true
+      "count": 30,
+      "threshold": 30
     }
   },
-  "cases": [
-    {
-      "caseId": "CASE-0001",
-      "resolvedCount": 6,
-      "requiredCount": 6,
-      "verdict": "ok"
-    },
-    {
-      "caseId": "CASE-0002",
-      "resolvedCount": 6,
-      "requiredCount": 6,
-      "verdict": "ok"
-    }
-  ],
-  "failingCaseIds": {
-    "dangerousFalseNegatives": [],
-    "dangerousNearMisses": [],
-    "disagreementsWithoutAdjudication": []
-  },
-  "corpusDir": "/tmp/opencode/qa-cli-smoke"
+  "limitations": [
+    "No expert validation",
+    "No universal real-world false-negative estimate",
+    "No gaming-balance validation"
+  ]
 }

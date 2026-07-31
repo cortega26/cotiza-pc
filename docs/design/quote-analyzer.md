@@ -282,8 +282,9 @@ Required components for a verdict (**approved 2026-07-31 — §12.1**):
 
 - Workload suitability beyond "gaming" (only `useCase: "gaming"` accepted).
 - Performance balance / bottleneck conclusions (`estimateCpuGpuBalance` output
-  is not exposed as a finding; a heuristic balance hint may be shown as
-  `decisionType: "heuristic"` info only after corpus validation).
+  is not exposed as a finding; a heuristic balance hint requires a separately
+  validated performance model and evidence source. Automated compatibility
+  conformance does not qualify it).
 - Value-for-money, "total price reasonable", budget-vs-price conclusions,
   price comparison across stores, and cheapest-combination calculations.
 - Upgradeability, thermals, noise, durability, BIOS support.
@@ -381,9 +382,12 @@ error message and that no partial analysis is produced.
    `ok`).
 4. **Determinism**: identical input + catalog snapshot + rulesVersion →
    byte-identical output.
-5. **Zero dangerous false negatives on the controlled corpus**: no confirmed
-   incompatibility in the validation corpus is reported as `ok` (Milestone 2
-   gate).
+5. **Automated critical-hazard assurance**: every supported deterministic or
+   derived rule passes the implementation-independent conformance suite, and
+   the assurance harness detects every enumerated critical false-negative
+   negative control. The production Analyzer reports no supported conformance
+   hazard as `ok` (Milestone 2 gate). This bounded result is not described as a
+   universal real-world false-negative rate.
 6. **Resolution rate**: ≥80% of required components resolve as `exact-id` or
    after one explicit `user-mapped` confirmation on the validation corpus
    (Milestone 2 gate).
@@ -403,7 +407,7 @@ error message and that no partial analysis is produced.
 | D | Contracts file (JSDoc until Plan 027 unblocks; then types) | `src/lib/quoteAnalyzer/contracts.js` | typecheck when enabled |
 | E | UI: analyzer screen, confirmation flow for ambiguous rows, verdict panel reusing existing assessment UI patterns | `src/components/QuoteAnalyzer.jsx`, `src/App.jsx` wiring, `src/App.test.jsx` | `npm run check` |
 | F | Optional: extract shared check runner used by both `selectionEvaluation` and the analyzer | `src/lib/compatibility.js` refactor (behavior-preserving) | full suite green |
-| G | Milestone 2 corpus harness (offline script, out of SPA) | `scripts/` (separate plan) | corpus runs |
+| G | Milestone 2 automated conformance and private coverage harnesses (offline, out of SPA) | `scripts/` (Plan 035) | conformance and coverage reports pass |
 
 Each phase is its own implementation-plan slice; this design does not
 authorize phases E-G without approval.
@@ -428,12 +432,16 @@ file APIs. No snapshots, no second test runner.
    never a fabricated compatibility failure.
 2. **GPU tier display.** **Approved:** CPU/GPU tiers are not findings and are
    not exposed by the v1 report. Any future tier surfacing requires a new
-   owner decision after corpus validation.
+   owner decision after a separately validated performance model and evidence
+   source exist; automated compatibility conformance does not validate gaming
+   balance.
 3. **14-day price staleness.** **Approved:** quote prices become stale after
    14 days, matching existing builder behavior and measured against
    `evaluatedAt`.
-4. **Validation corpus.** Collection process is owned by Plan 029; the corpus
-   consumes this contract's stable output.
+4. **Analyzer assurance.** **Amended by owner decision on 2026-07-31:** Plan
+   035 owns a committed automated conformance suite and a separate private,
+   unlabeled real-quote coverage corpus. Plan 029's human-review/adjudication
+   workflow is superseded and is not a launch dependency.
 5. **Ambiguous-row UX.** **Approved:** a user-confirmed mapping
    (`user-mapped`) applies only to the current analysis; it is never silently
    persisted as a global alias. Persistence is a separate owner decision.
