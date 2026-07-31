@@ -739,7 +739,26 @@ describe("[plan 014] Builder flow", () => {
   it.todo("navigates backward through steps [plan 014]");
   it.todo("clicking stepper chip jumps to that step [plan 014]");
   it.todo("filters motherboards by selected CPU socket [plan 014]");
-  it.todo("filter RAM by selected motherboard memory type [plan 014]");
+  it("filters RAM by selected motherboard memory type", async () => {
+    const catalog = buildRichCatalog();
+    catalog.ramKits = [
+      ...catalog.ramKits,
+      { id: "ram-4", name: "Kingston Fury 32GB", type: "DDR4", speed: 3200 },
+    ];
+    renderWithBuilder(
+      {
+        cpuId: "cpu-2", moboId: "mobo-2", ramId: "", gpuId: "", psuId: "", caseId: "",
+        useIntegratedGpu: false,
+      },
+      { catalog }
+    );
+    const ramInput = await screen.findByLabelText("RAM");
+    fireEvent.focus(ramInput);
+
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(2);
+    options.forEach((opt) => expect(opt.textContent).toContain("DDR5"));
+  });
   it.todo("filter RAM by selected CPU memory type (explicit) [plan 014]");
   it.todo("filters cases by motherboard form factor [plan 014]");
   it.todo("filters cases by GPU length [plan 014]");

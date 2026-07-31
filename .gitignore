@@ -13,7 +13,7 @@ data/raw/
 .continue/
 skills-lock.json
 
-# Plan 029: private validation corpus and reviewer exports — never committed
+# Plan 035: private coverage corpus and legacy exports — never committed
 cotiza-pc-corpus/
 *.corpus-export.json
 *.corpus-export.csv

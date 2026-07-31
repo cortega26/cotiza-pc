@@ -18,6 +18,17 @@ On 2026-07-30, the project owner directed that the product prioritize organic tr
 
 This audit remains a point-in-time record of the weaknesses found in the prior vision. Its original monetization recommendations are superseded where they conflict with the owner’s decision: monetization research is now **Later**, after sustained organic product success, rather than a P1 activity.
 
+On 2026-07-31, the owner also rejected recurring independent expert labeling as
+operationally infeasible for a solo, free product. All expert-agreement,
+expert-audit, blind-review, and concierge-manual-validation proposals below are
+therefore historical recommendations, not current launch gates. The canonical
+replacement is bounded automated assurance: an implementation-independent
+conformance suite with critical negative controls, plus a separate unlabeled
+real-quote corpus for coverage and identity resolution. This replacement cannot
+support claims of expert validation, universal safety, a measured real-world
+false-negative rate, or gaming-balance validity. See the 2026-07-31 amendment in
+`PRODUCT_VISION.md` and Plan 035.
+
 | Audit gap | Reconciled canonical section |
 |---|---|
 | No beachhead or sequence | “Current strategic focus and beachhead”; “Current product sequence and MVP boundary” |
@@ -26,6 +37,7 @@ This audit remains a point-in-time record of the weaknesses found in the prior v
 | Growth model absent | “Organic growth and distribution strategy” |
 | Monetization timing unresolved | “Business-model sequencing” |
 | No metrics, gates, or kill criteria | “Milestones and decision gates” |
+| Expert review is not operationally sustainable | “Amendment record — 2026-07-31: automated Analyzer assurance” |
 
 ## Evidence conventions
 

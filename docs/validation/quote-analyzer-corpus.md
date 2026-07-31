@@ -1,140 +1,179 @@
-# Protocolo de validación de cotizaciones del Quote Analyzer
+# Protocolo de cobertura y aseguramiento automatizado del Quote Analyzer
 
-> **Estado**: diseño aprobado por el propietario del proyecto (2026-07-31);
-> la recolección de cotizaciones reales está **bloqueada** hasta que exista al
-> menos un revisor independiente calificado (ver «Revisores»).
+> **Estado**: modelo automatizado aprobado por el propietario del proyecto
+> (2026-07-31). Sustituye el requisito de revisores independientes de Plan 029.
+> Plan 035 implementa el contrato y los harnesses nuevos; hasta que termine,
+> este documento autoriza la recolección privada conforme a este protocolo,
+> pero no permite declarar cumplida la puerta automatizada de lanzamiento.
 >
-> Este documento gobierna la recolección, el almacenamiento, el etiquetado y la
-> eliminación del corpus de validación del Quote Analyzer (Plan 029). Es un
-> documento de investigación, no una promesa de seguridad de compra para
-> participantes. Nunca se commitean cotizaciones reales, datos personales,
-> contactos, números de pedido, direcciones ni notas privadas de revisores.
+> Este documento gobierna dos activos distintos: un corpus privado de
+> cotizaciones reales para medir cobertura y una suite versionada de
+> conformidad para validar reglas. Ninguno convierte una salida de IA en juicio
+> experto ni promete ausencia universal de falsos negativos.
+
+## Modelo de evidencia
+
+La validación se separa por propósito:
+
+1. **Corpus privado de cobertura**: cotizaciones chilenas reales, anonimizadas
+   y sin etiquetas expertas. Mide resolución de identidad, disponibilidad de
+   evidencia, frecuencia de `unknown`, completitud y tiempo al veredicto.
+2. **Suite de conformidad automatizada**: casos sintéticos o respaldados por
+   hechos de fuente explícitos. Valida los estados y hallazgos de cada regla
+   determinística o derivada soportada, incluidos límites y ausencia de datos.
+3. **Controles negativos críticos**: salidas deliberadamente incorrectas que
+   el harness debe rechazar para cada clase de peligro soportada. Demuestran
+   que el comparador detecta un falso negativo conocido; no estiman una tasa
+   de fallos del mundo real.
+4. **Evidencia de producto**: acciones y respuestas voluntarias de usuarios.
+   Sirven para validar utilidad y cambio de decisión, no corrección técnica.
+
+El Analyzer nunca se usa para generar la respuesta esperada de su propia suite.
+El oráculo de conformidad no importa ni reutiliza las funciones de
+compatibilidad del producto.
 
 ## Accountable owner
 
-- **Dueño de la investigación**: Carlos (propietario del proyecto), decidido
-  por el propietario el 2026-07-31. Responsable de las decisiones de diseño del
-  estudio, de los umbrales y del registro de la decisión de puerta.
-- **Data steward**: Carlos (misma persona en v1), decidido por el propietario
-  el 2026-07-31. Responsable del acceso, la custodia, el retiro y la
-  eliminación de los datos privados del corpus.
+- **Dueño de la investigación y del aseguramiento**: Carlos (propietario del
+  proyecto), decidido el 2026-07-31. Aprueba las clases de peligro soportadas,
+  las fuentes, los límites de las afirmaciones y la decisión de puerta.
+- **Data steward**: Carlos, decidido el 2026-07-31. Custodia el corpus privado,
+  gestiona consentimiento, correcciones, retiros y eliminación.
+- **Automation owner**: Carlos, decidido el 2026-07-31. Mantiene la suite, sus
+  controles negativos, las versiones de reglas y los reportes reproducibles.
 
-## Data steward
+No se requiere un revisor humano independiente para recolectar ni ejecutar el
+corpus. Una futura auditoría humana puede aportar evidencia adicional, pero es
+opcional y no forma parte de las puertas vigentes.
 
-- Es la única persona con acceso de escritura al almacenamiento privado.
-- Mantiene el registro de consentimiento, retiros y correcciones.
-- Ejecuta la eliminación al término del periodo de retención o ante un pedido
-  de borrado, lo que ocurra primero.
+## Activos y ubicación
 
-## Reviewer (reviewer) — Revisores
+### Corpus privado de cobertura
 
-- **TBD — recolección bloqueada**: no hay revisores independientes nombrados
-  todavía. La recolección de cotizaciones reales no comienza hasta que exista
-  al menos un revisor calificado (conocimiento verificable de hardware de PC
-  para gaming y de los datos del catálogo) que confirme su participación.
-- Cada caso del subconjunto de lanzamiento requiere **dos revisiones
-  independientes**. Los conflictos los resuelve un tercer rol o una sesión de
-  consenso documentada, sin reescribir las etiquetas originales (ver
-  `quote-analyzer-label-schema.md`).
+- **Ubicación aprobada**: carpeta local cifrada fuera del repositorio (por
+  ejemplo `~/cotiza-pc-corpus/`), accesible solo por el data steward.
+- Nunca se guarda dentro del repositorio git.
+- El harness exige `--coverage-corpus-dir` explícito y nunca usa una carpeta
+  del repositorio por defecto.
+- Los casos contienen solo el payload redactado necesario para ejecutar
+  `quote-analyzer/input/v1`, más tiempos o acciones permitidas.
 
-## Almacenamiento privado
+### Suite de conformidad
 
-- **Ubicación aprobada**: carpeta local cifrada fuera del repositorio
-  (por ejemplo `~/cotiza-pc-corpus/`), con acceso restringido al data
-  steward, decidida por el propietario el 2026-07-31.
-- Nunca se guarda el corpus dentro del repositorio git. `.gitignore` incluye
-  patrones de guarda por si alguien intenta una carpeta de staging accidental.
-- El harness solo acepta un directorio de corpus provisto explícitamente por
-  el operador (`--corpus-dir`); nunca usa un directorio del repositorio por
-  defecto.
+- Puede vivir en el repositorio porque usa exclusivamente casos sintéticos o
+  hechos públicos mínimos con procedencia, nunca cotizaciones de usuarios.
+- Cada caso declara regla, hechos, resultado esperado, clase de peligro,
+  procedencia y versión; ver `quote-analyzer-assurance-schema.md`.
+- Texto copiado de fuentes, respuestas completas de proveedores y datos cuya
+  licencia no permita redistribución quedan fuera del repositorio.
 
-## Consentimiento (consent)
+## Consentimiento
 
-- Antes de usar cualquier cotización real, el participante recibe el aviso en
-  español simple (texto abajo), consiente explícitamente y puede retirarse en
-  cualquier momento sin explicación ni consecuencia.
-- El aviso explica: propósito (validar un analizador de cotizaciones de PC),
-  campos utilizados, retención, quién revisa la cotización, retiro/borrado, y
-  que esto **no es una garantía de seguridad de compra**.
+Antes de usar una cotización real, el participante recibe este aviso en español
+simple y consiente explícitamente:
 
-### Aviso al participante (borrador)
+> Estamos validando la cobertura de un analizador automático de cotizaciones de
+> PC para gaming. Si compartes una cotización, la usaré para medir cuántos
+> componentes puede identificar, qué verificaciones cuentan con datos y qué
+> queda como información insuficiente. Antes de guardarla eliminaré nombres,
+> correos, teléfonos, direcciones, números de pedido, datos de pago, notas
+> privadas y enlaces de seguimiento. No será enviada a revisores humanos ni
+> publicada. La guardaré en una carpeta privada y la eliminaré a más tardar 12
+> meses después de terminar el estudio, o antes si me lo pides. Solo publicaré
+> resultados agregados. El análisis aplica reglas automatizadas sobre los datos
+> disponibles y no garantiza que una compra sea segura ni que los precios sigan
+> vigentes.
 
-> Estamos validando un analizador de cotizaciones de PC para gaming. Si me
-> compartes una cotización, la usaré solo para comparar el análisis
-> automático con la revisión de un experto. Antes de mostrar tu cotización a
-> un revisor, elimino nombres, correos, teléfonos, direcciones, números de
-> pedido, datos de pago, notas que no sean sobre componentes y enlaces de
-> seguimiento. Guardaré la cotización anónima en una carpeta privada y la
-> eliminaré a más tardar 12 meses después de terminar el estudio, o antes si
-> me lo pides. Solo publicaré resultados agregados (porcentajes), nunca tu
-> cotización. Esto no garantiza que la compra sea segura ni que los precios
-> sigan vigentes.
+## Redacción
 
-## Redacción (redact)
+Se eliminan antes de serializar o ejecutar el corpus:
 
-Se eliminan antes de cualquier revisión experta o serialización:
-
-- nombres, correos, teléfonos, direcciones;
-- números de pedido, de cuenta o de boleta;
+- nombres, correos, teléfonos y direcciones;
+- números de pedido, cuenta, boleta o pago;
 - datos de pago;
-- notas de forma libre no relacionadas con componentes;
-- URLs de seguimiento (tracking) y enlaces a carritos.
+- notas libres no relacionadas con componentes;
+- URLs de seguimiento y enlaces a carritos;
+- identificadores persistentes de la persona participante.
 
-Se conservan solo: categoría, producto, `itemId`, tienda (sin datos de
-contacto), precios (necesarios para completitud y frescura), fecha de
-actualización de precios y notas que describan componentes.
+Se conservan solo categoría, producto, `itemId`, tienda sin datos de contacto,
+precios necesarios para completitud/frescura, fecha de actualización y notas
+técnicas sobre componentes. El reporte agregado nunca devuelve esas filas.
 
-## Muestreo
+## Muestreo de cobertura
 
-Estratos objetivo del corpus (mínimo):
+El corpus real busca, como mínimo:
 
-- al menos 3 tiendas/técnicos chilenos distintos;
+- 30 cotizaciones chilenas reales recolectadas o programadas;
+- al menos 3 tiendas o técnicos distintos;
 - intención 1080p, 1440p y 4K;
 - gráficos integrados y dedicados cuando existan;
-- cotizaciones completas e incompletas (faltan componentes);
+- cotizaciones completas e incompletas;
 - rango amplio de presupuestos.
 
-El reporte agregado indica la **fuente de reclutamiento** (por ejemplo
-comunidad X, contacto directo) para que el muestreo por conveniencia sea
-visible y no se presente como representativo.
+El reporte indica fuente de reclutamiento y estratos agregados. Este muestreo
+por conveniencia no se presenta como representativo del mercado chileno ni como
+validación de exactitud.
 
-## Retiro y corrección (withdrawal)
+## Contrato de conformidad
+
+Cada regla soportada debe tener casos para:
+
+- resultado compatible/suficiente (`ok`);
+- incompatibilidad o insuficiencia inequívoca (`fail`), cuando aplique;
+- límite exacto y ambos lados del límite;
+- dato obligatorio ausente o conflictivo (`unknown`);
+- identidad no resuelta que impide usar evidencia;
+- al menos un control negativo crítico si la regla puede producir un hallazgo
+  de severidad alta.
+
+Las dimensiones subjetivas o sin modelo validado, incluido balance gaming, no
+reciben una etiqueta sintética de conveniencia: permanecen `unsupported`.
+
+## Puertas automatizadas
+
+La puerta de Milestone 2 exige simultáneamente:
+
+- 100% de los casos de conformidad esperados aprobados;
+- todas las reglas soportadas cubiertas en `ok`, límites y `unknown`, y en
+  `fail` cuando exista una incompatibilidad representable;
+- 100% de los controles negativos críticos rechazados por el harness;
+- cero clases de peligro soportadas reportadas como `ok` por el Analyzer en la
+  suite de conformidad;
+- `unknown` ante toda ausencia o conflicto de evidencia obligatorio;
+- al menos 80% de componentes requeridos resueltos por ID exacto o una
+  confirmación explícita en el corpus privado de cobertura;
+- salida determinística para input, catálogo y versión de reglas idénticos.
+
+Estos resultados permiten afirmar conformidad con las reglas y casos
+enumerados. No permiten afirmar “validado por expertos”, “garantizado seguro” o
+“cero falsos negativos reales”.
+
+## Retiro, corrección, retención y eliminación
 
 - El participante puede retirar su cotización en cualquier momento; el data
-  steward la elimina del almacenamiento privado y excluye sus etiquetas de
-  los agregados publicados.
-- Las correcciones se registran con fecha; las etiquetas originales nunca se
-  reescriben (la adjudicación queda registrada por separado).
-
-## Retention (retention) — Retención
-
-- **Periodo aprobado**: 12 meses desde el término del estudio, decidido por
-  el propietario el 2026-07-31.
-- Después del estudio, las cotizaciones **anónimas** pueden conservarse en el
-  almacenamiento privado durante el periodo de retención para re-evaluar
-  futuras versiones de reglas contra etiquetas preservadas.
-
-## Deletion (delete)
-
-- Pedidos de borrado: el data steward elimina el caso (incluida la copia de
-  seguridad si existe) dentro de 48 horas y registra la fecha.
-- Al cumplirse el periodo de retención, se elimina el corpus completo y se
-  registra la eliminación. Solo sobreviven los resultados agregados y los
-  IDs de caso pseudónimos fallidos que ya estén en el reporte.
+  steward elimina el caso y lo excluye de agregados futuros.
+- Las correcciones se registran con fecha sin reescribir reportes ya publicados.
+- El periodo de retención aprobado es 12 meses desde el término del estudio.
+- Los pedidos de borrado se ejecutan dentro de 48 horas, incluida cualquier
+  copia de seguridad bajo control del proyecto.
+- Después de la retención solo sobreviven resultados agregados y casos
+  sintéticos de conformidad.
 
 ## Resultados y publicación
 
-- Solo se publican agregados: conteos, tasas y decisiones de puerta, más los
-  IDs de caso pseudónimos que fallaron umbrales (sin filas, precios, texto ni
-  contactos).
-- El harness verifica la redacción por construcción: el reporte serializado
-  no puede contener texto de producto, notas, precios, correos, teléfonos,
-  direcciones ni filas completas.
-- Ejemplo sintético (sin datos reales): `quote-analyzer-corpus-report.example.json`.
-- Los resultados empíricos son evidencia para decidir, no afirmaciones de
-  producto por sí mismos. No se debilitan umbrales para declarar éxito.
-- La puerta de lanzamiento incluye **cero falsos negativos peligrosos**
-  (false negative): ningún caso en que el experto confirme una
-  incompatibilidad peligrosa y el Analyzer la dé por válida u omita la
-  advertencia. Los casos "no verificable" (`unknown`) se reportan por
-  separado y nunca se cuentan como aciertos.
+- Del corpus real solo se publican conteos, tasas, distribución de estados y
+  decisiones de puerta; nunca filas, texto, precios o contactos.
+- La suite de conformidad puede publicar IDs de casos sintéticos, hechos
+  mínimos redistribuibles, resultados esperados y observados, procedencia y
+  versiones.
+- Los fallos se conservan como evidencia; no se debilitan umbrales ni se cuenta
+  `unknown` como acierto.
+- Una regla nueva o un cambio material de fórmula exige actualizar primero su
+  contrato, casos límite, controles negativos y versión.
+
+## Límites explícitos
+
+Este protocolo automatiza aseguramiento técnico acotado. No automatiza la
+validación de demanda, comprensión o utilidad. Esas hipótesis se evalúan con
+comportamiento y respuestas voluntarias de usuarios, bajo el contrato de
+medición del producto.

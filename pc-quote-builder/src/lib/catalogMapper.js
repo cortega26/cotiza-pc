@@ -91,20 +91,32 @@ export const mapProcessedToCatalog = (processed) => {
     }) || [];
 
   const motherboards =
-    normalizeMotherboardsKey(data).map((mobo) => ({
-      id: mobo.id,
-      name: mobo.name,
-      socket: mobo.socket,
-      formFactor: mobo.form_factor || mobo.formFactor,
-      memoryType:
+    normalizeMotherboardsKey(data).map((mobo) => {
+      const nameMemoryType = mobo.name?.toLowerCase().includes("ddr5")
+        ? "DDR5"
+        : mobo.name?.toLowerCase().includes("ddr4")
+          ? "DDR4"
+          : mobo.name?.toLowerCase().includes("ddr3")
+            ? "DDR3"
+            : mobo.name?.toLowerCase().includes("ddr2")
+              ? "DDR2"
+              : "";
+      const memoryType =
         normalizeMemoryType(mobo.memory_type || mobo.memoryType) ||
-        (mobo.name?.toLowerCase().includes("ddr5") ? "DDR5" : mobo.name?.toLowerCase().includes("ddr4") ? "DDR4" : "") ||
-        inferMemoryTypeBySocket(mobo.socket),
-      memoryTypeExplicit: Boolean(normalizeMemoryType(mobo.memory_type || mobo.memoryType)),
-      memory_slots: mobo.memory_slots ?? mobo.memorySlots ?? null,
-      max_memory_gb: mobo.max_memory_gb ?? mobo.maxMemoryGb ?? null,
-      max_memory_speed_mts: mobo.max_memory_speed_mts ?? mobo.maxMemorySpeedMts ?? mobo.maxMemorySpeed ?? null,
-    })) || [];
+        nameMemoryType ||
+        inferMemoryTypeBySocket(mobo.socket);
+      return {
+        id: mobo.id,
+        name: mobo.name,
+        socket: mobo.socket,
+        formFactor: mobo.form_factor || mobo.formFactor,
+        memoryType,
+        memoryTypeExplicit: Boolean(memoryType),
+        memory_slots: mobo.memory_slots ?? mobo.memorySlots ?? null,
+        max_memory_gb: mobo.max_memory_gb ?? mobo.maxMemoryGb ?? null,
+        max_memory_speed_mts: mobo.max_memory_speed_mts ?? mobo.maxMemorySpeedMts ?? mobo.maxMemorySpeed ?? null,
+      };
+    }) || [];
 
   const ramKits =
     normalizeRamKey(data).map((ram) => ({

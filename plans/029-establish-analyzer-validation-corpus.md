@@ -1,9 +1,17 @@
 # Plan 029: Establish the Quote Analyzer validation corpus and offline harness
 
-> **Executor instructions**: Follow this plan step by step. This plan handles
-> potentially sensitive quotation data. Never commit raw quotations, personal
-> data, contact details, order numbers, addresses, or private reviewer notes.
-> Honor every STOP condition and update `plans/README.md` when complete.
+> **Status notice — REJECTED/SUPERSEDED (2026-07-31):** Do not execute the
+> remaining steps in this plan. The project owner rejected recurring
+> independent expert labeling as operationally infeasible for a solo, free
+> product. Plan 035 replaces it with automated conformance plus a private,
+> unlabeled real-quote coverage corpus. The protocol and reviewer harness
+> delivered here remain historical implementation until Plan 035 migrates or
+> isolates them. They are not a launch gate and must not be described as
+> expert validation.
+>
+> This file is retained as a decision record. Never commit raw quotations,
+> personal data, contact details, order numbers, addresses, or private reviewer
+> notes produced before supersession.
 >
 > **Drift check (run first)**:
 > `git diff --stat cef0acd..HEAD -- docs/PRODUCT_VISION.md docs/PRODUCT_VISION_RED_TEAM_AUDIT.md docs/design/quote-analyzer.md pc-quote-builder/src/lib/quoteAnalyzer scripts .gitignore`
@@ -13,6 +21,7 @@
 
 ## Status
 
+- **Plan status**: REJECTED — superseded by Plan 035 on 2026-07-31
 - **Priority**: P1
 - **Effort**: L
 - **Risk**: HIGH
@@ -20,6 +29,26 @@
   begin in parallel
 - **Category**: direction
 - **Planned at**: commit `cef0acd`, 2026-07-30
+
+## Supersession decision
+
+The original method correctly required genuinely independent human ground truth;
+automated or AI-generated labels cannot satisfy that requirement. The method
+was nevertheless rejected because obtaining two qualified reviewers per case
+creates recurring labor and cost the approved operating model cannot sustain.
+
+The replacement deliberately changes the claim instead of faking the evidence:
+
+- source-backed/synthetic conformance cases validate enumerated deterministic
+  and derived rule behavior;
+- critical negative controls prove the new harness detects known unsafe output;
+- real anonymized quotes measure coverage and resolution only, without labels;
+- gaming-balance expert agreement leaves the MVP gate and remains unsupported;
+- results are described as bounded automated assurance, never expert validation
+  or a universal real-world false-negative estimate.
+
+See `docs/validation/quote-analyzer-corpus.md`,
+`docs/validation/quote-analyzer-assurance-schema.md`, and Plan 035.
 
 ## Why this matters
 

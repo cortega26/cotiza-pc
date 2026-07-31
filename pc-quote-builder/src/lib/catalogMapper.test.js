@@ -56,6 +56,41 @@ describe("catalogMapper", () => {
     expect(mapped.motherboards[0].max_memory_speed_mts).toBe(7200);
   });
 
+  it("marks socket-inferred memory type as explicit for single-type sockets", () => {
+    const mapped = mapProcessedToCatalog({
+      mobos: [
+        { id: "m1", name: "B650M", socket: "AM5", form_factor: "ATX" },
+        { id: "m2", name: "B550", socket: "AM4", form_factor: "ATX" },
+        { id: "m3", name: "H510M", socket: "LGA1200", form_factor: "Micro-ATX" },
+      ],
+    });
+    expect(mapped.motherboards[0]).toMatchObject({ memoryType: "DDR5", memoryTypeExplicit: true });
+    expect(mapped.motherboards[1]).toMatchObject({ memoryType: "DDR4", memoryTypeExplicit: true });
+    expect(mapped.motherboards[2]).toMatchObject({ memoryType: "DDR4", memoryTypeExplicit: true });
+  });
+
+  it("marks name-inferred memory type as explicit (DDR2/DDR3/DDR4/DDR5)", () => {
+    const mapped = mapProcessedToCatalog({
+      mobos: [
+        { id: "m1", name: "ASUS ROG STRIX Z790-A DDR5", socket: "LGA1700" },
+        { id: "m2", name: "MSI PRO B760M-P DDR4", socket: "LGA1700" },
+        { id: "m3", name: "Gigabyte GA-970A-DS3P DDR3", socket: "AM3" },
+        { id: "m4", name: "ASRock 760GM DDR2", socket: "AM2" },
+      ],
+    });
+    expect(mapped.motherboards[0]).toMatchObject({ memoryType: "DDR5", memoryTypeExplicit: true });
+    expect(mapped.motherboards[1]).toMatchObject({ memoryType: "DDR4", memoryTypeExplicit: true });
+    expect(mapped.motherboards[2]).toMatchObject({ memoryType: "DDR3", memoryTypeExplicit: true });
+    expect(mapped.motherboards[3]).toMatchObject({ memoryType: "DDR2", memoryTypeExplicit: true });
+  });
+
+  it("keeps memory type unknown for dual-type sockets without name evidence", () => {
+    const mapped = mapProcessedToCatalog({
+      mobos: [{ id: "m1", name: "ASUS PRIME Z690-P", socket: "LGA1700", form_factor: "ATX" }],
+    });
+    expect(mapped.motherboards[0]).toMatchObject({ memoryType: "", memoryTypeExplicit: false });
+  });
+
   it("maps motherboard memory-limit fields from camelCase local schema", () => {
     const mapped = mapProcessedToCatalog({
       motherboards: [{ id: "m1", name: "B550", socket: "AM4", memoryType: "DDR4", formFactor: "ATX", memorySlots: 2, maxMemoryGb: 64, maxMemorySpeed: 4400 }],
