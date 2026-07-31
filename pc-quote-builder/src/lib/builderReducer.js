@@ -56,11 +56,13 @@ export function getNextStep(currentStep, key, hasValue) {
 }
 
 export function isStepDone(builder, stepKey) {
+  if (!builder || typeof builder !== "object") return false;
   return stepKey === "gpuId"
     ? builder.gpuId || builder.useIntegratedGpu
     : builder[stepKey];
 }
 
 export function builderComplete(builder) {
+  if (!builder || typeof builder !== "object") return false;
   return BUILDER_STEPS.every((step) => isStepDone(builder, step.key));
 }

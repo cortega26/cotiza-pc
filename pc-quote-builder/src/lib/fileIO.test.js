@@ -131,6 +131,16 @@ describe("exportCSV", () => {
     expect(csv).toContain('"CPU, AMD"');
     expect(csv).toContain('"Ryzen ""5"""');
   });
+
+  it("handles null totals without crashing", () => {
+    const csv = exportCSV(quote, null, esc);
+    expect(csv).toContain("Total oferta,0");
+  });
+
+  it("handles undefined totals without crashing", () => {
+    const csv = exportCSV(quote, undefined, esc);
+    expect(csv).toContain("Total oferta,0");
+  });
 });
 
 describe("exportJSON", () => {
@@ -149,6 +159,17 @@ describe("exportJSON", () => {
     const totals = {};
     exportJSON(quote, totals);
     expect(quote.generatedAt).toBeUndefined();
+  });
+
+  it("handles null totals without crashing", () => {
+    const result = exportJSON({ id: "q1", name: "T", rows: [] }, null);
+    expect(result.totals).toEqual({});
+    expect(result.generatedAt).toBeDefined();
+  });
+
+  it("handles undefined totals without crashing", () => {
+    const result = exportJSON({ id: "q1", name: "T", rows: [] }, undefined);
+    expect(result.totals).toEqual({});
   });
 });
 

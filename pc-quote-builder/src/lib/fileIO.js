@@ -31,6 +31,7 @@ export const buildQuotesFromJson = (data, normalizeQuote) => {
 };
 
 export const exportCSV = (quote, totals, escapeCsvField) => {
+  const t = totals || {};
   const header = ["Componente", "Producto", "itemId", "Tienda", "Precio oferta", "Precio normal", "Notas"];
   const lines = [
     header.map(escapeCsvField).join(","),
@@ -40,16 +41,16 @@ export const exportCSV = (quote, totals, escapeCsvField) => {
         .join(",")
     ),
     "",
-    `Total oferta,${totals.totalOffer}`,
-    `Total normal,${totals.totalRegular}`,
-    `Ahorro,${totals.saving}`,
+    `Total oferta,${t.totalOffer || 0}`,
+    `Total normal,${t.totalRegular || 0}`,
+    `Ahorro,${t.saving || 0}`,
   ];
   return lines.join("\n");
 };
 
 export const exportJSON = (quote, totals) => ({
   ...quote,
-  totals,
+  totals: totals || {},
   generatedAt: new Date().toISOString(),
 });
 

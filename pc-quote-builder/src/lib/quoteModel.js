@@ -24,30 +24,38 @@ export const createEmptyQuote = (name = "Nueva cotización") => ({
   rows: [createEmptyRow()],
 });
 
-export const normalizeRow = (row) => ({
-  id: row.id || createId(),
-  category: row.category || "",
-  product: row.product || "",
-  itemId: row.itemId || "",
-  store: row.store || "",
-  offerPrice: row.offerPrice || "",
-  regularPrice: row.regularPrice || "",
-  notes: row.notes || "",
-});
+export const normalizeRow = (row) => {
+  if (!row || typeof row !== "object") return createEmptyRow();
+  return {
+    id: row.id || createId(),
+    category: row.category || "",
+    product: row.product || "",
+    itemId: row.itemId || "",
+    store: row.store || "",
+    offerPrice: row.offerPrice || "",
+    regularPrice: row.regularPrice || "",
+    notes: row.notes || "",
+  };
+};
 
-export const normalizeQuote = (quote, fallbackName = "Importada") => ({
-  id: quote.id || createId(),
-  name: quote.name || fallbackName,
-  currency: normalizeCurrency(quote.currency),
-  priceUpdatedAt: quote.priceUpdatedAt || "",
-  rows:
-    Array.isArray(quote.rows) && quote.rows.length
-      ? quote.rows.map(normalizeRow)
-      : [createEmptyRow()],
-});
+export const normalizeQuote = (quote, fallbackName = "Importada") => {
+  if (!quote || typeof quote !== "object") return createEmptyQuote(fallbackName);
+  return {
+    id: quote.id || createId(),
+    name: quote.name || fallbackName,
+    currency: normalizeCurrency(quote.currency),
+    priceUpdatedAt: quote.priceUpdatedAt || "",
+    rows:
+      Array.isArray(quote.rows) && quote.rows.length
+        ? quote.rows.map(normalizeRow)
+        : [createEmptyRow()],
+  };
+};
 
-export const isRowEmpty = (row) =>
-  !row.category && !row.product && !row.store && !row.offerPrice && !row.regularPrice && !row.notes;
+export const isRowEmpty = (row) => {
+  if (!row || typeof row !== "object") return true;
+  return !row.category && !row.product && !row.store && !row.offerPrice && !row.regularPrice && !row.notes;
+};
 
 export const formatDateTime = (value) => {
   if (!value) return "";
@@ -57,6 +65,7 @@ export const formatDateTime = (value) => {
 };
 
 export const buildRowsFromSelection = (selection) => {
+  if (!selection || typeof selection !== "object") return [];
   const rows = [];
   if (selection.cpu) {
     rows.push({

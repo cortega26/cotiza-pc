@@ -65,6 +65,19 @@ describe("normalizeRow", () => {
     const row = normalizeRow({});
     expect(row.id).toBeTruthy();
   });
+
+  it("returns empty row for null input", () => {
+    const row = normalizeRow(null);
+    expect(row.category).toBe("");
+    expect(row.product).toBe("");
+    expect(row.id).toBeTruthy();
+  });
+
+  it("returns empty row for undefined input", () => {
+    const row = normalizeRow(undefined);
+    expect(row.category).toBe("");
+    expect(row.product).toBe("");
+  });
 });
 
 describe("normalizeQuote", () => {
@@ -95,6 +108,18 @@ describe("normalizeQuote", () => {
     const q = normalizeQuote({ currency: "usd" });
     expect(q.currency).toBe("USD");
   });
+
+  it("returns empty quote for null input", () => {
+    const q = normalizeQuote(null);
+    expect(q.name).toBe("Importada");
+    expect(q.rows).toHaveLength(1);
+  });
+
+  it("returns empty quote for undefined input", () => {
+    const q = normalizeQuote(undefined);
+    expect(q.name).toBe("Importada");
+    expect(q.rows).toHaveLength(1);
+  });
 });
 
 describe("isRowEmpty", () => {
@@ -105,6 +130,14 @@ describe("isRowEmpty", () => {
   it("returns false when category is set", () => {
     expect(isRowEmpty({ category: "CPU" })).toBe(false);
     expect(isRowEmpty({ category: "CPU", product: "Ryzen" })).toBe(false);
+  });
+
+  it("returns true for null input", () => {
+    expect(isRowEmpty(null)).toBe(true);
+  });
+
+  it("returns true for undefined input", () => {
+    expect(isRowEmpty(undefined)).toBe(true);
   });
 });
 
@@ -170,5 +203,13 @@ describe("buildRowsFromSelection", () => {
     };
     const rows = buildRowsFromSelection(selection);
     expect(rows[0].id).not.toBe(rows[1].id);
+  });
+
+  it("returns empty array for null input", () => {
+    expect(buildRowsFromSelection(null)).toEqual([]);
+  });
+
+  it("returns empty array for undefined input", () => {
+    expect(buildRowsFromSelection(undefined)).toEqual([]);
   });
 });

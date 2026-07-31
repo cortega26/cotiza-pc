@@ -118,6 +118,14 @@ describe("isStepDone", () => {
   it("returns falsy for GPU step when neither gpuId nor integrated", () => {
     expect(isStepDone({ gpuId: "", useIntegratedGpu: false }, "gpuId")).toBeFalsy();
   });
+
+  it("returns false for null builder", () => {
+    expect(isStepDone(null, "cpuId")).toBe(false);
+  });
+
+  it("returns false for undefined builder", () => {
+    expect(isStepDone(undefined, "cpuId")).toBe(false);
+  });
 });
 
 describe("builderComplete", () => {
@@ -140,5 +148,13 @@ describe("builderComplete", () => {
       cpuId: "c", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
       useIntegratedGpu: false,
     })).toBe(false);
+  });
+
+  it("returns false for null builder", () => {
+    expect(builderComplete(null)).toBe(false);
+  });
+
+  it("returns false for undefined builder", () => {
+    expect(builderComplete(undefined)).toBe(false);
   });
 });
