@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/conformance-case/v1",
+  "caseId": "CONF-MOBO-RAM-UNKNOWN-001",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "ruleId": "compat-mobo-ram-memory",
+  "dimension": "compatibility",
+  "decisionType": "deterministic",
+  "hazardClass": "incompatible-platform",
+  "caseClass": "unknown",
+  "facts": {
+    "ram.type": "DDR4",
+    "ram.speed_mts": 3200,
+    "mobo.maxMemorySpeedMts": 3600
+  },
+  "expected": {
+    "status": "unknown",
+    "findingIds": [
+      "compat-mobo-ram-memory"
+    ],
+    "dangerous": false
+  },
+  "analyzerInput": {
+    "schemaVersion": "quote-analyzer/input/v1",
+    "evaluatedAt": "2026-08-01T12:00:00.000Z",
+    "quote": {
+      "rows": [
+        {
+          "id": "r-mobo",
+          "category": "Placa madre",
+          "itemId": "mobo-nomem"
+        },
+        {
+          "id": "r-ram",
+          "category": "RAM",
+          "itemId": "ram-d4-3200"
+        }
+      ],
+      "priceUpdatedAt": "2026-07-25T00:00:00.000Z"
+    },
+    "userContext": {
+      "useCase": "gaming",
+      "targetResolution": "1080p",
+      "budget": null,
+      "usesIntegratedGpu": false
+    },
+    "catalog": {
+      "cpus": [],
+      "motherboards": [
+        {
+          "id": "mobo-nomem",
+          "name": "Placa generica",
+          "socket": "AM4",
+          "max_memory_gb": 128,
+          "max_memory_speed_mts": 3600
+        }
+      ],
+      "ramKits": [
+        {
+          "id": "ram-d4-3200",
+          "name": "Kingston 32GB",
+          "type": "DDR4",
+          "speed_mts": 3200,
+          "modules": 2,
+          "capacity_gb_total": 32
+        }
+      ],
+      "gpus": [],
+      "psus": [],
+      "pcCases": []
+    },
+    "catalogMeta": {
+      "generatedAt": "2026-07-20T00:00:00.000Z",
+      "schemaVersion": 2
+    }
+  },
+  "sourceRefs": [
+    {
+      "kind": "synthetic-boundary",
+      "ref": "memory-type-equality-contract",
+      "reviewedAt": "2026-07-31"
+    }
+  ]
+}

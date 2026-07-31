@@ -59,7 +59,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [032](032-ship-confirmation-driven-analyzer-ui.md) | Ship the confirmation-driven Quote Analyzer workflow | P1 | L | 028, 030, 031, 035 | TODO |
 | [033](033-build-crawlable-decision-content-foundation.md) | Build the crawlable Spanish decision-content foundation | P2 | L | 030, 031, 032, 035 | TODO |
 | [034](034-qualify-solotodo-price-intelligence-source.md) | Qualify SoloTodo as a permissioned Chilean price-intelligence source | P1 | L | 030, 035 for evaluation; qualification may start now | TODO |
-| [035](035-automate-analyzer-assurance.md) | Replace expert labeling with automated Analyzer assurance | P1 | L | 028; 030 before final scoring | TODO |
+| [035](archive/035-automate-analyzer-assurance.md) | Replace expert labeling with automated Analyzer assurance | P1 | L | 028; 030 before final scoring | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 

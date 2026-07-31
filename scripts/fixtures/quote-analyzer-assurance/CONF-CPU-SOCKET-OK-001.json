@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/conformance-case/v1",
+  "caseId": "CONF-CPU-SOCKET-OK-001",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "ruleId": "compat-cpu-mobo-socket",
+  "dimension": "compatibility",
+  "decisionType": "deterministic",
+  "hazardClass": "incompatible-platform",
+  "caseClass": "ok",
+  "facts": {
+    "cpu.socket": "AM4",
+    "mobo.socket": "AM4"
+  },
+  "expected": {
+    "status": "ok",
+    "findingIds": [],
+    "dangerous": false
+  },
+  "analyzerInput": {
+    "schemaVersion": "quote-analyzer/input/v1",
+    "evaluatedAt": "2026-08-01T12:00:00.000Z",
+    "quote": {
+      "rows": [
+        {
+          "id": "r-cpu",
+          "category": "Procesador",
+          "itemId": "cpu-a"
+        },
+        {
+          "id": "r-mobo",
+          "category": "Placa madre",
+          "itemId": "mobo-a"
+        }
+      ],
+      "priceUpdatedAt": "2026-07-25T00:00:00.000Z"
+    },
+    "userContext": {
+      "useCase": "gaming",
+      "targetResolution": "1080p",
+      "budget": null,
+      "usesIntegratedGpu": false
+    },
+    "catalog": {
+      "cpus": [
+        {
+          "id": "cpu-a",
+          "name": "AMD Ryzen 5 5600",
+          "socket": "AM4",
+          "memoryType": "DDR4",
+          "memory_support": {
+            "types": [
+              "DDR4"
+            ]
+          },
+          "tdp_w": 65
+        }
+      ],
+      "motherboards": [
+        {
+          "id": "mobo-a",
+          "name": "B550",
+          "socket": "AM4",
+          "memoryType": "DDR4"
+        }
+      ],
+      "ramKits": [],
+      "gpus": [],
+      "psus": [],
+      "pcCases": []
+    },
+    "catalogMeta": {
+      "generatedAt": "2026-07-20T00:00:00.000Z",
+      "schemaVersion": 2
+    }
+  },
+  "sourceRefs": [
+    {
+      "kind": "synthetic-boundary",
+      "ref": "socket-equality-contract",
+      "reviewedAt": "2026-07-31"
+    }
+  ]
+}

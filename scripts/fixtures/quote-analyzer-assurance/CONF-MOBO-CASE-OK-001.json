@@ -1,0 +1,84 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/conformance-case/v1",
+  "caseId": "CONF-MOBO-CASE-OK-001",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "ruleId": "compat-mobo-case-ff",
+  "dimension": "caseFit",
+  "decisionType": "deterministic",
+  "hazardClass": "case-fit-hazard",
+  "caseClass": "ok",
+  "facts": {
+    "mobo.formFactor": "ATX",
+    "case.formFactors": [
+      "ATX",
+      "M-ATX"
+    ]
+  },
+  "expected": {
+    "status": "ok",
+    "findingIds": [],
+    "dangerous": false
+  },
+  "analyzerInput": {
+    "schemaVersion": "quote-analyzer/input/v1",
+    "evaluatedAt": "2026-08-01T12:00:00.000Z",
+    "quote": {
+      "rows": [
+        {
+          "id": "r-mobo",
+          "category": "Placa madre",
+          "itemId": "mobo-atx"
+        },
+        {
+          "id": "r-case",
+          "category": "Gabinete",
+          "itemId": "case-atx"
+        }
+      ],
+      "priceUpdatedAt": "2026-07-25T00:00:00.000Z"
+    },
+    "userContext": {
+      "useCase": "gaming",
+      "targetResolution": "1080p",
+      "budget": null,
+      "usesIntegratedGpu": false
+    },
+    "catalog": {
+      "cpus": [],
+      "motherboards": [
+        {
+          "id": "mobo-atx",
+          "name": "B550 Aorus",
+          "socket": "AM4",
+          "form_factor": "ATX",
+          "memoryType": "DDR4"
+        }
+      ],
+      "ramKits": [],
+      "gpus": [],
+      "psus": [],
+      "pcCases": [
+        {
+          "id": "case-atx",
+          "name": "Corsair 4000D",
+          "max_gpu_length_mm": 300,
+          "formFactors": [
+            "ATX",
+            "M-ATX"
+          ]
+        }
+      ]
+    },
+    "catalogMeta": {
+      "generatedAt": "2026-07-20T00:00:00.000Z",
+      "schemaVersion": 2
+    }
+  },
+  "sourceRefs": [
+    {
+      "kind": "synthetic-boundary",
+      "ref": "form-factor-membership-contract",
+      "reviewedAt": "2026-07-31"
+    }
+  ]
+}

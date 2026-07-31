@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/negative-control/v1",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "mustRejectAs": "dangerous-false-negative",
+  "conformanceCaseId": "CONF-CPU-RAM-FAIL-001",
+  "mutatedOutput": {
+    "dimensions": {
+      "compatibility": {
+        "status": "warning",
+        "severity": "warning"
+      }
+    }
+  },
+  "rationale": "Case CONF-CPU-RAM-FAIL-001 requires a fail verdict; a warning downgrade must be rejected.",
+  "controlId": "NEG-CPU-RAM-001"
+}

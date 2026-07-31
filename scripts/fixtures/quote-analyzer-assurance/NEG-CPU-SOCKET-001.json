@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/negative-control/v1",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "mustRejectAs": "dangerous-false-negative",
+  "conformanceCaseId": "CONF-CPU-SOCKET-FAIL-001",
+  "mutatedOutput": {
+    "dimensions": {
+      "compatibility": {
+        "status": "ok",
+        "severity": null
+      }
+    }
+  },
+  "rationale": "Case CONF-CPU-SOCKET-FAIL-001 requires a fail verdict; treating it as ok must be rejected.",
+  "controlId": "NEG-CPU-SOCKET-001"
+}

@@ -1,0 +1,81 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/conformance-case/v1",
+  "caseId": "CONF-GPU-CASE-BOUNDARY-001",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "ruleId": "compat-gpu-case-length",
+  "dimension": "caseFit",
+  "decisionType": "deterministic",
+  "hazardClass": "case-fit-hazard",
+  "caseClass": "boundary",
+  "facts": {
+    "gpu.lengthMm": 300,
+    "case.maxGpuLengthMm": 300
+  },
+  "expected": {
+    "status": "ok",
+    "findingIds": [],
+    "dangerous": false
+  },
+  "analyzerInput": {
+    "schemaVersion": "quote-analyzer/input/v1",
+    "evaluatedAt": "2026-08-01T12:00:00.000Z",
+    "quote": {
+      "rows": [
+        {
+          "id": "r-gpu",
+          "category": "Tarjeta de video",
+          "itemId": "gpu-300"
+        },
+        {
+          "id": "r-case",
+          "category": "Gabinete",
+          "itemId": "case-300"
+        }
+      ],
+      "priceUpdatedAt": "2026-07-25T00:00:00.000Z"
+    },
+    "userContext": {
+      "useCase": "gaming",
+      "targetResolution": "1080p",
+      "budget": null,
+      "usesIntegratedGpu": false
+    },
+    "catalog": {
+      "cpus": [],
+      "motherboards": [],
+      "ramKits": [],
+      "gpus": [
+        {
+          "id": "gpu-300",
+          "name": "RTX 4070",
+          "power_connectors": "1x 8-pin",
+          "tdp_w": 200,
+          "board_length_mm": 300
+        }
+      ],
+      "psus": [],
+      "pcCases": [
+        {
+          "id": "case-300",
+          "name": "Corsair 4000D",
+          "max_gpu_length_mm": 300,
+          "formFactors": [
+            "ATX",
+            "M-ATX"
+          ]
+        }
+      ]
+    },
+    "catalogMeta": {
+      "generatedAt": "2026-07-20T00:00:00.000Z",
+      "schemaVersion": 2
+    }
+  },
+  "sourceRefs": [
+    {
+      "kind": "synthetic-boundary",
+      "ref": "gpu-length-numeric-contract",
+      "reviewedAt": "2026-07-31"
+    }
+  ]
+}

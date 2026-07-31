@@ -17,6 +17,7 @@ pueden redistribuir con procedencia explícita:
   "dimension": "compatibility",
   "decisionType": "deterministic",
   "hazardClass": "incompatible-platform",
+  "caseClass": "fail",
   "facts": {
     "cpu.socket": "AM4",
     "mobo.socket": "AM5"
@@ -47,6 +48,7 @@ Campos obligatorios:
 | `dimension` | `compatibility`, `power`, `connectors` o `caseFit` |
 | `decisionType` | `deterministic` o `derived` |
 | `hazardClass` | clase enumerada o `null` para un caso no peligroso |
+| `caseClass` | `ok`, `boundary`, `unknown` o `fail`; clase de cobertura obligatoria de la regla |
 | `facts` | valores mínimos de entrada que justifican el esperado |
 | `expected.status` | `ok`, `warning`, `fail` o `unknown` |
 | `expected.findingIds` | hallazgos exigidos; vacío cuando no corresponde |
@@ -62,7 +64,17 @@ Reglas:
   función productiva de decisión.
 - Una fuente pública se referencia y resume; no se copia contenido cuya licencia
   no permita redistribución.
-- Un caso `unknown` debe omitir al menos un hecho obligatorio o declarar un
+- El registro de aseguramiento (`ASSURANCE_RULES` en
+  `scripts/lib/quote_analyzer_assurance.js`) declara por regla su dimensión,
+  tipo de decisión, clase de peligro, hechos obligatorios con unidades
+  (`FACT_UNITS`), tipo de límite y clases de cobertura obligatorias. El caso
+  debe usar solo hechos del contrato de su regla; los hechos de identidad
+  (`cpu.product`, `mobo.product`, etc.) sirven solo para casos sin resolver.
+- `caseClass` debe coincidir con `expected.status` (`boundary` admite `ok` o
+  `warning`); los casos `fail` deben ser peligrosos y los `dangerous` deben ser
+  `fail`.
+- Un caso con estado distinto de `unknown` debe declarar todos los hechos
+  obligatorios; un caso `unknown` debe omitir al menos uno o declarar un
   conflicto explícito.
 - `expected.dangerous: true` exige `expected.status: "fail"` y una
   `hazardClass` no nula.
@@ -79,6 +91,7 @@ deliberadamente insegura:
   "schemaVersion": "quote-analyzer-assurance/negative-control/v1",
   "controlId": "NEG-CPU-SOCKET-AS-OK-001",
   "conformanceCaseId": "CONF-CPU-SOCKET-FAIL-001",
+  "rulesVersion": "quote-analyzer/rules/v1",
   "mutatedOutput": {
     "dimensions": {"compatibility": {"status": "ok"}},
     "findings": []
@@ -88,7 +101,10 @@ deliberadamente insegura:
 ```
 
 Los controles negativos nunca alimentan métricas del Analyzer. La puerta exige
-que el harness rechace todos los controles enumerados.
+que el harness rechace todos los controles enumerados. El `rulesVersion` debe
+coincidir con el del caso de conformidad referenciado; la salida mutada se
+construye sobre la salida real del caso y toda desviación no segura sobre una
+base crítica se rechaza como `dangerous-false-negative`.
 
 ## Caso privado de cobertura — `quote-analyzer-assurance/coverage-case/v1`
 
@@ -128,15 +144,17 @@ Un resultado observado en este corpus no se convierte en ground truth.
   "generatedAt": "2026-08-02T00:00:00.000Z",
   "rulesVersion": "quote-analyzer/rules/v1",
   "conformance": {
-    "caseCount": 0,
-    "passed": 0,
+    "caseCount": 44,
+    "passed": 44,
     "failedCaseIds": [],
-    "ruleCoverage": {},
+    "ruleCoverage": {
+      "compat-cpu-mobo-socket": {"ok": 1, "boundary": 1, "unknown": 2, "fail": 1}
+    },
     "criticalFalseNegativeCount": 0
   },
   "negativeControls": {
-    "caseCount": 0,
-    "rejected": 0,
+    "caseCount": 7,
+    "rejected": 7,
     "missedControlIds": []
   },
   "coverageCorpus": {
@@ -146,30 +164,42 @@ Un resultado observado en este corpus no se convierte en ground truth.
     "evidenceCompletenessRate": null,
     "timeToVerdictMsMedian": null
   },
-  "gates": {},
+  "gates": {
+    "conformance": {"applicable": true, "pass": true, "expected": 44, "observed": 44},
+    "criticalNegativeControls": {"applicable": true, "pass": true, "expectedRejected": 7, "observedRejected": 7},
+    "missingEvidenceIsUnknown": {"applicable": true, "pass": true, "violations": 0},
+    "identityResolution": {"applicable": false, "pass": true, "rate": null, "threshold": 0.8},
+    "minimumCoverageCases": {"applicable": false, "pass": true, "count": 0, "threshold": 30}
+  },
   "limitations": [
     "No expert validation",
-    "No universal real-world false-negative estimate"
+    "No universal real-world false-negative estimate",
+    "Cobertura de corpus real solo cuando se suministra"
   ]
 }
 ```
 
 El reporte puede incluir únicamente IDs pseudónimos de fallos y agregados. No
 serializa filas, texto de productos, tiendas, precios, notas, contactos ni el
-directorio privado del corpus.
+directorio privado del corpus. Las puertas de cobertura sobre corpus real
+(`identityResolution`, `minimumCoverageCases`) se marcan `applicable: false`
+cuando no se suministra un corpus; las demás puertas siempre son aplicables.
 
 ## Semántica de puerta
 
 Pasa solo cuando:
 
 - todos los casos de conformidad pasan;
-- toda regla soportada tiene los estados y límites obligatorios;
+- toda regla soportada tiene las clases de cobertura obligatorias
+  (`ok`, `boundary`, `unknown` y `fail` donde aplique);
 - ningún caso crítico soportado resulta `ok`;
 - todos los controles negativos son rechazados;
 - ausencia/conflicto obligatorio produce `unknown`;
 - la tasa de resolución del corpus real es al menos 80%; y
 - versiones de input, catálogo y reglas son compatibles.
 
-Un corpus privado vacío o con menos de 30 casos puede producir un reporte de
-avance, pero no puede aprobar la puerta completa. `unknown` nunca cuenta como
-`ok`.
+Una puerta de cobertura sobre corpus real solo aplica cuando la corrida
+recibe un corpus; sin corpus se reporta como no aplicable y no bloquea la
+puerta. Un corpus privado vacío o con menos de 30 casos puede producir un
+reporte de avance, pero no puede aprobar la puerta completa. `unknown` nunca
+cuenta como `ok`.

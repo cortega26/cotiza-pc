@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/conformance-case/v1",
+  "caseId": "CONF-PSU-CONN-OK-001",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "ruleId": "power-connectors-pcie",
+  "dimension": "connectors",
+  "decisionType": "deterministic",
+  "hazardClass": "connector-insufficiency",
+  "caseClass": "ok",
+  "facts": {
+    "gpu.powerConnectors": "1x 8-pin",
+    "psu.connectorCounts": {
+      "8_pin": 2
+    }
+  },
+  "expected": {
+    "status": "ok",
+    "findingIds": [],
+    "dangerous": false
+  },
+  "analyzerInput": {
+    "schemaVersion": "quote-analyzer/input/v1",
+    "evaluatedAt": "2026-08-01T12:00:00.000Z",
+    "quote": {
+      "rows": [
+        {
+          "id": "r-gpu",
+          "category": "Tarjeta de video",
+          "itemId": "gpu-1x8"
+        },
+        {
+          "id": "r-psu",
+          "category": "Fuente de poder",
+          "itemId": "psu-2x8"
+        }
+      ],
+      "priceUpdatedAt": "2026-07-25T00:00:00.000Z"
+    },
+    "userContext": {
+      "useCase": "gaming",
+      "targetResolution": "1080p",
+      "budget": null,
+      "usesIntegratedGpu": false
+    },
+    "catalog": {
+      "cpus": [],
+      "motherboards": [],
+      "ramKits": [],
+      "gpus": [
+        {
+          "id": "gpu-1x8",
+          "name": "RTX 4060",
+          "power_connectors": "1x 8-pin",
+          "tdp_w": 115,
+          "board_length_mm": 280
+        }
+      ],
+      "psus": [
+        {
+          "id": "psu-2x8",
+          "name": "Corsair RM650",
+          "wattage": 650,
+          "pcie_power_connectors": {
+            "8_pin": 2,
+            "6+2": 0
+          }
+        }
+      ],
+      "pcCases": []
+    },
+    "catalogMeta": {
+      "generatedAt": "2026-07-20T00:00:00.000Z",
+      "schemaVersion": 2
+    }
+  },
+  "sourceRefs": [
+    {
+      "kind": "synthetic-boundary",
+      "ref": "pcie-connector-count-contract",
+      "reviewedAt": "2026-07-31"
+    }
+  ]
+}

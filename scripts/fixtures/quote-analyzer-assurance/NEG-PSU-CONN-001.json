@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "quote-analyzer-assurance/negative-control/v1",
+  "rulesVersion": "quote-analyzer/rules/v1",
+  "mustRejectAs": "dangerous-false-negative",
+  "conformanceCaseId": "CONF-PSU-CONN-FAIL-001",
+  "mutatedOutput": {
+    "dimensions": {
+      "connectors": {
+        "status": "unknown",
+        "severity": null
+      }
+    }
+  },
+  "rationale": "Case CONF-PSU-CONN-FAIL-001 requires a fail verdict; an unknown downgrade must be rejected.",
+  "controlId": "NEG-PSU-CONN-001"
+}

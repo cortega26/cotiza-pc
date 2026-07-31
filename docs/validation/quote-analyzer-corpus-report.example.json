@@ -3,22 +3,58 @@
   "generatedAt": "2026-08-01T13:00:00.000Z",
   "rulesVersion": "quote-analyzer/rules/v1",
   "conformance": {
-    "caseCount": 24,
-    "passed": 24,
+    "caseCount": 44,
+    "passed": 44,
     "failedCaseIds": [],
     "ruleCoverage": {
       "compat-cpu-mobo-socket": {
         "ok": 1,
-        "fail": 1,
-        "unknown": 1,
-        "boundary": 1
+        "boundary": 1,
+        "unknown": 2,
+        "fail": 1
+      },
+      "compat-mobo-ram-memoryType": {
+        "ok": 1,
+        "boundary": 1,
+        "unknown": 2,
+        "fail": 1
+      },
+      "compat-mobo-ram-maxMemorySpeedMts": {
+        "ok": 1,
+        "boundary": 1,
+        "unknown": 2,
+        "fail": 1
+      },
+      "compat-gpu-case-lengthMm": {
+        "ok": 1,
+        "boundary": 1,
+        "unknown": 2,
+        "fail": 1
+      },
+      "power-psu-totalLoad": {
+        "ok": 1,
+        "boundary": 2,
+        "unknown": 2,
+        "fail": 1
+      },
+      "connectors-gpu-psu": {
+        "ok": 1,
+        "boundary": 1,
+        "unknown": 2,
+        "fail": 1
+      },
+      "caseFit-mobo-case-formFactors": {
+        "ok": 1,
+        "boundary": 1,
+        "unknown": 2,
+        "fail": 1
       }
     },
     "criticalFalseNegativeCount": 0
   },
   "negativeControls": {
-    "caseCount": 4,
-    "rejected": 4,
+    "caseCount": 7,
+    "rejected": 7,
     "missedControlIds": []
   },
   "coverageCorpus": {
@@ -36,25 +72,30 @@
   },
   "gates": {
     "conformance": {
+      "applicable": true,
       "pass": true,
-      "expected": 24,
-      "observed": 24
+      "expected": 44,
+      "observed": 44
     },
     "criticalNegativeControls": {
+      "applicable": true,
       "pass": true,
-      "expectedRejected": 4,
-      "observedRejected": 4
+      "expectedRejected": 7,
+      "observedRejected": 7
     },
     "missingEvidenceIsUnknown": {
+      "applicable": true,
       "pass": true,
       "violations": 0
     },
     "identityResolution": {
+      "applicable": true,
       "pass": true,
       "rate": 0.84,
       "threshold": 0.8
     },
     "minimumCoverageCases": {
+      "applicable": true,
       "pass": true,
       "count": 30,
       "threshold": 30
@@ -63,6 +104,6 @@
   "limitations": [
     "No expert validation",
     "No universal real-world false-negative estimate",
-    "No gaming-balance validation"
+    "Coverage corpus must be supplied explicitly"
   ]
 }
