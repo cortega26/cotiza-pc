@@ -7,7 +7,7 @@
 > Never commit real quotations or derive expected answers from Analyzer output.
 >
 > **Drift check (run first)**:
-> `git diff --stat cef0acd..HEAD -- docs/PRODUCT_VISION.md docs/design/quote-analyzer.md docs/validation plans/029-establish-analyzer-validation-corpus.md plans/030-generate-assessment-coverage-contract.md plans/031-define-decision-funnel-measurement.md plans/032-ship-confirmation-driven-analyzer-ui.md plans/033-build-crawlable-decision-content-foundation.md plans/034-qualify-solotodo-price-intelligence-source.md pc-quote-builder/src/lib/compatibility.js pc-quote-builder/src/lib/quoteAnalyzer scripts/quote_analyzer_corpus.js scripts/lib/quote_analyzer_corpus.js`
+> `git diff --stat cef0acd..HEAD -- docs/PRODUCT_VISION.md docs/design/quote-analyzer.md docs/validation plans/029-establish-analyzer-validation-corpus.md plans/030-generate-assessment-coverage-contract.md plans/031-define-decision-funnel-measurement.md plans/032-ship-confirmation-driven-analyzer-ui.md plans/033-build-crawlable-decision-content-foundation.md plans/034-qualify-solotodo-price-intelligence-source.md pc-quote-builder/src/lib/compatibility.js pc-quote-builder/src/lib/quoteAnalyzer`
 >
 > If Analyzer rule IDs, formulas, required components, catalog evidence fields,
 > or the owner-approved assurance gates changed, STOP and reconcile the
