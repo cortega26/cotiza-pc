@@ -83,6 +83,8 @@ export function checkPsuConnectors(psu, gpu) {
   const connectors = psu.pcie_power_connectors || {};
   const knownConnectorData = Object.keys(connectors).length > 0;
   const needRaw = (typeof gpu.power_connectors === "string" ? gpu.power_connectors : "").toLowerCase();
+  if (!knownConnectorData) return { status: "unknown", reason: "PSU sin datos de conectores" };
+  if (!needRaw) return { status: "unknown", reason: "GPU sin datos de conectores" };
   const parseRequired = (pattern) => {
     const match = needRaw.match(pattern);
     if (!match) return 0;
@@ -101,7 +103,7 @@ export function checkPsuConnectors(psu, gpu) {
     if (count < required8) return { status: "fail", reason: "Faltan 8-pin" };
   }
 
-  return knownConnectorData ? { status: "ok" } : { status: "unknown", reason: "PSU sin datos de conectores" };
+  return { status: "ok" };
 }
 
 // Balance CPU ↔ GPU (tiers simples)

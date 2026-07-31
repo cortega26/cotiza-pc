@@ -33,7 +33,15 @@
 - Per the plan and `plans/README.md`, no canary release, unsupported-version warning
   suppression, or temporary lint exclusion was used. No toolchain or source changes were
   made; baseline `npm run check` remains green.
-- Re-run the Step 1 preflight after typescript-eslint declares TypeScript 7 support.
+- TypeScript 7.0 does not expose the compiler API consumed by tools such as
+  typescript-eslint. Microsoft's TypeScript 7.0 announcement anticipates a new API in
+  TypeScript 7.1 and documents a side-by-side arrangement using TypeScript 7 for `tsc`
+  plus `@typescript/typescript6` for API consumers. That arrangement does not satisfy
+  this plan's single supported toolchain requirement and must not be adopted without an
+  explicit owner-approved plan amendment.
+- Re-run the Step 1 preflight when a stable typescript-eslint release officially supports
+  the installed stable TypeScript 7.x version without requiring a TypeScript 6
+  compatibility API. Do not repeatedly retry unchanged version ranges.
 
 ## Why this matters
 
@@ -105,6 +113,10 @@ the browser application.
   and Node `>=22.13`. Preserve those choices.
 - TypeScript 7.0 became generally available on 2026-07-08:
   <https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/>.
+- TypeScript 7.0 ships without a compiler API. The same announcement says TypeScript 7.1
+  is expected to provide a new API and recommends a temporary side-by-side TypeScript
+  7/TypeScript 6 arrangement for tools such as typescript-eslint. This plan deliberately
+  waits for direct stable support instead of adding that dual toolchain by default.
 - At planning time, the official typescript-eslint compatibility page still
   lists TypeScript support as `>=4.8.4 <6.1.0`, although it supports ESLint 10:
   <https://typescript-eslint.io/users/dependency-versions/>. Consequently, the
@@ -190,8 +202,8 @@ Run application commands from `pc-quote-builder/`.
    `npm run check` before changing dependencies.
 2. Check the current official typescript-eslint dependency-version page. Its
    supported TypeScript range must include the selected stable TypeScript 7
-   release, and its ESLint range must include the repository's ESLint 10
-   release.
+   release without requiring a TypeScript 6 compatibility API, and its ESLint
+   range must include the repository's ESLint 10 release.
 3. Run the ecosystem and dependency-tree commands above. Select stable releases
    only; use the repository's existing caret-version convention and commit the
    resolved lockfile.
@@ -205,6 +217,13 @@ Run application commands from `pc-quote-builder/`.
 Do not continue if official TypeScript 7 support is absent even when npm peer
 dependencies are permissive; typescript-eslint documents that permissive peers
 permit experimentation and do not imply official support.
+
+Microsoft's documented side-by-side TypeScript 7 compiler and TypeScript 6 API
+arrangement is a viable ecosystem transition strategy, but it is not authorized
+by this plan. If the owner prioritizes strict typing before direct TypeScript 7
+tooling support exists, amend the plan explicitly with separate dependency-tree,
+lint/typecheck-divergence, upgrade-removal, and verification criteria. Do not
+silently treat the arrangement as satisfying this preflight.
 
 ### Step 2: Add a strict no-emit type-check gate while files are still JavaScript
 
@@ -385,7 +404,8 @@ all exit 0.
 ## Done criteria
 
 - [ ] Official stable typescript-eslint support includes the installed
-      TypeScript 7 and ESLint 10 versions.
+      TypeScript 7.x and ESLint 10 versions without a TypeScript 6
+      compatibility API.
 - [ ] `npm ls typescript typescript-eslint @types/node eslint` is valid and has
       no unintended duplicate toolchain.
 - [ ] `npm run typecheck` performs strict, no-emit checking and exits 0.
@@ -413,8 +433,9 @@ Stop and report back instead of improvising if:
 
 - Any prerequisite plan is incomplete or its tests are not green.
 - The stable typescript-eslint support range does not include both the selected
-  TypeScript 7 release and ESLint 10. Do not use canaries, unsupported-version
-  warning suppression, or a temporary lint exclusion.
+  TypeScript 7.x release and ESLint 10 without a TypeScript 6 compatibility
+  API. Do not use canaries, unsupported-version warning suppression, a
+  temporary lint exclusion, or an undeclared dual toolchain.
 - TypeScript 7 lacks a compiler/configuration feature required by the current
   Vite/Vitest application, or the migration requires keeping TypeScript 6
   compiler APIs in the production toolchain.
@@ -445,6 +466,10 @@ Stop and report back instead of improvising if:
 - Keep TypeScript, typescript-eslint, ESLint, Vite, and Vitest upgrades within
   their documented stable compatibility ranges. Do not infer support solely
   from permissive peer dependencies.
+- Treat a future side-by-side TypeScript 7 compiler and TypeScript 6 API setup
+  as an explicit plan amendment, not an implementation detail. It must define
+  why two compiler generations are acceptable, how lint/typecheck divergence is
+  detected, and when the compatibility dependency is removed.
 - Root data-pipeline scripts are deliberately deferred. Propose a separate plan
   only if measured maintenance or correctness value justifies changing their
   execution model.
