@@ -16,6 +16,13 @@ source. It is a permission and feasibility qualification, not authorization to
 scrape, contact an external party, publish provider data, or ship production
 price comparison.
 
+Plan 035 was added on 2026-07-31 after the owner rejected Plan 029's recurring
+independent-expert labeling model as infeasible for a solo, free product. It
+implements the canonical replacement: automated, implementation-independent
+rule conformance and critical negative controls, separated from a private
+unlabeled real-quote coverage corpus. No AI output is reclassified as expert
+ground truth.
+
 ## Product-governance requirement
 
 Before approving or implementing any material plan, read [the Canonical Product Vision](../docs/PRODUCT_VISION.md). It governs product direction above plans and current code. Plans that change recommendations, compatibility, core flows, price/assessment meaning, unknown/warning/failure semantics, ranking, or constraining architecture include a product-decision record; do not remove or bypass it. Surface a conflict and request an explicit owner decision rather than silently overriding the vision.
@@ -26,6 +33,8 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 - The existing manual builder remains a supporting Expert Builder surface.
 - The Guided Builder portion of Plan 025 must not become a production implementation before the shared analyzer assessment contract and Milestone 2 quality gates exist.
 - Organic-search foundation work contributes to Milestone 1, but indexed content must provide unique decision value and must not become a thin programmatic-content project.
+- Analyzer public enablement depends on Plan 035's bounded automated assurance,
+  not Plan 029 expert agreement. Gaming balance remains unsupported.
 - Monetization work is out of current scope until Milestone 4 is achieved and the project owner explicitly authorizes Milestone 5.
 
 ## Execution order and status
@@ -44,12 +53,13 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [025](archive/025-design-guided-and-expert-builders.md) | Define separate Guided and Expert Builder experiences | P2 | L | 014, 019 | DONE |
 | [026](archive/026-design-scenario-comparison.md) | Design multi-quote comparison and upgrade scenarios | P3 | M | 013, 014, 024 | DONE |
 | [028](archive/028-implement-quote-analyzer-core.md) | Implement the pure Quote Analyzer v1 core | P1 | L | 014, 015, 018, 024 | DONE |
-| [029](029-establish-analyzer-validation-corpus.md) | Establish the Quote Analyzer validation corpus and offline harness | P1 | L | 028 (harness; protocol may start in parallel) | IN PROGRESS: protocol + harness shipped; collection BLOCKED until ≥1 qualified reviewer is named |
+| [029](029-establish-analyzer-validation-corpus.md) | Establish the Quote Analyzer validation corpus and offline harness | P1 | L | 028 | REJECTED: independent expert labeling is infeasible; superseded by 035 |
 | [030](030-generate-assessment-coverage-contract.md) | Generate the assessment coverage and evidence contract | P1 | M | 028 | TODO |
 | [031](031-define-decision-funnel-measurement.md) | Define the privacy-preserving decision-funnel measurement contract | P1 | M | 028 | TODO |
-| [032](032-ship-confirmation-driven-analyzer-ui.md) | Ship the confirmation-driven Quote Analyzer workflow | P1 | L | 028, 029, 030, 031 | TODO |
-| [033](033-build-crawlable-decision-content-foundation.md) | Build the crawlable Spanish decision-content foundation | P2 | L | 029, 030, 031, 032 | TODO |
-| [034](034-qualify-solotodo-price-intelligence-source.md) | Qualify SoloTodo as a permissioned Chilean price-intelligence source | P1 | L | 029, 030 for evaluation; qualification may start now | TODO |
+| [032](032-ship-confirmation-driven-analyzer-ui.md) | Ship the confirmation-driven Quote Analyzer workflow | P1 | L | 028, 030, 031, 035 | TODO |
+| [033](033-build-crawlable-decision-content-foundation.md) | Build the crawlable Spanish decision-content foundation | P2 | L | 030, 031, 032, 035 | TODO |
+| [034](034-qualify-solotodo-price-intelligence-source.md) | Qualify SoloTodo as a permissioned Chilean price-intelligence source | P1 | L | 030, 035 for evaluation; qualification may start now | TODO |
+| [035](035-automate-analyzer-assurance.md) | Replace expert labeling with automated Analyzer assurance | P1 | L | 028; 030 before final scoring | TODO |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -71,12 +81,13 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 
 017 + 018 + 022 ── 027
 
-024 ── 028 ─┬─ 029 ────────────────┐
-            ├─ 030 ────────────────┤
-            └─ 031 ────────────────┤
+024 ── 028 ─┬─ 029 ─REJECTED
+            ├─ 030 ────────────────┐
+            ├─ 031 ────────────────┤
+            └─ 035 ────────────────┤
                                     └─ 032 ── 033
 
-029 + 030 ── 034 qualification/evaluation ── future approved price integration
+030 + 035 ── 034 qualification/evaluation ── future approved price integration
 ```
 
 - Plan 010 combines four inseparable delivery findings: stale deployed catalogs, mutating verification, job-wide Pages/OIDC credentials, and mutable action tags. Splitting them into separate workflow edits would cause repeated, conflicting rewrites.
@@ -93,12 +104,17 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Plan 028 is the first implementation slice from the approved Analyzer design.
   It owns the pure resolver/assembly/report contract and no UI. Its executor must
   obtain explicit approval of the v1 defaults recorded in the plan before code.
-- Plan 029's governance/collection protocol may begin while Plan 028 is being
-  implemented, but the automated corpus harness consumes Plan 028's stable
-  output. Raw quotations and reviewer files never belong in git.
+- Plan 029 is rejected and retained only as the historical reviewer-based
+  method. Do not execute its remaining collection/adjudication steps or use its
+  report as a launch gate.
+- Plan 035 replaces Plan 029 with a committed conformance suite, critical
+  negative controls, and a private unlabeled coverage corpus. It may begin from
+  Plan 028's stable output; final scoring also consumes Plan 030 evidence
+  coverage. Raw quotations never belong in git.
 - Plan 030 initially reports rule-level assessability; it does not hard-fail a
   refresh for low coverage. Owner-approved thresholds may be introduced only
-  after Plan 029 establishes a baseline. At batch creation, unrelated
+  after Plan 035 establishes automated conformance and coverage baselines. At
+  batch creation, unrelated
   uncommitted `catalogMapper*` work overlapped its future scope; its executor
   must reconcile ownership and explicit/inferred semantics rather than
   overwriting those changes.
@@ -107,15 +123,18 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   data collection.
 - Plan 032 is the production Analyzer UI and the point where the shipped picker
   is honestly labeled Expert/Manual Builder. It must not be publicly enabled if
-  Plan 029 finds a dangerous confirmed-incompatibility false negative. It also
-  overlaps an unrelated `App.test.jsx` change that was uncommitted when this
-  batch was written; preserve and reconcile it before execution.
+  Plan 035 fails conformance, misses a critical negative control, accepts
+  missing/conflicting evidence as `ok`, or cannot evaluate its coverage gate.
+  It also overlaps an unrelated `App.test.jsx` change that was uncommitted when
+  this batch was written; preserve and reconcile it before execution.
 - Plan 033 is a three-page authored pilot, not the full twelve-page Milestone 1
   target and not programmatic SEO. External Search Console, sitemap submission,
   production build, and deployment remain separate explicitly authorized
   actions.
 - Plan 034 may begin its public-evidence and owner-led outreach preparation in
-  parallel. Its corpus evaluation consumes Plans 029-030, and any eventual
+  parallel. Its correctness evaluation consumes Plan 035 source-backed
+  conformance fixtures while real-input coverage consumes Plans 030 and 035;
+  any eventual
   Analyzer price evidence consumes Plan 028's stable contract. SoloTodo is a
   candidate primary Chilean offer-discovery provider, not a specification or
   compatibility authority. No scraping, external contact, API use, credentials,
@@ -159,7 +178,7 @@ direction reviews is assigned:
 | Separate intent-first Guided and manual Expert Builders | 025 |
 | Scenario comparison and upgrade decisions | 026 |
 | Imported quotes still lack a versioned evidence-qualified verdict engine | 028 |
-| Beachhead, identity-resolution, and recommendation reliability remain unvalidated on real Chilean quotes | 029 |
+| Beachhead and identity-resolution coverage remain unmeasured on real Chilean quotes; supported rule reliability needs bounded automated assurance | 035 (supersedes rejected 029) |
 | Catalog gates validate shape/volume but not rule-level assessability or runtime evidence | 030 |
 | Acquisition, qualified activation, time-to-verdict, and decision actions have no privacy-governed event contract | 031 |
 | The product still leads with a mislabeled builder and lacks confirmation-driven Analyzer UX | 032 |
@@ -194,6 +213,10 @@ Once a plan is DONE, move its file to `plans/archive/`, add completion commit/da
 - **Guided Builder production implementation**: remains gated on the shared
   Analyzer contract in production and Milestone 2 quality gates. Plan 025 is a
   design, not authorization to start Guided Phase B.
+- **Recurring independent expert labeling or AI-as-expert substitution**:
+  rejected as operationally infeasible and epistemically misleading. Plan 035
+  provides bounded automated assurance; subjective gaming balance remains
+  unsupported rather than receiving synthetic labels.
 - **Scenario-comparison production UI**: remains downstream of Plan 032 even
   though Plan 026's design is complete. Do not build a totals-only Plan 026
   Phase A as a substitute for the primary Analyzer vertical.
