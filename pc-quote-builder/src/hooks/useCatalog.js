@@ -4,6 +4,7 @@ import { buildTierMaps, mapProcessedToCatalog } from "../lib/catalogMapper";
 import {
   CATEGORY_NAMES,
   clearCatalogCache,
+  loadAssessmentCoverageFile,
   loadCategoryFile,
   loadCompatibilityFile,
 } from "../lib/dataLoader";
@@ -46,6 +47,8 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
   const [fallbackUsed, setFallbackUsed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadedCategories, setLoadedCategories] = useState([]);
+  const [assessmentCoverage, setAssessmentCoverage] = useState(null);
+  const [assessmentCoverageFailed, setAssessmentCoverageFailed] = useState(false);
 
   const loadedRef = useRef(new Set());
   const currentTokenRef = useRef(null);
@@ -76,6 +79,8 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
       setCatalog(fallbackCatalog);
       setCompatMeta(localCatalog?.compat || null);
       setTierMaps(buildTierMaps(localCatalog?.compat));
+      setAssessmentCoverage(null);
+      setAssessmentCoverageFailed(false);
       setError("");
       setFallbackUsed(false);
     } else if (arraysEqual(prev, curr)) {
@@ -128,6 +133,19 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
             })
             .catch(() => {})
         );
+        promises.push(
+          loadAssessmentCoverageFile(dataBase, { cacheBust: isReload ? String(reloadToken) : "" })
+            .then((manifest) => {
+              if (currentTokenRef.current !== token) return;
+              setAssessmentCoverage(manifest || null);
+              setAssessmentCoverageFailed(false);
+            })
+            .catch(() => {
+              if (currentTokenRef.current !== token) return;
+              setAssessmentCoverage(null);
+              setAssessmentCoverageFailed(true);
+            })
+        );
       }
 
       await Promise.all(promises);
@@ -179,5 +197,7 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
     error,
     fallbackUsed,
     categoryStates,
+    assessmentCoverage,
+    assessmentCoverageFailed,
   };
 }

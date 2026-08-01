@@ -1,7 +1,12 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearCatalogCache, loadCatalogFile } from "./dataLoader";
+import {
+  clearCatalogCache,
+  loadAssessmentCoverageFile,
+  loadCatalogFile,
+  loadCompatibilityFile,
+} from "./dataLoader";
 
 function deferred() {
   const d = {};
@@ -128,5 +133,64 @@ describe("loadCatalogFile", () => {
 
     expect(a).toEqual({ call: 1 });
     expect(b).toEqual({ call: 2 });
+  });
+});
+
+describe("loadAssessmentCoverageFile", () => {
+  it("loads the coverage manifest from the data base", async () => {
+    const manifest = { schemaVersion: "1.0.0" };
+    window.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(manifest),
+    });
+
+    const result = await loadAssessmentCoverageFile("/data");
+    expect(result).toEqual(manifest);
+    expect(window.fetch).toHaveBeenCalledWith(
+      "/data/assessment-coverage.min.json",
+      expect.any(Object)
+    );
+  });
+
+  it("caches the manifest and deduplicates concurrent calls", async () => {
+    const manifest = { schemaVersion: "1.0.0" };
+    const fetchFn = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(manifest),
+    });
+    window.fetch = fetchFn;
+
+    const [a, b] = await Promise.all([
+      loadAssessmentCoverageFile("/data"),
+      loadAssessmentCoverageFile("/data"),
+    ]);
+    const c = await loadAssessmentCoverageFile("/data");
+
+    expect(a).toBe(b);
+    expect(a).toBe(c);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates failure so callers can set an independent error state", async () => {
+    window.fetch = vi.fn().mockResolvedValue({ ok: false });
+    await expect(loadAssessmentCoverageFile("/data")).rejects.toThrow(
+      "No se pudo cargar"
+    );
+  });
+
+  it("distinguishes manifest cache entries from compatibility entries", async () => {
+    const manifest = { kind: "manifest" };
+    const compat = { kind: "compat" };
+    window.fetch = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(manifest) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(compat) });
+
+    const m = await loadAssessmentCoverageFile("/data");
+    const c = await loadCompatibilityFile("/data");
+
+    expect(m).toEqual({ kind: "manifest" });
+    expect(c).toEqual({ kind: "compat" });
+    expect(window.fetch).toHaveBeenCalledTimes(2);
   });
 });

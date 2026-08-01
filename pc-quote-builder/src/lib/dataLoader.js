@@ -55,3 +55,7 @@ export async function loadCategoryFile(base, category, options = {}) {
 export async function loadCompatibilityFile(base, options = {}) {
   return loadCatalogFile(`${base}/compatibility.min.json`, options);
 }
+
+export async function loadAssessmentCoverageFile(base, options = {}) {
+  return loadCatalogFile(`${base}/assessment-coverage.min.json`, options);
+}

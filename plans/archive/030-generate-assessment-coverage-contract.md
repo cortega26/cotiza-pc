@@ -20,6 +20,9 @@
 
 ## Status
 
+**DONE — implemented on branch `advisor/030-generate-assessment-coverage-contract`;
+plan archived when merged.**
+
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
@@ -251,6 +254,28 @@ change. Do not build into `docs/` during iteration.
 **Verify**:
 `npm run test:artifacts && npm run check && git diff --check`
 → all exit 0.
+
+**Observed manifest (generated 2026-08-01, snapshot shared with
+compatibility.min.json; counts from current raw inputs):**
+
+| Rule | assessable | total |
+|---|---|---|
+| compat-cpu-mobo-socket | 0 | 4,762,716 |
+| compat-cpu-ram-memory | 0 | 3,345,241 |
+| compat-gpu-case-length | 0 | 16,292,359 |
+| compat-mobo-case-ff | 20,274,996 | 20,869,716 |
+| compat-mobo-ram-memory | 0 | 17,251,836 |
+| power-connectors-pcie | 0 | 8,233,232 |
+| power-psu-headroom | 257,671,008 | 7,912,135,952 |
+
+Fields with gaps over 50% (missing counts): `case.max_gpu_length_mm` 4211,
+`cpu.socket` 961, `cpu.memory_support` 961, `gpu.power_connectors` 236
+explicit/3633 missing, `gpu.tdp_w` 126 explicit/189 conflicting/3554 missing,
+`mobo.memory_type` 4956, `mobo.max_memory_speed_mts` 4956,
+`psu.pcie_power_connectors` 2128. CPU socket/memory support have no build-time
+evidence provenance (runtime inference only) and are therefore reported as
+missing; the artifact contract asserts these documented gaps stay non-zero
+(report-only, no launch gate).
 
 ## Test plan
 

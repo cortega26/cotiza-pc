@@ -2,7 +2,12 @@
 
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearCatalogCache, loadCategoryFile, loadCompatibilityFile } from "../lib/dataLoader";
+import {
+  clearCatalogCache,
+  loadAssessmentCoverageFile,
+  loadCategoryFile,
+  loadCompatibilityFile,
+} from "../lib/dataLoader";
 import { useCatalog } from "./useCatalog";
 
 vi.mock("../lib/dataLoader", async (importOriginal) => {
@@ -12,6 +17,7 @@ vi.mock("../lib/dataLoader", async (importOriginal) => {
     clearCatalogCache: vi.fn(actual.clearCatalogCache),
     loadCategoryFile: vi.fn(actual.loadCategoryFile),
     loadCompatibilityFile: vi.fn(actual.loadCompatibilityFile),
+    loadAssessmentCoverageFile: vi.fn(actual.loadAssessmentCoverageFile).mockResolvedValue(null),
   };
 });
 
@@ -35,6 +41,7 @@ describe("useCatalog", () => {
 
     expect(loadCategoryFile).not.toHaveBeenCalled();
     expect(loadCompatibilityFile).not.toHaveBeenCalled();
+    expect(loadAssessmentCoverageFile).not.toHaveBeenCalled();
     expect(clearCatalogCache).not.toHaveBeenCalled();
   });
 
@@ -51,6 +58,7 @@ describe("useCatalog", () => {
 
     expect(loadCategoryFile).toHaveBeenCalled();
     expect(loadCompatibilityFile).toHaveBeenCalled();
+    expect(loadAssessmentCoverageFile).toHaveBeenCalled();
 
     await act(async () => cpusDefer.resolve([{ id: "cpu1", socket: "AM5" }]));
     await act(async () => compatDefer.resolve(null));
@@ -238,6 +246,62 @@ describe("useCatalog", () => {
       expect(result.current.error).toBe("CPU fail");
       expect(result.current.catalog.gpus).toHaveLength(1);
     });
+  });
+
+  it("exposes the coverage manifest when compatibility is requested", async () => {
+    const manifest = { schemaVersion: "1.0.0", generatedAt: "2026-08-01T00:00:00.000Z" };
+    loadCategoryFile.mockResolvedValue([]);
+    loadCompatibilityFile.mockResolvedValue(null);
+    loadAssessmentCoverageFile.mockResolvedValue(manifest);
+
+    const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+
+    await waitFor(() => {
+      expect(result.current.assessmentCoverage).toEqual(manifest);
+      expect(result.current.assessmentCoverageFailed).toBe(false);
+    });
+  });
+
+  it("manifest failure sets an independent failure state without breaking categories", async () => {
+    loadCategoryFile.mockResolvedValue([{ id: "cpu1" }]);
+    loadCompatibilityFile.mockResolvedValue(null);
+    loadAssessmentCoverageFile.mockRejectedValue(new Error("manifest missing"));
+
+    const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+
+    await waitFor(() => {
+      expect(result.current.assessmentCoverage).toBeNull();
+      expect(result.current.assessmentCoverageFailed).toBe(true);
+      expect(result.current.catalog.cpus).toHaveLength(1);
+      expect(result.current.categoryStates.cpus).toBe("loaded");
+    });
+  });
+
+  it("reload resets the manifest like compat meta without refetching it", async () => {
+    let categoryCalls = 0;
+    loadCategoryFile.mockImplementation(() => {
+      categoryCalls += 1;
+      return Promise.resolve([{ id: `cpu-${categoryCalls}` }]);
+    });
+    loadCompatibilityFile.mockResolvedValue(null);
+    loadAssessmentCoverageFile.mockResolvedValue({ schemaVersion: "1.0.0", generatedAt: "gen" });
+
+    const { result, rerender } = renderHook(
+      ({ reloadToken, cats }) => useCatalog(reloadToken, cats),
+      { initialProps: { reloadToken: 0, cats: ["cpus"] } }
+    );
+
+    await waitFor(() => expect(result.current.assessmentCoverage).toEqual({ schemaVersion: "1.0.0", generatedAt: "gen" }));
+
+    rerender({ reloadToken: 1, cats: ["cpus"] });
+
+    await waitFor(() => {
+      expect(result.current.assessmentCoverage).toBeNull();
+      expect(result.current.assessmentCoverageFailed).toBe(false);
+      expect(result.current.loading).toBe(false);
+    });
+    expect(categoryCalls).toBe(7);
+    expect(loadAssessmentCoverageFile).toHaveBeenCalledTimes(1);
   });
 
   describe("categoryStates", () => {

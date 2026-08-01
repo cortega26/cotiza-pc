@@ -71,6 +71,16 @@ const normalizeCasesKey = (src) => {
   return [];
 };
 
+/**
+ * Compact evidence provenance for a normalized component. Defaults are empty
+ * collections or null, never optimistic values.
+ */
+const buildEvidence = (item) => ({
+  sources: item?.sources || {},
+  conflicts: item?.meta?.conflict_flags || [],
+  qualityScore: item?.meta?.quality_score ?? null,
+});
+
 export const mapProcessedToCatalog = (processed) => {
   const data = processed || {};
   const cpus =
@@ -87,6 +97,7 @@ export const mapProcessedToCatalog = (processed) => {
         tdp: cpu.tdp_w ?? cpu.tdp ?? null,
         tdp_w: cpu.tdp_w ?? cpu.tdp ?? null,
         suggestedPsu: cpu.suggested_psu_w ?? cpu.suggestedPsu ?? null,
+        evidence: buildEvidence(cpu),
       };
     }) || [];
 
@@ -115,6 +126,7 @@ export const mapProcessedToCatalog = (processed) => {
         memory_slots: mobo.memory_slots ?? mobo.memorySlots ?? null,
         max_memory_gb: mobo.max_memory_gb ?? mobo.maxMemoryGb ?? null,
         max_memory_speed_mts: mobo.max_memory_speed_mts ?? mobo.maxMemorySpeedMts ?? mobo.maxMemorySpeed ?? null,
+        evidence: buildEvidence(mobo),
       };
     }) || [];
 
@@ -127,6 +139,7 @@ export const mapProcessedToCatalog = (processed) => {
       modules: ram.modules ?? null,
       capacity_gb_total: ram.capacity_gb_total ?? ram.capacityGbTotal ?? null,
       speed_mts: ram.speed_mts ?? ram.speed ?? null,
+      evidence: buildEvidence(ram),
     })) || [];
 
   const gpus =
@@ -139,6 +152,7 @@ export const mapProcessedToCatalog = (processed) => {
       psuMin: gpu.recommended_psu_w ?? gpu.suggested_psu_w ?? gpu.psuMin ?? null,
       powerConnectors: gpu.power_connectors ?? gpu.powerConnectors ?? null,
       power_connectors: gpu.power_connectors ?? gpu.powerConnectors ?? null,
+      evidence: buildEvidence(gpu),
     })) || [];
 
   const psus =
@@ -149,6 +163,7 @@ export const mapProcessedToCatalog = (processed) => {
       wattage_w: psu.wattage_w ?? psu.wattage ?? null,
       pcieCables: psu.pcie_power_connectors?.["8_pin"] ?? psu.pcieCables ?? null,
       pcie_power_connectors: psu.pcie_power_connectors ?? psu.pciePowerConnectors ?? {},
+      evidence: buildEvidence(psu),
     })) || [];
 
   const pcCases =
@@ -160,6 +175,7 @@ export const mapProcessedToCatalog = (processed) => {
       coolerHeight: pcCase.max_cpu_cooler_height_mm ?? pcCase.coolerHeight ?? null,
       formFactors: normalizeCaseFormFactors(pcCase),
       formFactorEvidence: pcCase.form_factor_evidence ?? pcCase.formFactorEvidence ?? "unknown",
+      evidence: buildEvidence(pcCase),
     })) || [];
 
   return { cpus, motherboards, ramKits, gpus, psus, pcCases, meta: data.compat || null };

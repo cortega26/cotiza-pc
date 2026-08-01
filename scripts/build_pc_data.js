@@ -5,19 +5,8 @@ import { fileURLToPath } from "url";
 import { assert, envNumber, stableIdSort } from "./lib/normalize.js";
 import { ensureDir } from "./lib/io.js";
 import { loadBuildCores, loadDbGpu, loadPcPart } from "./lib/sources.js";
-import {
-  mergeGrouped,
-  mergeCpu,
-  mergeGpu,
-  mergeMobo,
-  mergePsu,
-  mergeCase,
-  mergeRam,
-  mergeCooler,
-  mergeFan,
-  computeCompatibilityMeta,
-  deduplicateIds,
-} from "./lib/compiler.js";
+import { mergeGrouped, mergeCpu, mergeGpu, mergeMobo, mergePsu, mergeCase, mergeRam, mergeCooler, mergeFan, computeCompatibilityMeta, deduplicateIds } from "./lib/compiler.js";
+import { computeAssessmentCoverage } from "./lib/assessmentCoverage.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,6 +61,8 @@ function build() {
     console.warn("No se pudo leer data/raw/provenance.json:", err.message);
   }
 
+  const snapshot = new Date();
+
   const compatibilityMeta = computeCompatibilityMeta({
     mergedCpus,
     mergedGpus,
@@ -82,7 +73,20 @@ function build() {
     mergedCoolers,
     mergedFans,
     provenance,
+    now: snapshot,
   });
+
+  const assessmentCoverage = computeAssessmentCoverage(
+    {
+      cpus: mergedCpus,
+      motherboards: mergedMobos,
+      ram: mergedRam,
+      gpus: mergedGpus,
+      psus: mergedPsus,
+      cases: mergedCases,
+    },
+    { generatedAt: snapshot.toISOString() }
+  );
 
   const outputs = [
     { filename: "cpus.min.json", data: mergedCpus },
@@ -95,6 +99,7 @@ function build() {
     { filename: "coolers.min.json", data: mergedCoolers },
     { filename: "fans.min.json", data: mergedFans },
     { filename: "compatibility.min.json", data: compatibilityMeta },
+    { filename: "assessment-coverage.min.json", data: assessmentCoverage },
   ];
 
   for (const out of outputs) {

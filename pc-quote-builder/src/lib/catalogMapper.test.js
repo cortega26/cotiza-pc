@@ -251,6 +251,53 @@ describe("catalogMapper", () => {
     expect(mapped.pcCases[0].id).toBe("c1");
     expect(mapped.pcCases[0].maxGpuLength).toBeNull();
   });
+
+  it("preserva evidencia compacta (sources/conflicts/qualityScore) en todas las categorías", () => {
+    const mapped = mapProcessedToCatalog({
+      cpus: [{ id: "cpu1", name: "Intel Core i5-13600K", memory_support: { types: ["DDR5"] }, tdp_w: 125, sources: { "buildcores-open-db": ["spec"] } }],
+      mobos: [{ id: "m1", name: "Z790", socket: "LGA1700", memory_type: "DDR5", form_factor: "ATX", meta: { conflict_flags: ["memory_speed"], quality_score: 0.7 } }],
+      ram: [{ id: "r1", name: "Corsair", type: "ddr5", speed_mts: 6000, meta: { conflict_flags: ["speed"] } }],
+      gpus: [{ id: "g1", name: "RTX 4070", tdp_w: 200, meta: { quality_score: 0.9 } }],
+      psus: [{ id: "p1", name: "Corsair 750", wattage_w: 750, sources: { dbgpu: ["spec"] } }],
+      cases: [{ id: "c1", name: "NZXT H5", max_gpu_length_mm: 365, form_factor_evidence: "explicit", meta: { quality_score: 0.8 } }],
+    });
+
+    expect(mapped.cpus[0].evidence).toEqual({ sources: { "buildcores-open-db": ["spec"] }, conflicts: [], qualityScore: null });
+    expect(mapped.motherboards[0].evidence).toEqual({ sources: {}, conflicts: ["memory_speed"], qualityScore: 0.7 });
+    expect(mapped.ramKits[0].evidence).toEqual({ sources: {}, conflicts: ["speed"], qualityScore: null });
+    expect(mapped.gpus[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: 0.9 });
+    expect(mapped.psus[0].evidence).toEqual({ sources: { dbgpu: ["spec"] }, conflicts: [], qualityScore: null });
+    expect(mapped.pcCases[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: 0.8 });
+  });
+
+  it("defaults evidencia ausente a vacíos/null, nunca valores optimistas", () => {
+    const mapped = mapProcessedToCatalog({
+      cpus: [{ id: "cpu1", name: "Intel i5" }],
+      gpus: [{ id: "g1", name: "RTX 4060" }],
+      cases: [{ id: "c1", name: "NZXT H5" }],
+    });
+    expect(mapped.cpus[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: null });
+    expect(mapped.gpus[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: null });
+    expect(mapped.pcCases[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: null });
+  });
+
+  it("no muta los items de entrada al construir evidencia", () => {
+    const input = {
+      cpus: [{ id: "cpu1", name: "Intel i5", sources: { x: ["y"] }, meta: { conflict_flags: ["a"], quality_score: 0.5 } }],
+      cases: [{ id: "c1", name: "NZXT", form_factor_evidence: "explicit" }],
+    };
+    Object.freeze(input);
+    Object.freeze(input.cpus);
+    Object.freeze(input.cpus[0]);
+    Object.freeze(input.cpus[0].meta);
+    Object.freeze(input.cpus[0].sources);
+    Object.freeze(input.cases);
+    Object.freeze(input.cases[0]);
+
+    const mapped = mapProcessedToCatalog(input);
+    expect(mapped.cpus[0].evidence).toEqual({ sources: { x: ["y"] }, conflicts: ["a"], qualityScore: 0.5 });
+    expect(mapped.pcCases[0].formFactorEvidence).toBe("explicit");
+  });
 });
 
 describe("resolveCatalogId", () => {

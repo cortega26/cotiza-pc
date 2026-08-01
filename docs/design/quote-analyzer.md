@@ -445,9 +445,16 @@ file APIs. No snapshots, no second test runner.
 5. **Ambiguous-row UX.** **Approved:** a user-confirmed mapping
    (`user-mapped`) applies only to the current analysis; it is never silently
    persisted as a global alias. Persistence is a separate owner decision.
-6. **`useCase` and budget.** **Approved (Plan 028 default):** `useCase` is
-   `gaming` only; budget is stored as context but produces no value or
-   affordability conclusion in v1.
+ 6. **`useCase` and budget.** **Approved (Plan 028 default):** `useCase` is
+    `gaming` only; budget is stored as context but produces no value or
+    affordability conclusion in v1.
+ 7. **Assessment coverage manifest.** **Approved (Plan 030):** the generated,
+    versioned `assessment-coverage/v1` manifest (same snapshot as catalog
+    artifacts) is **report-only**. It records per-rule explicit/inferred/
+    conflicting/missing/not-applicable coverage and never labels an unsupported
+    dimension as supported, never fails a catalog refresh on low coverage, and
+    never gates the analyzer launch. Runtime mapping preserves compact evidence
+    provenance per product; loading failure is explicit and isolated.
 
 > The original decision proposals above are superseded by the resolution
 > record; they remain visible in git history. Also updated by Plan 028: the
