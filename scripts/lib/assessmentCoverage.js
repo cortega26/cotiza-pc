@@ -84,7 +84,12 @@ export function classifyFieldValue(item, fieldSpec) {
     return "explicit";
   }
   const value = item?.[name];
+  if (kind === "map") {
+    if (!isPlainObject(value) || Object.keys(value).length === 0) return "missing";
+    return "explicit";
+  }
   if (!isUsableValue(value)) return "missing";
+  if (typeof value === "object") return "missing";
   if (kind === "conflict-flagged") {
     const flags = item?.meta?.conflict_flags;
     if (Array.isArray(flags) && flags.includes(fieldSpec.conflictFlag)) return "conflicting";

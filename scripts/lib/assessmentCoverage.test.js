@@ -73,6 +73,9 @@ describe("evidence classification", () => {
     expect(classifyFieldValue(makeItem({ socket: null }), spec)).toBe("missing");
     expect(classifyFieldValue(makeItem({}), spec)).toBe("missing");
     expect(classifyFieldValue(makeItem({ socket: "AM4" }), spec)).toBe("explicit");
+    expect(classifyFieldValue(makeItem({ socket: ["AM4"] }), spec)).toBe("missing");
+    expect(classifyFieldValue(makeItem({ socket: { name: "AM4" } }), spec)).toBe("missing");
+    expect(classifyFieldValue(makeItem({ socket: 0 }), spec)).toBe("explicit");
   });
 
   it("classifies conflict-flagged fields as conflicting on a documented flag", () => {
@@ -139,6 +142,18 @@ describe("evidence classification", () => {
     expect(classifyFieldValue(makeItem({ pcie_power_connectors: { "8_pin": 2 } }), mapSpec)).toBe("explicit");
     expect(classifyFieldValue(makeItem({ pcie_power_connectors: {} }), mapSpec)).toBe("missing");
     expect(classifyFieldValue(makeItem({ pcie_power_connectors: null }), mapSpec)).toBe("missing");
+    expect(classifyFieldValue(makeItem({ pcie_power_connectors: ["8_pin"] }), mapSpec)).toBe("missing");
+  });
+
+  it("classifies conflict-flagged fields as missing when the value shape is malformed", () => {
+    const spec = { name: "tdp_w", kind: "conflict-flagged", conflictFlag: "cpu_tdp_conflict" };
+    expect(
+      classifyFieldValue(
+        makeItem({ tdp_w: [65], meta: { conflict_flags: ["cpu_tdp_conflict"] } }),
+        spec
+      )
+    ).toBe("missing");
+    expect(classifyFieldValue(makeItem({ tdp_w: [65] }), spec)).toBe("missing");
   });
 });
 
