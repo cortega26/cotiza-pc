@@ -224,7 +224,7 @@ export function computeFieldCounts(items, rule, component) {
       counts[fieldSpec.name][cls] += 1;
     }
   }
-  return counts;
+  return sortKeysDeep(counts);
 }
 
 const isSideUsable = (item, side) =>
@@ -420,10 +420,17 @@ export function validateAssessmentCoverage(manifest) {
         }
       }
       const { assessable, total } = entry.combinations || {};
-      if (!isNonNegativeInteger(assessable) || !isNonNegativeInteger(total)) {
-        errors.push(`dimensions.${ruleId}.combinations must be non-negative integers`);
-      } else if (assessable > total) {
-        errors.push(`dimensions.${ruleId}.combinations.assessable exceeds total`);
+      if (!isPlainObject(entry.combinations)) {
+        errors.push(`dimensions.${ruleId}.combinations must be an object`);
+      } else {
+        if (!exactSortedKeys(entry.combinations, ["assessable", "total"])) {
+          errors.push(`dimensions.${ruleId}.combinations must contain exactly assessable and total, sorted`);
+        }
+        if (!isNonNegativeInteger(assessable) || !isNonNegativeInteger(total)) {
+          errors.push(`dimensions.${ruleId}.combinations must be non-negative integers`);
+        } else if (assessable > total) {
+          errors.push(`dimensions.${ruleId}.combinations.assessable exceeds total`);
+        }
       }
       for (const side of rule.sides) {
         const sideCounts = entry.sides[side.component];

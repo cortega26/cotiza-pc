@@ -292,31 +292,60 @@ describe("useCatalog", () => {
     });
   });
 
-  it("reload resets the manifest like compat meta without refetching it", async () => {
-    let categoryCalls = 0;
-    loadCategoryFile.mockImplementation(() => {
-      categoryCalls += 1;
-      return Promise.resolve([{ id: `cpu-${categoryCalls}` }]);
-    });
+  it("reload resets the manifest and refetches it", async () => {
+    let calls = 0;
+    loadCategoryFile.mockResolvedValue([]);
     loadCompatibilityFile.mockResolvedValue(null);
-    loadAssessmentCoverageFile.mockResolvedValue({ schemaVersion: "1.0.0", generatedAt: "gen" });
+    loadAssessmentCoverageFile.mockImplementation(() => {
+      calls += 1;
+      return Promise.resolve({ schemaVersion: "1.0.0", generatedAt: `gen-${calls}` });
+    });
 
     const { result, rerender } = renderHook(
       ({ reloadToken, cats }) => useCatalog(reloadToken, cats),
       { initialProps: { reloadToken: 0, cats: ["cpus"] } }
     );
 
-    await waitFor(() => expect(result.current.assessmentCoverage).toEqual({ schemaVersion: "1.0.0", generatedAt: "gen" }));
+    await waitFor(() => expect(result.current.assessmentCoverage).not.toBeNull());
+    const callsAfterMount = calls;
 
     rerender({ reloadToken: 1, cats: ["cpus"] });
 
     await waitFor(() => {
-      expect(result.current.assessmentCoverage).toBeNull();
+      expect(result.current.assessmentCoverage).not.toBeNull();
+      expect(calls).toBeGreaterThan(callsAfterMount);
       expect(result.current.assessmentCoverageFailed).toBe(false);
-      expect(result.current.loading).toBe(false);
     });
-    expect(categoryCalls).toBe(7);
-    expect(loadAssessmentCoverageFile).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a failed manifest on the next request cycle", async () => {
+    let attempts = 0;
+    loadCategoryFile.mockResolvedValue([]);
+    loadCompatibilityFile.mockResolvedValue(null);
+    loadAssessmentCoverageFile.mockImplementation(() => {
+      attempts += 1;
+      return attempts === 1
+        ? Promise.reject(new Error("manifest boom"))
+        : Promise.resolve({ schemaVersion: "1.0.0", generatedAt: "ok" });
+    });
+
+    const { result, rerender } = renderHook(
+      ({ cats }) => useCatalog(0, cats),
+      { initialProps: { cats: [] } }
+    );
+
+    rerender({ cats: ["cpus"] });
+    await waitFor(() => {
+      expect(result.current.assessmentCoverage).toBeNull();
+      expect(result.current.assessmentCoverageFailed).toBe(true);
+    });
+
+    rerender({ cats: ["cpus", "gpus"] });
+    await waitFor(() => {
+      expect(result.current.assessmentCoverage).toEqual({ schemaVersion: "1.0.0", generatedAt: "ok" });
+      expect(result.current.assessmentCoverageFailed).toBe(false);
+    });
+    expect(attempts).toBe(2);
   });
 
   describe("categoryStates", () => {

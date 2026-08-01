@@ -13,6 +13,9 @@ const REQUIRED_FILES = [
   "psus.min.json",
   "cases.min.json",
   "ram.min.json",
+  "coolers.min.json",
+  "fans.min.json",
+  "memory.min.json",
   "compatibility.min.json",
   "assessment-coverage.min.json",
 ];

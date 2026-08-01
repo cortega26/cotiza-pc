@@ -56,6 +56,7 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
   const currentTokenRef = useRef(null);
   const prevRequestedRef = useRef([]);
   const generationRef = useRef(0);
+  const manifestLoadedRef = useRef(false);
 
   const baseUrl = useMemo(
     () => stripTrailingSlash(import.meta.env.BASE_URL || "/"),
@@ -68,7 +69,6 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
     const curr = requestedCategories;
 
     const isReload = reloadToken !== 0 && reloadToken !== generationRef.current;
-    const needsCompat = (isReload || curr.length > 0) && !loadedRef.current.has("compat");
 
     let needed;
     if (isReload) {
@@ -77,6 +77,7 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
       needed = CATEGORY_NAMES.slice();
       clearCatalogCache();
       loadedRef.current = new Set();
+      manifestLoadedRef.current = false;
       setLoadedCategories([]);
       setCatalog(fallbackCatalog);
       setCompatMeta(localCatalog?.compat || null);
@@ -92,7 +93,10 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
       needed = curr.filter((c) => !loadedRef.current.has(c));
     }
 
-    if (needed.length === 0 && !needsCompat) {
+    const needsCompat = (isReload || curr.length > 0) && !loadedRef.current.has("compat");
+    const needsManifest = (isReload || curr.length > 0) && !manifestLoadedRef.current;
+
+    if (needed.length === 0 && !needsCompat && !needsManifest) {
       if (!isReload) setLoading(false);
       return;
     }
@@ -135,11 +139,15 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
             })
             .catch(() => {})
         );
+      }
+
+      if (needsManifest) {
         promises.push(
           loadAssessmentCoverageFile(dataBase, { cacheBust: isReload ? String(reloadToken) : "" })
             .then((manifest) => {
               if (currentTokenRef.current !== token) return;
               const usable = isPlainObject(manifest) ? manifest : null;
+              manifestLoadedRef.current = usable !== null;
               setAssessmentCoverage(usable);
               setAssessmentCoverageFailed(usable === null);
             })
@@ -158,13 +166,6 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
     }
 
     doLoad();
-
-    return () => {
-      if (currentTokenRef.current === token) {
-        currentTokenRef.current = null;
-      }
-      prevRequestedRef.current = [];
-    };
   }, [reloadToken, requestedCategories, dataBase]);
 
   const categoryStates = useMemo(() => {

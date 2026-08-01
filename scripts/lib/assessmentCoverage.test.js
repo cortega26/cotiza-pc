@@ -15,6 +15,7 @@ import {
   RULES_VERSION_STRING,
   buildFieldSpecsByComponent,
   classifyFieldValue,
+  computeFieldCounts,
   computeAssessmentCoverage,
   validateAssessmentCoverage,
   isValidAssessmentCoverage,
@@ -275,6 +276,20 @@ describe("computeAssessmentCoverage (Plan 030 Step 2)", () => {
     expect(Object.keys(first.categories)).toEqual(expectedOrder);
   });
 
+  it("computeFieldCounts returns sorted keys for standalone use", () => {
+    const rule = ASSESSMENT_RULES["compat-mobo-ram-memory"];
+    const counts = computeFieldCounts(
+      [makeItem({ id: "m1", memory_type: "DDR4" })],
+      rule,
+      "mobo"
+    );
+    const fields = Object.keys(counts);
+    expect(fields).toEqual([...fields].sort());
+    const classes = Object.keys(counts.max_memory_speed_mts);
+    expect(classes).toEqual([...classes].sort());
+    expect(counts.max_memory_speed_mts.explicit).toBe(0);
+  });
+
   it("rejects duplicate IDs, missing ids, and mismatched rules versions", () => {
     expect(() =>
       computeAssessmentCoverage({ ...emptyCatalog, cpus: [makeItem({ id: "c1" }), makeItem({ id: "c1" })] }, { generatedAt })
@@ -341,6 +356,14 @@ describe("validateAssessmentCoverage", () => {
     const manifest = validManifest();
     manifest.dimensions["compat-cpu-mobo-socket"].combinations = { assessable: 2, total: 1 };
     expect(validateAssessmentCoverage(manifest).join(";")).toContain("exceeds total");
+
+    const junkCombinations = validManifest();
+    junkCombinations.dimensions["compat-cpu-mobo-socket"].combinations = {
+      assessable: 0,
+      total: 0,
+      extra: true,
+    };
+    expect(validateAssessmentCoverage(junkCombinations).join(";")).toContain("exactly assessable and total");
 
     const negative = validManifest();
     negative.categories.cpu.socket.explicit = -1;
