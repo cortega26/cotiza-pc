@@ -55,7 +55,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [028](archive/028-implement-quote-analyzer-core.md) | Implement the pure Quote Analyzer v1 core | P1 | L | 014, 015, 018, 024 | DONE |
 | [029](029-establish-analyzer-validation-corpus.md) | Establish the Quote Analyzer validation corpus and offline harness | P1 | L | 028 | REJECTED: independent expert labeling is infeasible; superseded by 035 |
 | [030](archive/030-generate-assessment-coverage-contract.md) | Generate the assessment coverage and evidence contract | P1 | M | 028 | DONE — manifest `assessment-coverage/v1` generated from the catalog snapshot; evidence preserved at mapping; archive on merge |
-| [031](031-define-decision-funnel-measurement.md) | Define the privacy-preserving decision-funnel measurement contract | P1 | M | 028 | TODO |
+| [031](031-define-decision-funnel-measurement.md) | Define the privacy-preserving decision-funnel measurement contract | P1 | M | 028 | DONE — frozen `decision-measurement/event/v1` contract, privacy envelope, and provider-neutral no-op/injected adapter; no network/storage wiring; archive on merge |
 | [032](032-ship-confirmation-driven-analyzer-ui.md) | Ship the confirmation-driven Quote Analyzer workflow | P1 | L | 028, 030, 031, 035 | TODO |
 | [033](033-build-crawlable-decision-content-foundation.md) | Build the crawlable Spanish decision-content foundation | P2 | L | 030, 031, 032, 035 | TODO |
 | [034](034-qualify-solotodo-price-intelligence-source.md) | Qualify SoloTodo as a permissioned Chilean price-intelligence source | P1 | L | 030, 035 for evaluation; qualification may start now | TODO |
