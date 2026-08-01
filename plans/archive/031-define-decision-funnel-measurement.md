@@ -13,6 +13,9 @@
 
 ## Status
 
+**DONE — implemented on branch `advisor/031-define-decision-funnel-measurement`;
+plan archived when merged.**
+
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: MED
