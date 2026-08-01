@@ -111,6 +111,18 @@ describe("evidence classification", () => {
       )
     ).toBe("notApplicable");
     expect(classifyFieldValue(makeItem({ supported_mobo_form_factors: [] }), spec)).toBe("missing");
+    expect(
+      classifyFieldValue(
+        makeItem({ supported_mobo_form_factors: "ATX", form_factor_evidence: "inferred" }),
+        spec
+      )
+    ).toBe("missing");
+    expect(
+      classifyFieldValue(
+        makeItem({ supported_mobo_form_factors: [""], form_factor_evidence: "inferred" }),
+        spec
+      )
+    ).toBe("missing");
   });
 
   it("classifies object-types fields by the inner array and map fields by non-empty objects", () => {
@@ -118,6 +130,8 @@ describe("evidence classification", () => {
     expect(classifyFieldValue(makeItem({ memory_support: { types: ["DDR4"] } }), typesSpec)).toBe("explicit");
     expect(classifyFieldValue(makeItem({ memory_support: { types: [] } }), typesSpec)).toBe("missing");
     expect(classifyFieldValue(makeItem({ memory_support: { types: "DDR4" } }), typesSpec)).toBe("missing");
+    expect(classifyFieldValue(makeItem({ memory_support: { types: [123] } }), typesSpec)).toBe("missing");
+    expect(classifyFieldValue(makeItem({ memory_support: { types: [""] } }), typesSpec)).toBe("missing");
     expect(classifyFieldValue(makeItem({ memory_support: {} }), typesSpec)).toBe("missing");
     expect(classifyFieldValue(makeItem({}), typesSpec)).toBe("missing");
 
@@ -369,6 +383,12 @@ describe("validateAssessmentCoverage", () => {
     manifest.categories.cpu.socket.missing += 3;
     const errors = validateAssessmentCoverage(manifest).join(";");
     expect(errors).toContain("same item count");
+  });
+
+  it("rejects dimension side counts that disagree with the categories section", () => {
+    const manifest = validManifest();
+    manifest.dimensions["compat-cpu-mobo-socket"].sides.cpu.socket.explicit += 1;
+    expect(validateAssessmentCoverage(manifest).join(";")).toContain("disagrees with categories");
   });
 
   it("isValidAssessmentCoverage wraps validation as a boolean", () => {

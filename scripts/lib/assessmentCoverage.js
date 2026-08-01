@@ -59,6 +59,10 @@ const isUsableValue = (value) => {
   return true;
 };
 
+/** Contract-valid evidence list: non-empty array of non-empty strings. */
+const isNonEmptyStringArray = (value) =>
+  Array.isArray(value) && value.length > 0 && value.every(isNonEmptyString);
+
 /**
  * Classify one item's field evidence against the registry classification.
  * @param {object} item processed catalog item
@@ -69,14 +73,14 @@ export function classifyFieldValue(item, fieldSpec) {
   const { kind, name } = fieldSpec;
   if (kind === "evidence-flagged") {
     const evidence = item?.[fieldSpec.evidenceField];
-    if (!isUsableValue(item?.[name])) return "missing";
+    if (!isNonEmptyStringArray(item?.[name])) return "missing";
     if (evidence === "inferred") return "inferred";
     if (evidence === "explicit") return "explicit";
     return "notApplicable";
   }
   if (kind === "object-types") {
     const types = item?.[name]?.types;
-    if (!Array.isArray(types) || types.length === 0) return "missing";
+    if (!isNonEmptyStringArray(types)) return "missing";
     return "explicit";
   }
   const value = item?.[name];
@@ -439,6 +443,12 @@ export function validateAssessmentCoverage(manifest) {
             if (!isNonNegativeInteger(counts[cls])) {
               errors.push(`dimensions.${ruleId}.${side.component}.${fieldSpec.name}.${cls} must be a non-negative integer`);
             }
+          }
+          const categoryCounts = manifest.categories?.[side.component]?.[fieldSpec.name];
+          if (categoryCounts && JSON.stringify(categoryCounts) !== JSON.stringify(counts)) {
+            errors.push(
+              `dimensions.${ruleId}.${side.component}.${fieldSpec.name} disagrees with categories`
+            );
           }
         }
       }
