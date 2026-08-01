@@ -14,6 +14,7 @@ const REQUIRED_FILES = [
   "cases.min.json",
   "ram.min.json",
   "compatibility.min.json",
+  "assessment-coverage.min.json",
 ];
 
 describe("post-build artifact match", () => {

@@ -104,19 +104,27 @@ describe("deployed artifact contract", () => {
     }
   });
 
-  it("assessment-coverage.min.json documenta brechas conocidas como missing, no como fallo", () => {
+  it("assessment-coverage.min.json documenta las brechas como estructura, sin fijar conteos", () => {
     const manifest = read("assessment-coverage.min.json");
-    const knownGaps = [
+    const documentedGaps = [
       ["cpu", "socket"],
       ["cpu", "memory_support"],
       ["mobo", "max_memory_speed_mts"],
       ["case", "max_gpu_length_mm"],
       ["psu", "pcie_power_connectors"],
     ];
-    for (const [category, field] of knownGaps) {
+    for (const [category, field] of documentedGaps) {
       const counts = manifest.categories[category]?.[field];
-      expect(counts, `${category}.${field}`).toBeDefined();
-      expect(counts.missing, `${category}.${field} should show a documented gap`).toBeGreaterThan(0);
+      expect(counts, `${category}.${field} should be documented in the manifest`).toBeDefined();
+    }
+    for (const categoryCounts of Object.values(manifest.categories)) {
+      const fieldSums = Object.values(categoryCounts).map((counts) =>
+        EVIDENCE_CLASSES.reduce((sum, cls) => sum + counts[cls], 0)
+      );
+      expect(
+        fieldSums.every((sum) => sum === fieldSums[0]),
+        `all fields of a category must classify the same items: ${JSON.stringify(fieldSums)}`
+      ).toBe(true);
     }
   });
 });

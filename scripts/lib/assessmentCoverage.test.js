@@ -13,6 +13,7 @@ import {
   EVIDENCE_CLASSES,
   CATEGORY_ARRAY_KEYS,
   RULES_VERSION_STRING,
+  buildFieldSpecsByComponent,
   classifyFieldValue,
   computeAssessmentCoverage,
   validateAssessmentCoverage,
@@ -85,7 +86,7 @@ describe("evidence classification", () => {
     ).toBe("explicit");
   });
 
-  it("classifies evidence-flagged fields as inferred or not-applicable from documented evidence", () => {
+  it("classifies evidence-flagged fields as explicit, inferred, or not-applicable from documented evidence", () => {
     const spec = {
       name: "supported_mobo_form_factors",
       kind: "evidence-flagged",
@@ -99,6 +100,12 @@ describe("evidence classification", () => {
     ).toBe("inferred");
     expect(
       classifyFieldValue(
+        makeItem({ supported_mobo_form_factors: ["ATX"], form_factor_evidence: "explicit" }),
+        spec
+      )
+    ).toBe("explicit");
+    expect(
+      classifyFieldValue(
         makeItem({ supported_mobo_form_factors: ["ATX"], form_factor_evidence: "unknown" }),
         spec
       )
@@ -110,6 +117,8 @@ describe("evidence classification", () => {
     const typesSpec = { name: "memory_support", kind: "object-types" };
     expect(classifyFieldValue(makeItem({ memory_support: { types: ["DDR4"] } }), typesSpec)).toBe("explicit");
     expect(classifyFieldValue(makeItem({ memory_support: { types: [] } }), typesSpec)).toBe("missing");
+    expect(classifyFieldValue(makeItem({ memory_support: { types: "DDR4" } }), typesSpec)).toBe("missing");
+    expect(classifyFieldValue(makeItem({ memory_support: {} }), typesSpec)).toBe("missing");
     expect(classifyFieldValue(makeItem({}), typesSpec)).toBe("missing");
 
     const mapSpec = { name: "pcie_power_connectors", kind: "map" };
@@ -199,20 +208,21 @@ describe("computeAssessmentCoverage (Plan 030 Step 2)", () => {
       motherboards: [makeItem({ id: "m1", form_factor: "ATX" })],
       cases: [
         makeItem({ id: "k1", supported_mobo_form_factors: ["ATX"], form_factor_evidence: "inferred" }),
-        makeItem({ id: "k2", supported_mobo_form_factors: ["ATX"], form_factor_evidence: "unknown" }),
-        makeItem({ id: "k3", supported_mobo_form_factors: [], form_factor_evidence: "unknown" }),
+        makeItem({ id: "k2", supported_mobo_form_factors: ["ATX"], form_factor_evidence: "explicit" }),
+        makeItem({ id: "k3", supported_mobo_form_factors: ["ATX"], form_factor_evidence: "unknown" }),
+        makeItem({ id: "k4", supported_mobo_form_factors: [], form_factor_evidence: "unknown" }),
       ],
     };
     const manifest = computeAssessmentCoverage(catalog, { generatedAt });
     const fit = manifest.dimensions["compat-mobo-case-ff"];
     expect(fit.sides.case.supported_mobo_form_factors).toEqual({
-      explicit: 0,
+      explicit: 1,
       inferred: 1,
       conflicting: 0,
       missing: 1,
       notApplicable: 1,
     });
-    expect(fit.combinations).toEqual({ assessable: 1, total: 3 });
+    expect(fit.combinations).toEqual({ assessable: 2, total: 4 });
   });
 
   it("supports an empty catalog and an empty dimension", () => {
@@ -247,6 +257,19 @@ describe("computeAssessmentCoverage (Plan 030 Step 2)", () => {
       computeAssessmentCoverage(emptyCatalog, { generatedAt, rulesVersion: "quote-analyzer/rules/v2" })
     ).toThrow("rulesVersion");
     expect(() => computeAssessmentCoverage(emptyCatalog, {})).toThrow("generatedAt");
+    expect(() => computeAssessmentCoverage(emptyCatalog, null)).toThrow("generatedAt");
+  });
+
+  it("buildFieldSpecsByComponent detects registry drift for the same field", () => {
+    const consistent = buildFieldSpecsByComponent();
+    expect(consistent.cpu.socket.kind).toBe("direct");
+    expect(consistent.gpu.tdp_w.kind).toBe("conflict-flagged");
+    expect(() =>
+      buildFieldSpecsByComponent({
+        r1: { sides: [{ component: "cpu", fields: [{ name: "socket", kind: "direct" }] }] },
+        r2: { sides: [{ component: "cpu", fields: [{ name: "socket", kind: "map" }] }] },
+      })
+    ).toThrow("registry drift");
   });
 
   it("multi-field sides require every field on the side to be usable", () => {
@@ -304,6 +327,14 @@ describe("validateAssessmentCoverage", () => {
     delete missing.dimensions["compat-gpu-case-length"];
     expect(validateAssessmentCoverage(missing).join(";")).toContain("compat-gpu-case-length");
 
+    const unknown = validManifest();
+    unknown.dimensions["compat-something-new"] = unknown.dimensions["compat-cpu-mobo-socket"];
+    expect(validateAssessmentCoverage(unknown).join(";")).toContain("unknown rule");
+
+    const extraSide = validManifest();
+    extraSide.dimensions["compat-cpu-mobo-socket"].sides.ram = { type: { explicit: 0 } };
+    expect(validateAssessmentCoverage(extraSide).join(";")).toContain("unknown side");
+
     const unsorted = validManifest();
     const swapped = {};
     const keys = Object.keys(unsorted.dimensions);
@@ -313,6 +344,31 @@ describe("validateAssessmentCoverage", () => {
     swapped[keys[0]] = unsorted.dimensions[keys[0]];
     unsorted.dimensions = swapped;
     expect(validateAssessmentCoverage(unsorted).join(";")).toContain("sorted");
+  });
+
+  it("rejects unknown category components and fields outside the registry", () => {
+    const extraComponent = validManifest();
+    extraComponent.categories.coolers = {};
+    expect(validateAssessmentCoverage(extraComponent).join(";")).toContain("unknown component");
+
+    const extraField = validManifest();
+    extraField.categories.cpu.boost_ghz = { explicit: 0, inferred: 0, conflicting: 0, missing: 0, notApplicable: 0 };
+    expect(validateAssessmentCoverage(extraField).join(";")).toContain("match the registry");
+
+    const missingField = validManifest();
+    delete missingField.categories.cpu.tdp_w;
+    expect(validateAssessmentCoverage(missingField).join(";")).toContain("match the registry");
+
+    const extraClass = validManifest();
+    extraClass.categories.cpu.socket.ambiguous = 0;
+    expect(validateAssessmentCoverage(extraClass).join(";")).toContain("evidence classes");
+  });
+
+  it("rejects per-field sums that disagree within a category (classification must be exhaustive)", () => {
+    const manifest = validManifest();
+    manifest.categories.cpu.socket.missing += 3;
+    const errors = validateAssessmentCoverage(manifest).join(";");
+    expect(errors).toContain("same item count");
   });
 
   it("isValidAssessmentCoverage wraps validation as a boolean", () => {

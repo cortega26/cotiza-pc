@@ -13,6 +13,8 @@ const fallbackCatalog = mapProcessedToCatalog(localCatalog || {});
 
 const stripTrailingSlash = (value = "") => (value.endsWith("/") ? value.slice(0, -1) : value);
 
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
 const CATEGORY_META = {
   cpus: { processedKey: "cpus", catalogKey: "cpus" },
   motherboards: { processedKey: "motherboards", catalogKey: "motherboards" },
@@ -137,8 +139,9 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
           loadAssessmentCoverageFile(dataBase, { cacheBust: isReload ? String(reloadToken) : "" })
             .then((manifest) => {
               if (currentTokenRef.current !== token) return;
-              setAssessmentCoverage(manifest || null);
-              setAssessmentCoverageFailed(false);
+              const usable = isPlainObject(manifest) ? manifest : null;
+              setAssessmentCoverage(usable);
+              setAssessmentCoverageFailed(usable === null);
             })
             .catch(() => {
               if (currentTokenRef.current !== token) return;

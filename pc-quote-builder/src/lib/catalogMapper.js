@@ -71,15 +71,23 @@ const normalizeCasesKey = (src) => {
   return [];
 };
 
+const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
 /**
  * Compact evidence provenance for a normalized component. Defaults are empty
- * collections or null, never optimistic values.
+ * collections or null, never optimistic values; malformed shapes are never
+ * passed through.
  */
-const buildEvidence = (item) => ({
-  sources: item?.sources || {},
-  conflicts: item?.meta?.conflict_flags || [],
-  qualityScore: item?.meta?.quality_score ?? null,
-});
+const buildEvidence = (item) => {
+  const sources = item?.sources;
+  const conflicts = item?.meta?.conflict_flags;
+  const qualityScore = item?.meta?.quality_score;
+  return {
+    sources: isPlainObject(sources) ? sources : {},
+    conflicts: Array.isArray(conflicts) ? conflicts : [],
+    qualityScore: typeof qualityScore === "number" ? qualityScore : null,
+  };
+};
 
 export const mapProcessedToCatalog = (processed) => {
   const data = processed || {};

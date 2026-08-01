@@ -281,6 +281,22 @@ describe("catalogMapper", () => {
     expect(mapped.pcCases[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: null });
   });
 
+  it("nunca pasa formas corruptas de evidencia (sources string, conflicts string, qualityScore string)", () => {
+    const mapped = mapProcessedToCatalog({
+      cpus: [
+        {
+          id: "cpu1",
+          name: "Intel i5",
+          sources: "pcpart",
+          meta: { conflict_flags: "cpu_tdp_conflict", quality_score: "0.5" },
+        },
+      ],
+      gpus: [{ id: "g1", name: "RTX 4060", sources: ["dbgpu"] }],
+    });
+    expect(mapped.cpus[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: null });
+    expect(mapped.gpus[0].evidence).toEqual({ sources: {}, conflicts: [], qualityScore: null });
+  });
+
   it("no muta los items de entrada al construir evidencia", () => {
     const input = {
       cpus: [{ id: "cpu1", name: "Intel i5", sources: { x: ["y"] }, meta: { conflict_flags: ["a"], quality_score: 0.5 } }],

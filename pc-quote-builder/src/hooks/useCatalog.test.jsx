@@ -277,6 +277,21 @@ describe("useCatalog", () => {
     });
   });
 
+  it("rejects a malformed manifest (non-object) as unusable without breaking categories", async () => {
+    loadCategoryFile.mockResolvedValue([{ id: "cpu1" }]);
+    loadCompatibilityFile.mockResolvedValue(null);
+    loadAssessmentCoverageFile.mockResolvedValue([]);
+
+    const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+
+    await waitFor(() => {
+      expect(result.current.assessmentCoverage).toBeNull();
+      expect(result.current.assessmentCoverageFailed).toBe(true);
+      expect(result.current.catalog.cpus).toHaveLength(1);
+      expect(result.current.categoryStates.cpus).toBe("loaded");
+    });
+  });
+
   it("reload resets the manifest like compat meta without refetching it", async () => {
     let categoryCalls = 0;
     loadCategoryFile.mockImplementation(() => {

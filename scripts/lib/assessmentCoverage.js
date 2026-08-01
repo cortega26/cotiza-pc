@@ -71,9 +71,15 @@ export function classifyFieldValue(item, fieldSpec) {
     const evidence = item?.[fieldSpec.evidenceField];
     if (!isUsableValue(item?.[name])) return "missing";
     if (evidence === "inferred") return "inferred";
+    if (evidence === "explicit") return "explicit";
     return "notApplicable";
   }
-  const value = kind === "object-types" ? item?.[name]?.types : item?.[name];
+  if (kind === "object-types") {
+    const types = item?.[name]?.types;
+    if (!Array.isArray(types) || types.length === 0) return "missing";
+    return "explicit";
+  }
+  const value = item?.[name];
   if (!isUsableValue(value)) return "missing";
   if (kind === "conflict-flagged") {
     const flags = item?.meta?.conflict_flags;
@@ -231,6 +237,35 @@ const assertNoDuplicateIds = (items, category) => {
   }
 };
 
+const specsEqual = (a, b) =>
+  a.kind === b.kind && a.conflictFlag === b.conflictFlag && a.evidenceField === b.evidenceField;
+
+/**
+ * Flatten the per-rule registry into component → field → spec. Throws when
+ * the same component field is declared with conflicting specifications across
+ * rules, so a future registry edit can never silently change classification.
+ * @param {object} rules registry (defaults to ASSESSMENT_RULES)
+ * @returns {object} component key → { fieldName → frozen fieldSpec }
+ */
+export function buildFieldSpecsByComponent(rules = ASSESSMENT_RULES) {
+  const byComponent = {};
+  for (const rule of Object.values(rules)) {
+    for (const side of rule.sides) {
+      for (const fieldSpec of side.fields) {
+        const existing = byComponent[side.component]?.[fieldSpec.name];
+        if (existing && !specsEqual(existing, fieldSpec)) {
+          throw new Error(
+            `assessment registry drift: ${side.component}.${fieldSpec.name} is declared with conflicting specifications`
+          );
+        }
+        byComponent[side.component] ??= {};
+        byComponent[side.component][fieldSpec.name] = fieldSpec;
+      }
+    }
+  }
+  return byComponent;
+}
+
 function isNonEmptyString(value) {
   return typeof value === "string" && value.trim() !== "";
 }
@@ -254,7 +289,8 @@ const sortKeysDeep = (value) => {
  * @returns {object} assessment-coverage/v1 manifest
  */
 export function computeAssessmentCoverage(catalog, metadata = {}) {
-  const { generatedAt, rulesVersion = RULES_VERSION_STRING } = metadata;
+  const safeMetadata = metadata || {};
+  const { generatedAt, rulesVersion = RULES_VERSION_STRING } = safeMetadata;
   if (rulesVersion !== RULES_VERSION_STRING) {
     throw new Error(`rulesVersion must be ${RULES_VERSION_STRING}`);
   }
@@ -262,15 +298,7 @@ export function computeAssessmentCoverage(catalog, metadata = {}) {
     throw new Error("generatedAt is required");
   }
 
-  const fieldSpecsByComponent = {};
-  for (const rule of Object.values(ASSESSMENT_RULES)) {
-    for (const side of rule.sides) {
-      for (const fieldSpec of side.fields) {
-        fieldSpecsByComponent[side.component] ??= {};
-        fieldSpecsByComponent[side.component][fieldSpec.name] = fieldSpec;
-      }
-    }
-  }
+  const fieldSpecsByComponent = buildFieldSpecsByComponent();
 
   const categories = {};
   const dimensions = {};
@@ -321,6 +349,15 @@ export function computeAssessmentCoverage(catalog, metadata = {}) {
 
 const isNonNegativeInteger = (value) => Number.isInteger(value) && value >= 0;
 
+const sortedKeys = (obj) =>
+  Object.keys(obj).every((key, index, keys) => index === 0 || keys[index - 1] <= key);
+
+const exactSortedKeys = (obj, expected) => {
+  const actual = Object.keys(obj).sort();
+  const want = [...expected].sort();
+  return actual.length === want.length && actual.every((key, index) => key === want[index]);
+};
+
 /**
  * Validate an assessment-coverage/v1 manifest.
  * @param {object} manifest manifest to validate
@@ -341,11 +378,17 @@ export function validateAssessmentCoverage(manifest) {
   if (!isPlainObject(manifest.categories) || !isPlainObject(manifest.dimensions)) {
     errors.push("categories and dimensions must be objects");
   }
-  const sortedKeys = (obj) => Object.keys(obj).every((key, index, keys) => index === 0 || keys[index - 1] <= key);
   if (manifest.categories && !sortedKeys(manifest.categories)) errors.push("categories keys must be sorted");
   if (manifest.dimensions && !sortedKeys(manifest.dimensions)) errors.push("dimensions keys must be sorted");
 
+  const registryFields = buildFieldSpecsByComponent();
+
   if (manifest.dimensions) {
+    for (const ruleId of Object.keys(manifest.dimensions)) {
+      if (!ASSESSMENT_RULES[ruleId]) {
+        errors.push(`dimensions contains unknown rule ${ruleId}`);
+      }
+    }
     for (const ruleId of ASSESSMENT_RULE_IDS) {
       const entry = manifest.dimensions[ruleId];
       if (!entry) {
@@ -361,6 +404,12 @@ export function validateAssessmentCoverage(manifest) {
         errors.push(`dimensions.${ruleId}.sides must be an object`);
         continue;
       }
+      if (!sortedKeys(entry.sides)) errors.push(`dimensions.${ruleId}.sides keys must be sorted`);
+      for (const sideComponent of Object.keys(entry.sides)) {
+        if (!rule.sides.some((side) => side.component === sideComponent)) {
+          errors.push(`dimensions.${ruleId} contains unknown side ${sideComponent}`);
+        }
+      }
       const { assessable, total } = entry.combinations || {};
       if (!isNonNegativeInteger(assessable) || !isNonNegativeInteger(total)) {
         errors.push(`dimensions.${ruleId}.combinations must be non-negative integers`);
@@ -373,11 +422,18 @@ export function validateAssessmentCoverage(manifest) {
           errors.push(`dimensions.${ruleId} must include side ${side.component}`);
           continue;
         }
+        if (!exactSortedKeys(sideCounts, side.fields.map((f) => f.name))) {
+          errors.push(`dimensions.${ruleId}.${side.component} fields must match the registry exactly and be sorted`);
+          continue;
+        }
         for (const fieldSpec of side.fields) {
           const counts = sideCounts[fieldSpec.name];
           if (!isPlainObject(counts)) {
             errors.push(`dimensions.${ruleId}.${side.component}.${fieldSpec.name} counts missing`);
             continue;
+          }
+          if (!exactSortedKeys(counts, EVIDENCE_CLASSES)) {
+            errors.push(`dimensions.${ruleId}.${side.component}.${fieldSpec.name} must have exactly the evidence classes, sorted`);
           }
           for (const cls of EVIDENCE_CLASSES) {
             if (!isNonNegativeInteger(counts[cls])) {
@@ -390,21 +446,43 @@ export function validateAssessmentCoverage(manifest) {
   }
 
   if (manifest.categories) {
+    for (const component of Object.keys(manifest.categories)) {
+      if (!CATEGORY_ARRAY_KEYS[component]) {
+        errors.push(`categories contains unknown component ${component}`);
+      }
+    }
     for (const [component, arrayKey] of Object.entries(CATEGORY_ARRAY_KEYS)) {
       const counts = manifest.categories[component];
       if (!isPlainObject(counts)) {
         errors.push(`categories must include ${component}`);
         continue;
       }
+      const expectedFields = Object.keys(registryFields[component] || {});
+      if (!exactSortedKeys(counts, expectedFields)) {
+        errors.push(`categories.${component} fields must match the registry exactly and be sorted`);
+        continue;
+      }
+      let sum = null;
       for (const [fieldName, fieldCounts] of Object.entries(counts)) {
         if (!isPlainObject(fieldCounts)) {
           errors.push(`categories.${component}.${fieldName} must be an object`);
           continue;
         }
+        if (!exactSortedKeys(fieldCounts, EVIDENCE_CLASSES)) {
+          errors.push(`categories.${component}.${fieldName} must have exactly the evidence classes, sorted`);
+        }
+        let fieldSum = 0;
         for (const cls of EVIDENCE_CLASSES) {
           if (!isNonNegativeInteger(fieldCounts[cls])) {
             errors.push(`categories.${component}.${fieldName}.${cls} must be a non-negative integer`);
+          } else {
+            fieldSum += fieldCounts[cls];
           }
+        }
+        if (sum === null) {
+          sum = fieldSum;
+        } else if (sum !== fieldSum) {
+          errors.push(`categories.${component} fields must classify the same item count (${sum} vs ${fieldSum})`);
         }
       }
     }

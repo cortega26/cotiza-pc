@@ -274,8 +274,10 @@ explicit/3633 missing, `gpu.tdp_w` 126 explicit/189 conflicting/3554 missing,
 `mobo.memory_type` 4956, `mobo.max_memory_speed_mts` 4956,
 `psu.pcie_power_connectors` 2128. CPU socket/memory support have no build-time
 evidence provenance (runtime inference only) and are therefore reported as
-missing; the artifact contract asserts these documented gaps stay non-zero
-(report-only, no launch gate).
+missing. The artifact contract asserts structure only — gap fields are
+documented and every field classifies the same item count — never count
+thresholds, so closing a gap via legitimate pipeline improvements never fails
+a refresh (report-only, no launch gate).
 
 ## Test plan
 
