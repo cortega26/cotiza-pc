@@ -136,9 +136,9 @@ describe("unprotectFormulaField", () => {
 
 describe("parseCsv", () => {
   it("returns empty result for empty string", () => {
-    expect(parseCsv("")).toEqual({ headers: [], rows: [] });
-    expect(parseCsv(null)).toEqual({ headers: [], rows: [] });
-    expect(parseCsv(undefined)).toEqual({ headers: [], rows: [] });
+    expect(parseCsv("")).toEqual({ headers: [], rows: [], lineNumbers: [] });
+    expect(parseCsv(null)).toEqual({ headers: [], rows: [], lineNumbers: [] });
+    expect(parseCsv(undefined)).toEqual({ headers: [], rows: [], lineNumbers: [] });
   });
 
   it("parses simple CSV with header and rows", () => {

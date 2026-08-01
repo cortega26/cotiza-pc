@@ -24,14 +24,36 @@ export const escapeCsvField = (value) => {
   return str;
 };
 
-export const parseCsv = (text) => {
-  if (!text) return { headers: [], rows: [] };
+export const parseCsv = (text, options = {}) => {
+  const delimiter = options.delimiter ?? ",";
+  const hasHeaders = options.hasHeaders ?? true;
+  if (!text) return { headers: [], rows: [], lineNumbers: [] };
 
   const rows = [];
+  const rowLines = [];
   let current = [];
   let cell = "";
   let inQuotes = false;
   let i = 0;
+  let line = 1;
+  let currentRowLine = 1;
+  let rowStarted = false;
+
+  const startRowIfNeeded = () => {
+    if (!rowStarted) {
+      currentRowLine = line;
+      rowStarted = true;
+    }
+  };
+  const pushRow = () => {
+    startRowIfNeeded();
+    current.push(cell);
+    rows.push(current);
+    rowLines.push(currentRowLine);
+    current = [];
+    cell = "";
+    rowStarted = false;
+  };
 
   while (i < text.length) {
     const ch = text[i];
@@ -46,34 +68,34 @@ export const parseCsv = (text) => {
           i += 1;
         }
       } else {
+        if (ch === '\n') line += 1;
         cell += ch;
         i += 1;
       }
     } else {
       if (ch === '"') {
+        startRowIfNeeded();
         inQuotes = true;
         i += 1;
-      } else if (ch === ',') {
+      } else if (ch === delimiter) {
+        startRowIfNeeded();
         current.push(cell);
         cell = "";
         i += 1;
       } else if (ch === '\n') {
-        current.push(cell);
-        rows.push(current);
-        current = [];
-        cell = "";
+        pushRow();
         i += 1;
+        line += 1;
       } else if (ch === '\r') {
-        current.push(cell);
-        rows.push(current);
-        current = [];
-        cell = "";
+        pushRow();
         if (i + 1 < text.length && text[i + 1] === '\n') {
           i += 2;
         } else {
           i += 1;
         }
+        line += 1;
       } else {
+        startRowIfNeeded();
         cell += ch;
         i += 1;
       }
@@ -81,26 +103,31 @@ export const parseCsv = (text) => {
   }
 
   if (inQuotes || cell !== "" || current.length > 0) {
-    current.push(cell);
-    rows.push(current);
+    pushRow();
   }
 
-  if (rows.length === 0) return { headers: [], rows: [] };
+  if (rows.length === 0) return { headers: [], rows: [], lineNumbers: [] };
 
-  return {
-    headers: rows[0],
-    rows: rows.slice(1).filter((r) => r.length > 1 || r[0] !== ""),
-  };
+  const headers = hasHeaders ? rows[0] : [];
+  const dataRows = [];
+  const dataLineNumbers = [];
+  for (let r = hasHeaders ? 1 : 0; r < rows.length; r += 1) {
+    if (rows[r].length > 1 || rows[r][0] !== "") {
+      dataRows.push(rows[r]);
+      dataLineNumbers.push(rowLines[r]);
+    }
+  }
+  return { headers, rows: dataRows, lineNumbers: dataLineNumbers };
 };
 
-const normalizeHeader = (val) =>
+export const normalizeHeader = (val) =>
   val
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]/g, "");
 
-const findColumnIndex = (headers, candidates) => {
+export const findColumnIndex = (headers, candidates) => {
   const normalized = headers.map(normalizeHeader);
   const normalizedCandidates = candidates.map(normalizeHeader);
   return normalized.findIndex((h) => normalizedCandidates.includes(h));
