@@ -61,7 +61,18 @@ export const FORBIDDEN_RAW_FIELDS = Object.freeze([
   "fileName",
   "quoteText",
   "contact",
+  "userId",
+  "deviceId",
+  "fingerprint",
+  "cookie",
+  "referrer",
+  "url",
+  "address",
+  "name",
+  "file",
 ]);
+
+const MAX_DENY_DEPTH = 16;
 
 const ISO_8601 = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?(Z|[+-]\d{2}:\d{2})$/;
 
@@ -136,13 +147,16 @@ const EVENT_SPECS = Object.freeze({
   },
 });
 
-function assertNoForbiddenFields(value, path = "payload") {
-  if (!isPlainObject(value)) return;
+function assertNoForbiddenFields(value, path = "payload", depth = 0) {
+  if (depth > MAX_DENY_DEPTH) {
+    throw new TypeError("payload nesting exceeds the maximum allowed depth");
+  }
+  if (value === null || typeof value !== "object") return;
   for (const [key, child] of Object.entries(value)) {
     if (FORBIDDEN_RAW_FIELDS.some((field) => key.toLowerCase().includes(field.toLowerCase()))) {
       throw new TypeError(`forbidden raw-data field at ${path}.${key}`);
     }
-    assertNoForbiddenFields(child, `${path}.${key}`);
+    assertNoForbiddenFields(child, `${path}.${key}`, depth + 1);
   }
 }
 
@@ -234,6 +248,40 @@ export function createEvent(name, payload = {}) {
     ) {
       throw new TypeError(
         `${name}.qualifiedActivation cannot be true for an unknown or incomplete verdict`
+      );
+    }
+  }
+
+  if (name === "quote_input_completed") {
+    if (event.missingPriceRowCount > event.rowCount) {
+      throw new TypeError(`${name}.missingPriceRowCount cannot exceed rowCount`);
+    }
+  }
+
+  if (name === "identity_confirmation_completed") {
+    const resolvedTotal =
+      event.resolvedExactCount + event.resolvedConfirmedCount + event.remainingAmbiguousCount;
+    if (resolvedTotal > MAX_REQUIRED_COMPONENTS) {
+      throw new TypeError(
+        `${name} resolution counts cannot exceed ${MAX_REQUIRED_COMPONENTS} required components`
+      );
+    }
+    if (event.resolutionOutcome === "all-resolved" && event.remainingAmbiguousCount !== 0) {
+      throw new TypeError(
+        `${name}.resolutionOutcome all-resolved requires zero remaining ambiguous components`
+      );
+    }
+    if (
+      event.resolutionOutcome === "none" &&
+      (event.resolvedExactCount !== 0 || event.resolvedConfirmedCount !== 0)
+    ) {
+      throw new TypeError(
+        `${name}.resolutionOutcome none requires zero resolved components`
+      );
+    }
+    if (event.resolutionOutcome === "partial" && event.remainingAmbiguousCount === 0) {
+      throw new TypeError(
+        `${name}.resolutionOutcome partial requires at least one remaining ambiguous component`
       );
     }
   }

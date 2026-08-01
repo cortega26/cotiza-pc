@@ -207,8 +207,17 @@ depth. The contract rejects any payload containing these field names:
 - uploaded file names or contents
 - contact details (`email`, `phone`, names)
 - IP addresses, user-agent strings, or any persistent cross-device identifier
+  (`ip`, `userAgent`, `userId`, `deviceId`, `fingerprint`, `cookie`)
 - full referrer URLs (only the coarse `acquisitionClass` is collected)
+  (`referrer`, `url`)
+- contact details beyond email/phone, including names and addresses (`name`,
+  `address`)
+- uploaded file names or contents (`fileName`, `file`)
 - clock-exact wall-clock activity times (only relative bounded durations)
+
+The machine-readable deny list is `FORBIDDEN_RAW_FIELDS` in
+`src/lib/measurement/contracts.js`; the contract rejects any payload key whose
+name contains a deny entry, case-insensitively and at any nesting depth.
 
 Unknown keys, nested objects, and any value whose type is not the allowed
 scalar type for its field are also rejected.
@@ -251,8 +260,11 @@ Implemented in `pc-quote-builder/src/lib/measurement/contracts.js`:
   ISO 8601), `sequence` (per-session counter), and `sessionToken` (ephemeral,
   in-memory, per-tab; never written to `localStorage` or any storage).
 - Constructors accept only the allow-listed fields for their event, reject
-  unknown keys and any raw-data field name from §3.2 (including nested
-  objects), validate enums, clamp counts and durations, and return fresh plain
+  unknown keys and any raw-data field name from §3.2 (including nested objects
+  and arrays, bounded to 16 nesting levels), validate enums, clamp counts and
+  durations, enforce cross-field invariants (missing price rows cannot exceed
+  total rows; identity resolution counts cannot exceed the required components
+  and must be consistent with the resolution outcome), and return fresh plain
   serializable objects.
 - The contract imports `quote-analyzer/input/v1`, `quote-analyzer/output/v1`,
   and `quote-analyzer/rules/v1` from the Plan 028 analyzer contracts so schema

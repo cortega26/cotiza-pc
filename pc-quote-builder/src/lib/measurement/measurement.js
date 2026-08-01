@@ -25,17 +25,25 @@ export function createMeasurement({ sink = noopSink, sessionToken, sequenceStart
   return {
     sessionToken: token,
     track(eventName, payload = {}) {
-      const event = createEvent(eventName, {
-        ...payload,
-        timestamp: payload.timestamp,
-        sequence: payload.sequence ?? sequence,
-        sessionToken: payload.sessionToken ?? token,
-      });
-      if (payload.sequence === undefined) {
+      const input = payload == null ? {} : payload;
+      const autoSequence = input.sequence == null;
+      const eventSequence = autoSequence ? sequence : input.sequence;
+      if (autoSequence) {
         sequence += 1;
+      } else if (Number.isInteger(input.sequence) && input.sequence >= 0) {
+        sequence = Math.max(sequence, input.sequence + 1);
       }
+      const event = createEvent(eventName, {
+        ...input,
+        timestamp: input.timestamp,
+        sequence: eventSequence,
+        sessionToken: input.sessionToken ?? token,
+      });
       try {
-        sink(event);
+        const result = sink(event);
+        if (result !== null && typeof result === "object" && typeof result.catch === "function") {
+          result.catch(() => {});
+        }
       } catch {
         // Sink failures are isolated so assessment keeps working.
       }

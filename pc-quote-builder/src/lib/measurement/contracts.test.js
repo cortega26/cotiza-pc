@@ -111,7 +111,6 @@ describe("measurement contracts", () => {
         sessionToken: "tok-test-123",
         ...VALID_PAYLOADS[name],
       });
-      expect(event).toEqual({ ...event });
     }
   });
 
@@ -120,7 +119,9 @@ describe("measurement contracts", () => {
   });
 
   it("rejects a non-object payload", () => {
-    expect(() => createEvent("product_start", "nope")).toThrow(/plain object/);
+    for (const bad of ["nope", null, [], 42, true]) {
+      expect(() => createEvent("product_start", bad)).toThrow(/plain object/);
+    }
   });
 
   it("rejects unknown keys for every event", () => {
@@ -133,7 +134,9 @@ describe("measurement contracts", () => {
     expect(() =>
       validEvent("product_start", { schemaVersion: "fake/v2" })
     ).toThrow(/unknown field/);
-    expect(() => validEvent("product_start", { name: "other" })).toThrow(/unknown field/);
+    expect(() => validEvent("product_start", { name: "other" })).toThrow(
+      /(unknown field|forbidden raw-data field)/
+    );
   });
 
   it("requires a caller-supplied timestamp and validates its format", () => {
@@ -309,6 +312,15 @@ describe("measurement contracts", () => {
     ).toThrow(/forbidden raw-data field/);
   });
 
+  it("rejects forbidden raw-data fields nested inside arrays", () => {
+    expect(() =>
+      validEvent("product_start", { extras: [{ product: "x" }, { store: "y" }] })
+    ).toThrow(/forbidden raw-data field/);
+    expect(() =>
+      validEvent("product_start", { rows: [{ price: 999, itemId: "1" }] })
+    ).toThrow(/forbidden raw-data field/);
+  });
+
   it("rejects forbidden substrings inside allowed-looking key names", () => {
     expect(() => validEvent("product_start", { productNames: "a,b" })).toThrow(
       /forbidden raw-data field/
@@ -316,6 +328,94 @@ describe("measurement contracts", () => {
     expect(() => validEvent("product_start", { storeName: "X" })).toThrow(
       /forbidden raw-data field/
     );
+    expect(() => validEvent("product_start", { myDeviceId: "X" })).toThrow(
+      /forbidden raw-data field/
+    );
+  });
+
+  it("rejects forbidden field names case-insensitively", () => {
+    expect(() => validEvent("product_start", { Product: "x" })).toThrow(
+      /forbidden raw-data field/
+    );
+    expect(() => validEvent("product_start", { STORE: "x" })).toThrow(
+      /forbidden raw-data field/
+    );
+    expect(() => validEvent("product_start", { Email: "x@example.com" })).toThrow(
+      /forbidden raw-data field/
+    );
+  });
+
+  it("rejects pathologically nested payloads with a clean error", () => {
+    let nested = { leaf: "x" };
+    for (let i = 0; i < 40; i += 1) {
+      nested = { wrap: nested };
+    }
+    expect(() => validEvent("product_start", { nested })).toThrow(/maximum allowed depth/);
+  });
+
+  it("never flags allow-listed field names as forbidden", () => {
+    const allowed = new Set([
+      "timestamp",
+      "sequence",
+      "sessionToken",
+      ...Object.values(VALID_PAYLOADS).flatMap((payload) => Object.keys(payload)),
+    ]);
+    for (const key of allowed) {
+      const denied = FORBIDDEN_RAW_FIELDS.some((field) =>
+        key.toLowerCase().includes(field.toLowerCase())
+      );
+      expect(denied).toBe(false);
+    }
+  });
+
+  it("rejects missing price rows that exceed the total row count", () => {
+    expect(() =>
+      validEvent("quote_input_completed", { rowCount: 3, missingPriceRowCount: 4 })
+    ).toThrow(/missingPriceRowCount/);
+    const event = validEvent("quote_input_completed", {
+      rowCount: 4,
+      missingPriceRowCount: 4,
+    });
+    expect(event.missingPriceRowCount).toBe(4);
+  });
+
+  it("rejects identity resolution counts that exceed the required components", () => {
+    expect(() =>
+      validEvent("identity_confirmation_completed", {
+        resolvedExactCount: 6,
+        resolvedConfirmedCount: 1,
+        remainingAmbiguousCount: 0,
+      })
+    ).toThrow(/resolution counts/);
+    const event = validEvent("identity_confirmation_completed", {
+      resolvedExactCount: 5,
+      resolvedConfirmedCount: 1,
+      remainingAmbiguousCount: 0,
+    });
+    expect(event.resolvedExactCount).toBe(5);
+  });
+
+  it("enforces resolution outcome consistency", () => {
+    expect(() =>
+      validEvent("identity_confirmation_completed", {
+        resolvedExactCount: 4,
+        resolvedConfirmedCount: 1,
+        remainingAmbiguousCount: 1,
+      })
+    ).toThrow(/all-resolved/);
+    expect(() =>
+      validEvent("identity_confirmation_completed", {
+        resolutionOutcome: "none",
+        resolvedExactCount: 1,
+        resolvedConfirmedCount: 0,
+      })
+    ).toThrow(/none/);
+    expect(() =>
+      validEvent("identity_confirmation_completed", {
+        resolutionOutcome: "partial",
+        remainingAmbiguousCount: 0,
+      })
+    ).toThrow(/partial/);
   });
 
   it("exposes frozen enum registries for instrumentation", () => {

@@ -119,7 +119,7 @@ describe("measurement adapter", () => {
     ).toThrow(/acquisitionClass/);
   });
 
-  it("isolates sink failures so product assessment keeps working", () => {
+  it("isolates sink failures so assessment keeps working", () => {
     const failing = vi.fn(() => {
       throw new Error("network down");
     });
@@ -169,6 +169,107 @@ describe("measurement adapter", () => {
         catalogVersion: "s",
       })
     ).toThrow(/timestamp/);
+  });
+
+  it("rejects null and missing payloads with clean validation errors", () => {
+    const measurement = createMeasurement();
+    expect(() => measurement.track("product_start", null)).toThrow(/timestamp/);
+    expect(() => measurement.track("product_start")).toThrow(/timestamp/);
+  });
+
+  it("keeps auto sequences monotonic after caller-supplied sequences", () => {
+    const memory = createInMemorySink();
+    const measurement = createMeasurement({ sink: memory.sink, sessionToken: "tok" });
+
+    measurement.track("product_start", {
+      timestamp: TIMESTAMP,
+      sequence: 42,
+      acquisitionClass: "direct",
+      catalogVersion: "s",
+    });
+    measurement.track("product_start", {
+      timestamp: TIMESTAMP,
+      acquisitionClass: "direct",
+      catalogVersion: "s",
+    });
+    measurement.track("product_start", {
+      timestamp: TIMESTAMP,
+      acquisitionClass: "direct",
+      catalogVersion: "s",
+    });
+
+    expect(memory.events.map((event) => event.sequence)).toEqual([42, 43, 44]);
+  });
+
+  it("auto-sequences nullish caller sequences without duplicating", () => {
+    const memory = createInMemorySink();
+    const measurement = createMeasurement({ sink: memory.sink, sessionToken: "tok" });
+
+    measurement.track("product_start", {
+      timestamp: TIMESTAMP,
+      sequence: null,
+      acquisitionClass: "direct",
+      catalogVersion: "s",
+    });
+    measurement.track("product_start", {
+      timestamp: TIMESTAMP,
+      acquisitionClass: "direct",
+      catalogVersion: "s",
+    });
+
+    expect(memory.events.map((event) => event.sequence)).toEqual([0, 1]);
+  });
+
+  it("rejects invalid explicit sequences without corrupting the counter", () => {
+    const memory = createInMemorySink();
+    const measurement = createMeasurement({ sink: memory.sink, sessionToken: "tok" });
+
+    expect(() =>
+      measurement.track("product_start", {
+        timestamp: TIMESTAMP,
+        sequence: "5",
+        acquisitionClass: "direct",
+        catalogVersion: "s",
+      })
+    ).toThrow(/sequence/);
+    expect(() =>
+      measurement.track("product_start", {
+        timestamp: TIMESTAMP,
+        sequence: -1,
+        acquisitionClass: "direct",
+        catalogVersion: "s",
+      })
+    ).toThrow(/sequence/);
+
+    const event = measurement.track("product_start", {
+      timestamp: TIMESTAMP,
+      acquisitionClass: "direct",
+      catalogVersion: "s",
+    });
+    expect(event.sequence).toBe(0);
+  });
+
+  it("rejects unknown event names through the adapter", () => {
+    const measurement = createMeasurement();
+    expect(() => measurement.track("page_view", { timestamp: TIMESTAMP })).toThrow(
+      /unknown event name/
+    );
+  });
+
+  it("isolates async sink rejections without unhandled rejections", async () => {
+    const rejecting = vi.fn(() => Promise.reject(new Error("async boom")));
+    const measurement = createMeasurement({ sink: rejecting });
+
+    const event = measurement.track("product_start", {
+      timestamp: TIMESTAMP,
+      acquisitionClass: "direct",
+      catalogVersion: "s",
+    });
+    expect(rejecting).toHaveBeenCalledTimes(1);
+    expect(event.name).toBe("product_start");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(rejecting).toHaveBeenCalledTimes(1);
   });
 
   it("lets callers override timestamp, sequence, and session deterministically", () => {
