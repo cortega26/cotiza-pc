@@ -54,8 +54,8 @@ approved before building the analyzer UI.
 
 | Asset | Location | Shape |
 |---|---|---|
-| Quote import (JSON/CSV) | `pc-quote-builder/src/App.jsx:420-436` | rows with `category`, `product`, `itemId`, `store`, prices, `notes`; CSV requires component+product columns |
-| Price import by `itemId` | `pc-quote-builder/src/App.jsx:438-484` | matches via `buildPriceMap` + alias resolution; 0 matches → alert |
+| Quote import (JSON/CSV) | `pc-quote-builder/src/App.jsx:435-463` (`handleImportFile`) | rows with `category`, `product`, `itemId`, `store`, prices, `notes`; CSV requires component+product columns |
+| Price import by `itemId` | `pc-quote-builder/src/App.jsx:465-511` (`handleImportPrices`) | matches via `buildPriceMap` + alias resolution; 0 matches → alert |
 | Quote model | `src/lib/quoteModel.js` | `normalizeRow`, `normalizeQuote`, `buildRowsFromSelection` |
 | CSV/JSON parsers | `src/lib/csvParser.js` | quoted fields, escaped quotes, total-line skip, formula protection |
 | Catalog normalization | `src/lib/catalogMapper.js` | six normalized arrays + tier maps; raw snake_case aliases kept at boundary |
@@ -405,9 +405,9 @@ error message and that no partial analysis is produced.
 | B | Pure assembly (rows → normalized selection) | `src/lib/quoteAnalyzer/assemble.js`, `.test.js` | focused Vitest |
 | C | Report builder (dimensions/findings/verdict) | `src/lib/quoteAnalyzer/report.js`, `.test.js` | focused Vitest + all F1-F7 |
 | D | Contracts file (JSDoc until Plan 027 unblocks; then types) | `src/lib/quoteAnalyzer/contracts.js` | typecheck when enabled |
-| E | UI: analyzer screen, confirmation flow for ambiguous rows, verdict panel reusing existing assessment UI patterns | `src/components/QuoteAnalyzer.jsx`, `src/App.jsx` wiring, `src/App.test.jsx` | `npm run check` |
+| E | UI: analyzer screen, confirmation flow for ambiguous rows, verdict panel reusing existing assessment UI patterns — DONE via Plan 032 | `src/components/QuoteAnalyzer/` (shipped as a directory), `src/App.jsx` wiring, `src/App.test.jsx` | `npm run check` |
 | F | Optional: extract shared check runner used by both `selectionEvaluation` and the analyzer | `src/lib/compatibility.js` refactor (behavior-preserving) | full suite green |
-| G | Milestone 2 automated conformance and private coverage harnesses (offline, out of SPA) | `scripts/` (Plan 035) | conformance and coverage reports pass |
+| G | Milestone 2 automated conformance and private coverage harnesses (offline, out of SPA) — DONE via Plan 035; Plan 037 wires the CLI into CI | `scripts/` (Plan 035) | conformance and coverage reports pass |
 
 Each phase is its own implementation-plan slice; this design does not
 authorize phases E-G without approval.

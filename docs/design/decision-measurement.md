@@ -1,8 +1,8 @@
 # Decision-funnel measurement contract (Plan 031)
 
-> Status: approved design contract, not yet instrumented.
-> Plan 032 owns wiring events into the App; this document is the governing
-> definition of what is measured, what is forbidden, and how events flow.
+> Status: contract implemented. Plan 032 wires the events through the
+> provider-neutral adapter; the default sink is a no-op and **no network
+> transmission is authorized by this document**.
 >
 > **This plan does not authorize any network transmission.** No analytics
 > provider, cookie, beacon, endpoint, database, dashboard, or dependency is
@@ -297,9 +297,9 @@ third-party global; a dedicated test asserts this by reading the sources.
 
 ## 6. Plan 032 instrumentation map
 
-Events are wired by Plan 032. Each event is owned by one explicit UI
-transition; a render is never an event. Deduplication is per analysis/session
-as stated.
+Events are wired through the Plan 032 transitions; the adapter's default sink
+discards them. Each event is owned by one explicit UI transition; a render is
+never an event. Deduplication is per analysis/session as stated.
 
 | Event | Owner transition (Plan 032) | Deduplication | Required before controlled launch |
 |---|---|---|---|

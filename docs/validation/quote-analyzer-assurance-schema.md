@@ -1,7 +1,8 @@
 # Esquema de aseguramiento automatizado del Quote Analyzer
 
-> Contrato objetivo aprobado por el propietario el 2026-07-31 y ejecutado por
-> Plan 035. Separa conformidad técnica de cobertura sobre cotizaciones reales.
+> Contrato objetivo aprobado por el propietario el 2026-07-31 e implementado
+> por Plan 035 (DONE). Separa conformidad técnica de cobertura sobre
+> cotizaciones reales.
 
 ## Caso de conformidad — `quote-analyzer-assurance/conformance-case/v1`
 

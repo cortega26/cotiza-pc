@@ -145,7 +145,7 @@ Analytics/success questions (design-level, to be instrumented in Phase C):
 | Phase | Contents | Gate |
 |---|---|---|
 | A | Quote-level comparison panel using **existing** `evaluateSelection` + `computeTotals`: component diff, cost diff (no owned parts), freshness chips | none beyond current engine — production-safe today |
-| B | Analyzer-contract comparison: scenario wrapper, seven dimensions, incomparability rules | analyzer contract in production (Plan 024 implementation) |
+| B | Analyzer-contract comparison: scenario wrapper, seven dimensions, incomparability rules | analyzer contract in production (Plans 028/032, DONE) |
 | C | Owned parts + upgrade scenarios + priority selector + analytics | Phase B |
 | D | Export/apply actions and Expert Builder handoff | Phase C (align with builder-modes Phase C) |
 
