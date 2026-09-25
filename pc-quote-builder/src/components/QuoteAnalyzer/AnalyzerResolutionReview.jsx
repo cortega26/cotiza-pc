@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import TypeaheadSelect from "../TypeaheadSelect";
 import { normalizeCategory } from "../../lib/quoteAnalyzer/contracts";
+import { MAX_CANDIDATES } from "../../lib/quoteAnalyzer/resolver";
 import { CATEGORY_LIST_KEYS, COMPONENT_LABELS, RESOLUTION_LABELS } from "./labels";
 import { requiredResolutionCounts } from "./session";
 
@@ -49,6 +50,43 @@ function AnalyzerResolutionReview({
   const requiredCounts = requiredResolutionCounts(resolutions, integratedGpu);
   const resolvedTotal = requiredCounts.exact + requiredCounts.confirmed;
 
+  const renderManualSearch = (row, defaultKey) => {
+    const selectedKey = searchCategory[row.id] || defaultKey || "";
+    return (
+      <div className="manual-search">
+        <label className="field">
+          <span>Categoría a buscar</span>
+          <select
+            value={selectedKey}
+            onChange={(e) =>
+              setSearchCategory((prev) => ({ ...prev, [row.id]: e.target.value }))
+            }
+          >
+            <option value="">Selecciona categoría</option>
+            {COMPONENT_KEYS.map((key) => (
+              <option key={key} value={key}>
+                {COMPONENT_LABELS[key]}
+              </option>
+            ))}
+          </select>
+        </label>
+        {selectedKey && (
+          <label className="field">
+            <span>Buscar en el catálogo</span>
+            <TypeaheadSelect
+              options={catalog?.[CATEGORY_LIST_KEYS[selectedKey]] || []}
+              value=""
+              onChange={(id) => {
+                if (id) onSetMapping(row.id, id, selectedKey);
+              }}
+              placeholder={`Busca ${COMPONENT_LABELS[selectedKey]}`}
+            />
+          </label>
+        )}
+      </div>
+    );
+  };
+
   const renderRowActions = (row, resolution, excluded) => {
     if (excluded) {
       return (
@@ -76,56 +114,31 @@ function AnalyzerResolutionReview({
     }
     if (state === "ambiguous") {
       return (
-        <ul className="candidate-list">
-          {resolution.candidates.map((candidate) => (
-            <li key={candidate.id} className="candidate-item">
-              <span>{candidate.name}</span>
-              <button
-                className="secondary-btn"
-                onClick={() => onSetMapping(row.id, candidate.id, resolution.componentKey)}
-              >
-                Usar este
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          {resolution.candidatesTruncated && (
+            <p className="muted">
+              Mostrando {MAX_CANDIDATES} de {resolution.candidateCount} coincidencias.
+            </p>
+          )}
+          <ul className="candidate-list">
+            {resolution.candidates.map((candidate) => (
+              <li key={candidate.id} className="candidate-item">
+                <span>{candidate.name}</span>
+                <button
+                  className="secondary-btn"
+                  onClick={() => onSetMapping(row.id, candidate.id, resolution.componentKey)}
+                >
+                  Usar este
+                </button>
+              </li>
+            ))}
+          </ul>
+          {renderManualSearch(row, resolution.componentKey)}
+        </>
       );
     }
     if (state === "unmatched-text") {
-      const selectedKey = searchCategory[row.id] || normalizeCategory(row.category) || "";
-      return (
-        <div className="manual-search">
-          <label className="field">
-            <span>Categoría a buscar</span>
-            <select
-              value={selectedKey}
-              onChange={(e) =>
-                setSearchCategory((prev) => ({ ...prev, [row.id]: e.target.value }))
-              }
-            >
-              <option value="">Selecciona categoría</option>
-              {COMPONENT_KEYS.map((key) => (
-                <option key={key} value={key}>
-                  {COMPONENT_LABELS[key]}
-                </option>
-              ))}
-            </select>
-          </label>
-          {selectedKey && (
-            <label className="field">
-              <span>Buscar en el catálogo</span>
-              <TypeaheadSelect
-                options={catalog?.[CATEGORY_LIST_KEYS[selectedKey]] || []}
-                value=""
-                onChange={(id) => {
-                  if (id) onSetMapping(row.id, id, selectedKey);
-                }}
-                placeholder={`Busca ${COMPONENT_LABELS[selectedKey]}`}
-              />
-            </label>
-          )}
-        </div>
-      );
+      return renderManualSearch(row, normalizeCategory(row.category));
     }
     if (state === "unsupported-category") {
       return (

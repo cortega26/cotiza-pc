@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import AnalyzerResolutionReview from "./AnalyzerResolutionReview";
 
 afterEach(() => cleanup());
@@ -85,12 +85,54 @@ describe("AnalyzerResolutionReview", () => {
 
   it("manual search maps an unmatched row through the typeahead", () => {
     const props = renderReview();
-    fireEvent.change(screen.getByLabelText("Categoría a buscar"), { target: { value: "pcCase" } });
+    const unmatchedRow = screen.getByText("Gabinete XYZ").closest(".resolution-row");
+    fireEvent.change(within(unmatchedRow).getByLabelText("Categoría a buscar"), { target: { value: "pcCase" } });
     const combobox = screen.getByPlaceholderText("Busca Gabinete");
     fireEvent.change(combobox, { target: { value: "Fractal" } });
     fireEvent.keyDown(combobox, { key: "ArrowDown" });
     fireEvent.keyDown(combobox, { key: "Enter" });
     expect(props.onSetMapping).toHaveBeenCalledWith("r-unmatched", "case-1", "pcCase");
+  });
+
+  it("manual search confirms an ambiguous row through the typeahead", () => {
+    const props = renderReview();
+    const ambiguousRow = screen.getByText("RX 7800 XT").closest(".resolution-row");
+    const combobox = within(ambiguousRow).getByPlaceholderText("Busca Tarjeta de video");
+    fireEvent.change(combobox, { target: { value: "NVIDIA" } });
+    fireEvent.keyDown(combobox, { key: "ArrowDown" });
+    fireEvent.keyDown(combobox, { key: "Enter" });
+    expect(props.onSetMapping).toHaveBeenCalledWith("r-amb", "gpu-1", "gpu");
+  });
+
+  it("caps rendered candidates and points to the manual search when truncated", () => {
+    const candidates = Array.from({ length: 25 }, (_, i) => ({
+      id: `gpu-c${i}`,
+      name: `GPU Candidate ${i}`,
+    }));
+    renderReview({
+      resolutions: [
+        RESOLUTIONS[0],
+        {
+          rowId: "r-amb",
+          state: "ambiguous",
+          componentKey: "gpu",
+          candidates: candidates.slice(0, 20),
+          candidateCount: 25,
+          candidatesTruncated: true,
+        },
+        ...RESOLUTIONS.slice(2),
+      ],
+    });
+
+    expect(screen.getByText("Mostrando 20 de 25 coincidencias.")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Usar este" })).toHaveLength(20);
+    const ambiguousRow = screen.getByText("RX 7800 XT").closest(".resolution-row");
+    expect(within(ambiguousRow).getByPlaceholderText("Busca Tarjeta de video")).toBeTruthy();
+  });
+
+  it("does not show the truncation hint for small candidate lists", () => {
+    renderReview();
+    expect(screen.queryByText(/Mostrando/)).toBeNull();
   });
 
   it("clears a user mapping", () => {
