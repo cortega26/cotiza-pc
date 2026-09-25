@@ -1351,6 +1351,77 @@ describe("[plan 014] Builder flow", () => {
       await waitFor(() => expect(storedBuilder().cpuId).toBe(""));
     });
 
+    it("keeps a selected mobo when the CPU socket is missing", async () => {
+      const catalog = buildRichCatalog();
+      catalog.cpus = [
+        ...catalog.cpus,
+        {
+          id: "cpu-nosocket", name: "CPU desconocida", brand: "Desconocido", family: "Otros",
+          socket: "", memoryType: "", memoryTypeExplicit: false, tdp: null, tdp_w: null,
+        },
+      ];
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("Placa madre").value).toBe("ASUS Z790-P");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "CPU desconocida" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe("CPU desconocida"));
+      expect(storedBuilder().moboId).toBe("mobo-1");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("keeps a selected case when the case form-factor data is missing", async () => {
+      const catalog = buildRichCatalog();
+      catalog.pcCases = catalog.pcCases.map((c) =>
+        c.id === "case-2" ? { ...c, formFactors: [], maxGpuLength: null } : c
+      );
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+      fireEvent.change(screen.getByLabelText("Placa madre"), { target: { value: "MSI" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() => expect(screen.getByLabelText("Placa madre").value).toBe("MSI PRO Z690-A"));
+      expect(storedBuilder().caseId).toBe("case-2");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("keeps a selected RAM without type when the CPU memory type is explicit", async () => {
+      const catalog = buildRichCatalog();
+      catalog.ramKits = [
+        ...catalog.ramKits,
+        { id: "ram-notype", name: "RAM sin tipo", type: "", speed: null },
+      ];
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "", ramId: "ram-notype", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("RAM").value).toBe("RAM sin tipo");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "Intel Core i5-13600K" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe("Intel Core i5-13600K"));
+      expect(storedBuilder().ramId).toBe("ram-notype");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
     it("renders a single notice under StrictMode", async () => {
       localStorage.setItem(
         "pcqb:builder:v1",

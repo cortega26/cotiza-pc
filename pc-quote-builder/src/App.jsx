@@ -344,11 +344,11 @@ function App({ measurement: measurementProp }) {
       const cpu = findInList("cpu", cleanValue);
       const mobo = findInList("mobo", next.moboId);
       const ram = findInList("ram", next.ramId);
-      if (mobo && cpu && mobo.socket !== cpu.socket) {
+      if (mobo && cpu && cpu.socket && mobo.socket && mobo.socket !== cpu.socket) {
         next.moboId = "";
         builderNotices.push("Se quitó la placa madre porque su socket no coincide con el CPU seleccionado.");
       }
-      if (ram && cpu && cpu.memoryTypeExplicit && ram.type !== cpu.memoryType) {
+      if (ram && cpu && cpu.memoryTypeExplicit && ram.type && ram.type !== cpu.memoryType) {
         next.ramId = "";
         builderNotices.push("Se quitó la RAM porque su tipo no coincide con el CPU seleccionado.");
       }
@@ -356,12 +356,12 @@ function App({ measurement: measurementProp }) {
     if (key === "moboId") {
       const mobo = findInList("mobo", cleanValue);
       const ram = findInList("ram", next.ramId);
-      if (mobo && ram && mobo.memoryTypeExplicit && ram.type !== mobo.memoryType) {
+      if (mobo && ram && mobo.memoryTypeExplicit && ram.type && ram.type !== mobo.memoryType) {
         next.ramId = "";
         builderNotices.push("Se quitó la RAM porque su tipo no coincide con la placa madre seleccionada.");
       }
       const currentCase = findInList("pcCase", next.caseId);
-      if (mobo && currentCase && !currentCase.formFactors?.includes(mobo.formFactor)) {
+      if (mobo && currentCase && mobo.formFactor && currentCase.formFactors?.length && !currentCase.formFactors.includes(mobo.formFactor)) {
         next.caseId = "";
         builderNotices.push("Se quitó el gabinete porque no admite el factor de forma de la placa madre seleccionada.");
       }
