@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { normalizeKey, safeNumber, slug } from "./normalize.js";
-import { readCsvFile, readJsonFiles } from "./io.js";
+import { assertNotSymlink, readCsvFile, readJsonFiles } from "./io.js";
 
 export const SOURCE_TAGS = {
   BUILDCORES: "buildcores",
@@ -310,7 +310,9 @@ export function loadDbGpu(rawDir) {
     ? fs.readdirSync(dir).filter((f) => f.endsWith(".csv"))
     : [];
   for (const csv of csvFiles) {
-    json.push(...readCsvFile(path.join(dir, csv)));
+    const full = path.join(dir, csv);
+    assertNotSymlink(full);
+    json.push(...readCsvFile(full));
   }
   const gpus = json
     .map((item) => ({
@@ -344,6 +346,7 @@ export function loadPcPart(rawDir) {
   const read = (file) => {
     const full = path.join(base, file);
     if (!fs.existsSync(full)) return [];
+    assertNotSymlink(full);
     try {
       const raw = fs.readFileSync(full, "utf8");
       const parsed = JSON.parse(raw);
