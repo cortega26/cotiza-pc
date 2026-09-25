@@ -1428,6 +1428,30 @@ describe("[plan 015] File boundaries — import and export", () => {
     alertSpy.mockRestore();
   });
 
+  it("rejects an empty JSON array import with error [plan 044]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    await importFile("[]", "empty.json");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se pudo importar/i));
+    });
+    expect(alertSpy).not.toHaveBeenCalledWith(expect.stringMatching(/éxito/i));
+    expect(JSON.parse(localStorage.getItem("pcqb:quotes:v1"))).toHaveLength(1);
+    alertSpy.mockRestore();
+  });
+
+  it("rejects an empty quotes object import with error [plan 044]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    await importFile(JSON.stringify({ quotes: [] }), "empty-quotes.json");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se pudo importar/i));
+    });
+    expect(alertSpy).not.toHaveBeenCalledWith(expect.stringMatching(/éxito/i));
+    expect(JSON.parse(localStorage.getItem("pcqb:quotes:v1"))).toHaveLength(1);
+    alertSpy.mockRestore();
+  });
+
   it("triggers file input on import button click [plan 015]", async () => {
     await renderWithQuote();
     const clickSpy = vi.spyOn(findFileInput(), "click");

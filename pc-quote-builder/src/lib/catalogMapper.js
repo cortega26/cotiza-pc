@@ -48,8 +48,9 @@ const LEGACY_FORM_FACTOR_MAP = {
 
 function normalizeCaseFormFactors(pcCase) {
   const raw = pcCase.supported_mobo_form_factors ?? pcCase.formFactors ?? [];
-  if (raw.every((f) => CANONICAL_FORM_FACTORS.has(f))) return raw;
-  const mapped = raw.flatMap((f) => LEGACY_FORM_FACTOR_MAP[f] ?? f);
+  const list = Array.isArray(raw) ? raw : [];
+  if (list.every((f) => CANONICAL_FORM_FACTORS.has(f))) return list;
+  const mapped = list.flatMap((f) => LEGACY_FORM_FACTOR_MAP[f] ?? f);
   return [...new Set(mapped)];
 }
 

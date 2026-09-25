@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { normalizeCurrency } from "../lib/money";
 import { createEmptyQuote, normalizeQuote } from "../lib/quoteModel";
 import { EMPTY_BUILDER } from "../lib/builderReducer";
@@ -10,20 +10,48 @@ const STORAGE_KEYS = {
 };
 
 function buildInitialState() {
+  let hydrationFailed = false;
+
   const rawQuotes = (() => {
+    let raw = null;
     try {
-      const raw = localStorage.getItem(STORAGE_KEYS.quotes);
+      raw = localStorage.getItem(STORAGE_KEYS.quotes);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length) {
-          return parsed.map((q, idx) =>
-            normalizeQuote(q, q.name || `Importada ${idx + 1}`)
-          );
+          const recovered = [];
+          let skipped = 0;
+          parsed.forEach((q, idx) => {
+            if (!q || typeof q !== "object") {
+              skipped += 1;
+              return;
+            }
+            try {
+              recovered.push(normalizeQuote(q, q?.name || `Importada ${idx + 1}`));
+            } catch {
+              skipped += 1;
+            }
+          });
+          if (recovered.length && !skipped) return recovered;
+          hydrationFailed = true;
+          if (recovered.length) return recovered;
+        } else if (!Array.isArray(parsed)) {
+          hydrationFailed = true;
         }
       }
     } catch (err) {
+      hydrationFailed = true;
       console.warn("No se pudo cargar cotizaciones guardadas", err);
     }
+
+    if (hydrationFailed && raw) {
+      try {
+        localStorage.setItem(`${STORAGE_KEYS.quotes}:backup:${Date.now()}`, raw);
+      } catch (err) {
+        console.warn("No se pudo respaldar cotizaciones guardadas", err);
+      }
+    }
+
     return [createEmptyQuote("Mi PC actual")];
   })();
 
@@ -53,7 +81,7 @@ function buildInitialState() {
     return normalizeCurrency(active?.currency || "CLP");
   })();
 
-  return { rawQuotes, activeQuoteId, builder, currencyDraft };
+  return { rawQuotes, activeQuoteId, builder, currencyDraft, hydrationFailed };
 }
 
 export function usePersistence() {
@@ -64,7 +92,11 @@ export function usePersistence() {
   const [builder, setBuilder] = useState(initial.builder);
   const [currencyDraft, setCurrencyDraft] = useState(initial.currencyDraft);
 
+  const skipPersistRef = useRef(initial.hydrationFailed ? initial.rawQuotes : null);
+
   useEffect(() => {
+    if (skipPersistRef.current != null && skipPersistRef.current === quotes) return;
+    skipPersistRef.current = null;
     try {
       localStorage.setItem(STORAGE_KEYS.quotes, JSON.stringify(quotes));
     } catch (err) {

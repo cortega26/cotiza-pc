@@ -9,7 +9,7 @@ import { buildCatalogIndex, resolveRows } from "../../lib/quoteAnalyzer/resolver
 import { normalizeCurrency } from "../../lib/money";
 import { isRowEmpty, normalizeQuote, normalizeRow } from "../../lib/quoteModel";
 import { parseCsvToQuote } from "../../lib/csvParser";
-import { buildQuotesFromJson } from "../../lib/fileIO";
+import { buildQuotesFromJson, detectQuoteFileKind } from "../../lib/fileIO";
 import {
   ANALYZER_CONTEXT_DEFAULT,
   analysisSignature,
@@ -281,12 +281,8 @@ function QuoteAnalyzer({
 
   const handleImportFile = async (file) => {
     const content = await file.text();
-    const isJson =
-      file.name.toLowerCase().endsWith(".json") ||
-      content.trim().startsWith("{") ||
-      content.trim().startsWith("[");
     let imported;
-    if (isJson) {
+    if (detectQuoteFileKind(file.name, content) === "json") {
       const quotes = buildQuotesFromJson(JSON.parse(content), normalizeQuote);
       if (!quotes.length) throw new Error("El archivo JSON no contiene cotizaciones.");
       imported = quotes[0];

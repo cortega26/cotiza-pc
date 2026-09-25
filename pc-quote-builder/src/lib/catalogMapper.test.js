@@ -246,6 +246,17 @@ describe("catalogMapper", () => {
     expect(mapped.pcCases[0].formFactors).toEqual(["E-ATX", "ATX", "Micro ATX", "Mini ITX"]);
   });
 
+  it("ignores non-array form factor shapes without throwing", () => {
+    const mapped = mapProcessedToCatalog({
+      cases: [
+        { id: "c1", name: "Case H", formFactors: "ATX" },
+        { id: "c2", name: "Case I", supported_mobo_form_factors: "ATX" },
+      ],
+    });
+    expect(mapped.pcCases[0].formFactors).toEqual([]);
+    expect(mapped.pcCases[1].formFactors).toEqual([]);
+  });
+
   it("handles items with partial missing fields without crashing", () => {
     const mapped = mapProcessedToCatalog({
       cpus: [{ id: "cpu1" }],

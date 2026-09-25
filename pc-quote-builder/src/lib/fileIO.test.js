@@ -1,6 +1,6 @@
 /* @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { slugify, freshIds, buildQuotesFromJson, exportCSV, exportJSON, downloadFile } from "./fileIO";
+import { slugify, freshIds, buildQuotesFromJson, exportCSV, exportJSON, downloadFile, detectQuoteFileKind } from "./fileIO";
 import { escapeCsvField } from "./csvParser";
 
 describe("slugify", () => {
@@ -24,6 +24,50 @@ describe("slugify", () => {
     expect(slugify(null)).toBe("cotizacion");
     expect(slugify(undefined)).toBe("cotizacion");
     expect(slugify("")).toBe("cotizacion");
+  });
+});
+
+describe("detectQuoteFileKind", () => {
+  it("detects json by extension regardless of content", () => {
+    expect(detectQuoteFileKind("build.json", "Componente,Producto")).toBe("json");
+    expect(detectQuoteFileKind("BUILD.JSON", "{")).toBe("json");
+  });
+
+  it("detects json by content when the extension is unknown", () => {
+    expect(detectQuoteFileKind("build.txt", '  {"rows":[]}')).toBe("json");
+    expect(detectQuoteFileKind("build.txt", '[{"rows":[]}]')).toBe("json");
+  });
+
+  it("defaults to csv otherwise", () => {
+    expect(detectQuoteFileKind("build.csv", "Componente,Producto")).toBe("csv");
+    expect(detectQuoteFileKind("", "")).toBe("csv");
+    expect(detectQuoteFileKind(undefined, "CPU,Ryzen")).toBe("csv");
+  });
+
+  it("treats an empty .json file as json", () => {
+    expect(detectQuoteFileKind("empty.json", "")).toBe("json");
+  });
+});
+
+describe("export filename composition [plan 044]", () => {
+  const csvFilename = (name) => `${slugify(name) || "cotizacion"}.csv`;
+
+  it("strips path separators from hostile quote names", () => {
+    const filename = csvFilename("../../etc/passwd");
+    expect(filename).toBe("etc-passwd.csv");
+    expect(filename).not.toMatch(/[\\/]/);
+  });
+
+  it("strips control characters and emoji", () => {
+    const filename = csvFilename("PC\u0000\u0007gamer 🚀<ready>");
+    expect(filename).toBe("pc-gamer-ready.csv");
+    expect(filename).not.toMatch(/[\\/:*?"<>|]/);
+    expect(Array.from(filename).every((ch) => ch.charCodeAt(0) > 31 && ch.charCodeAt(0) !== 127)).toBe(true);
+  });
+
+  it("falls back when the slug is empty", () => {
+    expect(csvFilename("...")).toBe("cotizacion.csv");
+    expect(csvFilename("")).toBe("cotizacion.csv");
   });
 });
 

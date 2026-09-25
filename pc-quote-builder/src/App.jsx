@@ -29,7 +29,7 @@ import {
   buildRowsFromSelection,
 } from "./lib/quoteModel";
 import { escapeCsvField, parseCsvToQuote, parsePriceCsv, parsePriceJson, buildPriceMap } from "./lib/csvParser";
-import { exportCSV, exportJSON, downloadFile, buildQuotesFromJson } from "./lib/fileIO";
+import { exportCSV, exportJSON, downloadFile, buildQuotesFromJson, detectQuoteFileKind, slugify } from "./lib/fileIO";
 
 const getNameLabel = (opt) => opt.name;
 
@@ -421,13 +421,15 @@ function App({ measurement: measurementProp }) {
   const handleDownloadCSV = () => {
     if (!activeQuote) return;
     const csvContent = exportCSV(activeQuote, totals, escapeCsvField);
-    downloadFile(csvContent, `${activeQuote.name}.csv`, "text/csv;charset=utf-8;");
+    const fileBase = slugify(activeQuote.name) || "cotizacion";
+    downloadFile(csvContent, `${fileBase}.csv`, "text/csv;charset=utf-8;");
   };
 
   const handleDownloadJSON = () => {
     if (!activeQuote) return;
     const payload = exportJSON(activeQuote, totals);
-    downloadFile(JSON.stringify(payload, null, 2), `${activeQuote.name}.json`, "application/json");
+    const fileBase = slugify(activeQuote.name) || "cotizacion";
+    downloadFile(JSON.stringify(payload, null, 2), `${fileBase}.json`, "application/json");
   };
 
   const handleImportFile = async (event) => {
@@ -435,8 +437,15 @@ function App({ measurement: measurementProp }) {
     if (!file) return;
     try {
       const content = await file.text();
-      const isJson = file.name.toLowerCase().endsWith(".json") || content.trim().startsWith("{") || content.trim().startsWith("[");
-      const importedQuotes = isJson ? buildQuotesFromJson(JSON.parse(content), normalizeQuote) : [parseCsvToQuote(content, { normalizeRow, normalizeQuote })];
+      let importedQuotes;
+      if (detectQuoteFileKind(file.name, content) === "json") {
+        importedQuotes = buildQuotesFromJson(JSON.parse(content), normalizeQuote);
+        if (!importedQuotes.length) {
+          throw new Error("El archivo no contiene cotizaciones.");
+        }
+      } else {
+        importedQuotes = [parseCsvToQuote(content, { normalizeRow, normalizeQuote })];
+      }
 
       setQuotes((prev) => {
         const next = [...prev, ...importedQuotes];
