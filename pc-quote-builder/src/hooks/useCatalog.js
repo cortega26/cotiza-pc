@@ -51,6 +51,7 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
   const [loadedCategories, setLoadedCategories] = useState([]);
   const [assessmentCoverage, setAssessmentCoverage] = useState(null);
   const [assessmentCoverageFailed, setAssessmentCoverageFailed] = useState(false);
+  const [compatFailed, setCompatFailed] = useState(false);
 
   const loadedRef = useRef(new Set());
   const currentTokenRef = useRef(null);
@@ -84,6 +85,7 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
       setTierMaps(buildTierMaps(localCatalog?.compat));
       setAssessmentCoverage(null);
       setAssessmentCoverageFailed(false);
+      setCompatFailed(false);
       setError("");
       setFallbackUsed(false);
     } else if (arraysEqual(prev, curr)) {
@@ -141,9 +143,13 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
               if (currentTokenRef.current !== token) return;
               setCompatMeta(compat || null);
               setTierMaps(buildTierMaps(compat));
+              setCompatFailed(false);
               loadedRef.current.add("compat");
             })
-            .catch(() => {})
+            .catch(() => {
+              if (currentTokenRef.current !== token) return;
+              setCompatFailed(true);
+            })
         );
       }
 
@@ -209,5 +215,6 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
     categoryStates,
     assessmentCoverage,
     assessmentCoverageFailed,
+    compatFailed,
   };
 }

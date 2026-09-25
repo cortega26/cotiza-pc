@@ -100,7 +100,7 @@ function App({ measurement: measurementProp }) {
     return cats;
   }, [mode, builderStep]);
 
-  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed, categoryStates, assessmentCoverage } =
+  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed, categoryStates, assessmentCoverage, assessmentCoverageFailed, compatFailed } =
     useCatalog(reloadToken, neededCategories);
 
   const catalogSignature = useMemo(
@@ -706,6 +706,11 @@ function App({ measurement: measurementProp }) {
             Importar precios (por id)
           </button>
           <p className="field-hint">Formato CSV/JSON: id, oferta, normal, tienda.</p>
+          {compatFailed && (
+            <p className="field-hint">
+              No se pudo cargar la compatibilidad del catálogo; se usan datos locales.
+            </p>
+          )}
         </div>
       </div>
 
@@ -1152,6 +1157,7 @@ function App({ measurement: measurementProp }) {
             fallbackUsed={fallbackUsed}
             categoryStates={categoryStates}
             assessmentCoverage={assessmentCoverage}
+            coverageFailed={assessmentCoverageFailed}
             onApplyQuoteData={handleApplyQuoteData}
             onQuoteStart={handleAnalyzerQuoteStart}
             measurement={measurement}

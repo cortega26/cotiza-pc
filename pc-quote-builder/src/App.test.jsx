@@ -26,6 +26,7 @@ function defaultMock() {
     categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
     assessmentCoverage: null,
     assessmentCoverageFailed: false,
+    compatFailed: false,
   };
 }
 
@@ -525,6 +526,17 @@ describe("Staged catalog demand and reload", () => {
       );
       expect(warning).toBeTruthy();
     });
+  });
+
+  it("shows the compatibility-failure hint without catalog fallback warnings", async () => {
+    renderWithCatalog({ compatFailed: true });
+    await waitFor(() => {
+      expect(
+        screen.getByText("No se pudo cargar la compatibilidad del catálogo; se usan datos locales.")
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText(/Usando catálogo local/)).toBeNull();
+    expect(screen.getByText("Catálogo cargado")).toBeTruthy();
   });
 
   it("reload button is disabled while catalog is loading", async () => {
@@ -1699,7 +1711,7 @@ describe("[plan 032] Analyzer workspace", () => {
     };
   }
 
-  function renderWithRichCatalog(extra = {}) {
+  function renderWithRichCatalog(extra = {}, catalogOverrides = {}) {
     localStorage.setItem("pcqb:quotes:v1", JSON.stringify([quoteWithExactIds()]));
     localStorage.setItem("pcqb:activeQuoteId:v1", "analyzer-quote-1");
     mockUseCatalog.mockReturnValue({
@@ -1713,6 +1725,7 @@ describe("[plan 032] Analyzer workspace", () => {
       categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
       assessmentCoverage: null,
       assessmentCoverageFailed: false,
+      ...catalogOverrides,
     });
     return render(<App {...extra} />);
   }
@@ -1731,6 +1744,20 @@ describe("[plan 032] Analyzer workspace", () => {
     await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
     await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+  });
+
+  it("shows the coverage-unavailable hint in the verdict", async () => {
+    renderWithRichCatalog({}, { assessmentCoverageFailed: true });
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/La cobertura de reglas del catálogo no está disponible/)
+      ).toBeTruthy()
+    );
+    expect(screen.getByText(/Veredicto/)).toBeTruthy();
   });
 
   it("invalidates the analysis when Expert edits change the quote", async () => {
