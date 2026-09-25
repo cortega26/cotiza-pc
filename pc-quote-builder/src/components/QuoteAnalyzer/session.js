@@ -75,6 +75,8 @@ export function analysisSignature(quote, context, mappings, excludedRowIds, cata
     context?.budget,
     mappingFingerprint,
     excluded,
+    quote?.currency,
+    quote?.priceUpdatedAt,
     catalogSignature,
   ]);
 }

@@ -7,7 +7,7 @@ import {
 } from "../../lib/quoteAnalyzer/contracts";
 import { resolveRows } from "../../lib/quoteAnalyzer/resolver";
 import { normalizeCurrency } from "../../lib/money";
-import { normalizeQuote, normalizeRow } from "../../lib/quoteModel";
+import { isRowEmpty, normalizeQuote, normalizeRow } from "../../lib/quoteModel";
 import { parseCsvToQuote } from "../../lib/csvParser";
 import { buildQuotesFromJson } from "../../lib/fileIO";
 import {
@@ -169,12 +169,13 @@ function QuoteAnalyzer({
       verdictViewedKeyRef.current = null;
       onQuoteStart?.();
       inputCompletedAtRef.current = now;
-      const missingPriceRows = analysisRows.filter(
+      const measurableRows = analysisRows.filter((row) => !isRowEmpty(row));
+      const missingPriceRows = measurableRows.filter(
         (row) => !row.offerPrice && !row.regularPrice
       ).length;
       emit("quote_input_completed", {
         inputMethod,
-        rowCount: analysisRows.length,
+        rowCount: measurableRows.length,
         missingPriceRowCount: missingPriceRows,
         currency: eventCurrencyFor(quote?.currency),
         analyzerInputSchemaVersion: SCHEMA_VERSION_INPUT,

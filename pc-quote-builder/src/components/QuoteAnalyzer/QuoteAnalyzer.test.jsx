@@ -8,6 +8,7 @@ import { createInMemorySink, createMeasurement } from "../../lib/measurement/mea
 import { downloadFile } from "../../lib/fileIO";
 import { resolveRows } from "../../lib/quoteAnalyzer/resolver";
 import { buildRichCatalog, buildCompatMeta, cpuIntel, gpuHigh, moboLga, psu500, caseAtx, ramDdr5_1 } from "../../test/fixtures";
+import { createEmptyRow } from "../../lib/quoteModel";
 
 vi.mock("../../lib/fileIO", async (importOriginal) => {
   const actual = await importOriginal();
@@ -115,6 +116,22 @@ describe("QuoteAnalyzer", () => {
     const viewed = sink.events.find((e) => e.name === "evidence_qualified_verdict_viewed");
     expect(["ok", "warning", "fail", "unknown", "incomplete"]).toContain(viewed.verdictOverall);
     expect(viewed.identityResolutionCoveragePercent).toBe(100);
+  });
+
+  it("excludes empty placeholder rows from the input-completion measurement", async () => {
+    const quote = makeQuote({
+      rows: [
+        { ...makeQuote().rows[0], offerPrice: "", regularPrice: "" },
+        ...makeQuote().rows.slice(1),
+        createEmptyRow(),
+      ],
+    });
+    const { sink } = renderAnalyzer({ quote });
+    await runToVerdict();
+
+    const inputCompleted = sink.events.find((e) => e.name === "quote_input_completed");
+    expect(inputCompleted.rowCount).toBe(6);
+    expect(inputCompleted.missingPriceRowCount).toBe(1);
   });
 
   it("exports a valid minimized case without changing resolved component keys", async () => {

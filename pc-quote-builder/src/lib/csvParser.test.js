@@ -416,6 +416,30 @@ describe("parsePriceCsv", () => {
     expect(() => parsePriceCsv(csv)).toThrow("id");
   });
 
+  it("prefers an exact ID column over a Cantidad column containing 'id'", () => {
+    const csv = "Cantidad,ID,Precio Oferta,Precio Normal,Tienda\n1,item-1,100,200,StoreX";
+    const items = parsePriceCsv(csv);
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual({ id: "item-1", offerPrice: "100", regularPrice: "200", store: "StoreX" });
+  });
+
+  it("accepts ID only and itemid column names", () => {
+    const upperId = parsePriceCsv("ID,Precio\nitem-2,300");
+    expect(upperId[0]).toEqual({ id: "item-2", offerPrice: "", regularPrice: "", store: "" });
+
+    const itemId = parsePriceCsv("itemid,oferta\nitem-3,400");
+    expect(itemId[0]).toEqual({ id: "item-3", offerPrice: "400", regularPrice: "", store: "" });
+  });
+
+  it("falls back to a substring id column that is not a known false positive", () => {
+    const items = parsePriceCsv("Identificador,Precio\nitem-4,500");
+    expect(items[0]).toEqual({ id: "item-4", offerPrice: "", regularPrice: "", store: "" });
+  });
+
+  it("throws when the only id-like column is a known false positive", () => {
+    expect(() => parsePriceCsv("Cantidad,Precio\n1,100")).toThrow("id");
+  });
+
   it("handles quoted prices", () => {
     const csv = 'id,"offer","regular"\nitem1,"1,000","2,000"';
     const items = parsePriceCsv(csv);
