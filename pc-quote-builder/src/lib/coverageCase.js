@@ -68,22 +68,24 @@ export function buildCoverageCase(
   const explicitMappingEntries = [];
 
   for (const row of sourceRows) {
-    const itemIdKey = identifierKey(row?.itemId);
-    if (!isPlainObject(row) || itemIdKey === null) continue;
+    if (!isPlainObject(row)) continue;
 
-    const newId = `r-${rows.length + 1}`;
-    rows.push({ id: newId, category: row.category, itemId: row.itemId });
-    directlyReferencedIds.add(itemIdKey);
-
+    const itemIdKey = identifierKey(row.itemId);
+    const mappedId = sourceExplicitMappings?.[row.id];
+    const mappedIdKey = identifierKey(mappedId);
     const resolution = resolveRow(row, sourceCatalog, {
       aliases: sourceAliases,
       explicitMappings: sourceExplicitMappings,
     });
-    if (resolution?.state !== "user-mapped") continue;
+    const isUserMapped =
+      resolution?.state === "user-mapped" && mappedIdKey !== null;
+    if (itemIdKey === null && !isUserMapped) continue;
 
-    const mappedId = sourceExplicitMappings?.[row.id];
-    const mappedIdKey = identifierKey(mappedId);
-    if (mappedIdKey === null) continue;
+    const newId = `r-${rows.length + 1}`;
+    rows.push({ id: newId, category: row.category, itemId: row.itemId });
+    if (itemIdKey !== null) directlyReferencedIds.add(itemIdKey);
+    if (!isUserMapped) continue;
+
     explicitMappingEntries.push([newId, mappedId]);
     directlyReferencedIds.add(mappedIdKey);
   }

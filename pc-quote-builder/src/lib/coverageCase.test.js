@@ -84,6 +84,30 @@ function makeAnalyzerInput() {
   };
 }
 
+function makeEmptyItemIdConfirmedInput() {
+  const input = makeAnalyzerInput();
+  const rowId = "private-confirmed-row-id";
+  return {
+    ...input,
+    quote: {
+      ...input.quote,
+      rows: [
+        {
+          id: rowId,
+          category: "Tarjeta de video",
+          product: "NVIDIA GeForce RTX 4070",
+          itemId: "",
+          store: "Tienda privada confirmada",
+          offerPrice: 550000,
+          regularPrice: 600000,
+          notes: "Nota privada confirmada",
+        },
+      ],
+    },
+    explicitMappings: { [rowId]: gpuHigh.id },
+  };
+}
+
 function makeCase(input = makeAnalyzerInput(), sampling) {
   return buildCoverageCase(input, {
     caseId: CASE_ID,
@@ -128,10 +152,11 @@ describe("buildCoverageCase", () => {
     }
   });
 
-  it("drops rows without itemId and renumbers retained rows deterministically", () => {
+  it("drops rows with neither itemId nor explicit confirmation and renumbers retained rows", () => {
     const input = makeAnalyzerInput();
     const coverageCase = makeCase(input);
 
+    expect(input.explicitMappings).not.toHaveProperty("private-text-row-id");
     expect(coverageCase.analyzerInput.quote.rows.map((row) => row.id)).toEqual([
       "r-1",
       "r-2",
@@ -140,6 +165,64 @@ describe("buildCoverageCase", () => {
     for (const row of input.quote.rows) {
       expect(serialized).not.toContain(row.id);
     }
+  });
+
+  it("retains an empty-itemId row only through its explicit confirmation", () => {
+    const input = makeEmptyItemIdConfirmedInput();
+    const coverageCase = makeCase(input);
+    const rows = coverageCase.analyzerInput.quote.rows;
+    const serialized = JSON.stringify(coverageCase);
+
+    expect(validateCoverageCase(coverageCase)).toEqual([]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      id: "r-1",
+      category: "Tarjeta de video",
+      itemId: "",
+    });
+    expect(coverageCase.analyzerInput.explicitMappings).toEqual({
+      "r-1": gpuHigh.id,
+    });
+    expect(
+      coverageCase.analyzerInput.catalog.gpus.some((item) => item.id === gpuHigh.id)
+    ).toBe(true);
+    for (const privateValue of [
+      input.quote.rows[0].id,
+      input.quote.rows[0].product,
+      input.quote.rows[0].store,
+      input.quote.rows[0].notes,
+      input.quote.name,
+    ]) {
+      expect(serialized).not.toContain(privateValue);
+    }
+  });
+
+  it("preserves user-mapped resolution parity for an empty-itemId confirmation", () => {
+    const input = makeEmptyItemIdConfirmedInput();
+    const coverageCase = makeCase(input);
+    const fullResolution = resolveRows(input.quote.rows, input.catalog, {
+      aliases: input.aliases,
+      explicitMappings: input.explicitMappings,
+    }).resolutions;
+    const minimizedResolution = resolveRows(
+      coverageCase.analyzerInput.quote.rows,
+      coverageCase.analyzerInput.catalog,
+      {
+        aliases: coverageCase.analyzerInput.aliases,
+        explicitMappings: coverageCase.analyzerInput.explicitMappings,
+      }
+    ).resolutions;
+
+    expect(fullResolution).toHaveLength(1);
+    expect(minimizedResolution).toHaveLength(1);
+    expect(minimizedResolution[0]).toMatchObject({
+      rowId: "r-1",
+      state: fullResolution[0].state,
+      componentKey: fullResolution[0].componentKey,
+      itemId: fullResolution[0].itemId,
+    });
+    expect(minimizedResolution[0].state).toBe("user-mapped");
+    expect(minimizedResolution[0].componentKey).toBe("gpu");
   });
 
   it("keeps only required catalog items and all six catalog arrays", () => {
