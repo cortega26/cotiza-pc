@@ -19,7 +19,8 @@
     "download:pc-data": "python ../scripts/download_pc_datasets.py",
     "pc-data:all": "npm run download:pc-data && npm run build:pc-data && npm run sync:pc-data",
     "test": "vitest run --exclude src/lib/postBuildAssertion.test.js",
-    "test:artifacts": "vitest run src/lib/artifactContract.test.js"
+    "test:artifacts": "vitest run src/lib/artifactContract.test.js",
+    "test:contract": "vitest run src/lib/artifactContract.test.js src/lib/postBuildAssertion.test.js"
   },
   "dependencies": {
     "react": "^19.2.0",
