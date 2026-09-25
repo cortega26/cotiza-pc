@@ -56,7 +56,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [029](029-establish-analyzer-validation-corpus.md) | Establish the Quote Analyzer validation corpus and offline harness | P1 | L | 028 | REJECTED: independent expert labeling is infeasible; superseded by 035 |
 | [030](archive/030-generate-assessment-coverage-contract.md) | Generate the assessment coverage and evidence contract | P1 | M | 028 | DONE — manifest `assessment-coverage/v1` generated from the catalog snapshot; evidence preserved at mapping; archive on merge |
 | [031](archive/031-define-decision-funnel-measurement.md) | Define the privacy-preserving decision-funnel measurement contract | P1 | M | 028 | DONE — frozen `decision-measurement/event/v1` contract, privacy envelope, and provider-neutral no-op/injected adapter; no network/storage wiring |
-| [032](032-ship-confirmation-driven-analyzer-ui.md) | Ship the confirmation-driven Quote Analyzer workflow | P1 | L | 028, 030, 031, 035 | TODO |
+| [032](archive/032-ship-confirmation-driven-analyzer-ui.md) | Ship the confirmation-driven Quote Analyzer workflow | P1 | L | 028, 030, 031, 035 | DONE — Analyzer is the default workspace; owner-approved waiver on the Plan 035 real-input gate (no assurance claim); archive on merge |
 | [033](033-build-crawlable-decision-content-foundation.md) | Build the crawlable Spanish decision-content foundation | P2 | L | 030, 031, 032, 035 | TODO |
 | [034](034-qualify-solotodo-price-intelligence-source.md) | Qualify SoloTodo as a permissioned Chilean price-intelligence source | P1 | L | 030, 035 for evaluation; qualification may start now | TODO |
 | [035](archive/035-automate-analyzer-assurance.md) | Replace expert labeling with automated Analyzer assurance | P1 | L | 028; 030 before final scoring | DONE |
@@ -85,7 +85,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
             ├─ 030 ────────────────┐
             ├─ 031 ────────────────┤
             └─ 035 ────────────────┤
-                                    └─ 032 ── 033
+                                    └─ 032 ─DONE─ 033
 
 030 + 035 ── 034 qualification/evaluation ── future approved price integration
 ```
@@ -121,12 +121,13 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
 - Plan 031 defines event semantics and a provider-neutral no-op/injected adapter.
   It does not authorize a telemetry vendor, network sink, cookie, or raw quote
   data collection.
-- Plan 032 is the production Analyzer UI and the point where the shipped picker
-  is honestly labeled Expert/Manual Builder. It must not be publicly enabled if
-  Plan 035 fails conformance, misses a critical negative control, accepts
-  missing/conflicting evidence as `ok`, or cannot evaluate its coverage gate.
-  It also overlaps an unrelated `App.test.jsx` change that was uncommitted when
-  this batch was written; preserve and reconcile it before execution.
+- Plan 032 shipped the production Analyzer UI and the honest Expert/Manual
+  Builder label. The Plan 035 real-input coverage gate is not yet evaluable
+  (no private corpus), so the project owner recorded an explicit waiver on
+  2026-09-25: public enablement uses bounded-assurance copy only, missing or
+  conflicting evidence still resolves to `unknown`, and the coverage gate is a
+  later validation item rather than a launch blocker. See the archived plan for
+  the full record.
 - Plan 033 is a three-page authored pilot, not the full twelve-page Milestone 1
   target and not programmatic SEO. External Search Console, sitemap submission,
   production build, and deployment remain separate explicitly authorized
