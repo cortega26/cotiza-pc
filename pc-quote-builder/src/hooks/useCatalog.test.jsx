@@ -88,6 +88,45 @@ describe("useCatalog", () => {
     expect(loadCalls).toContain("motherboards");
   });
 
+  it("requests category and compatibility loads without caching the raw parse", async () => {
+    loadCategoryFile.mockResolvedValue([]);
+    loadCompatibilityFile.mockResolvedValue(null);
+
+    renderHook(() => useCatalog(0, ["cpus"]));
+
+    await waitFor(() => expect(loadCompatibilityFile).toHaveBeenCalled());
+    expect(loadCategoryFile).toHaveBeenCalledWith(
+      expect.any(String),
+      "cpus",
+      expect.objectContaining({ noCache: true })
+    );
+    expect(loadCompatibilityFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ noCache: true })
+    );
+    expect(loadAssessmentCoverageFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.not.objectContaining({ noCache: true })
+    );
+  });
+
+  it("does not refetch loaded files on ordinary re-renders", async () => {
+    loadCategoryFile.mockResolvedValue([]);
+    loadCompatibilityFile.mockResolvedValue(null);
+
+    const { rerender } = renderHook(({ cats }) => useCatalog(0, cats), {
+      initialProps: { cats: ["cpus"] },
+    });
+    await waitFor(() => expect(loadCategoryFile).toHaveBeenCalledTimes(1));
+    const compatCalls = loadCompatibilityFile.mock.calls.length;
+
+    rerender({ cats: ["cpus"] });
+    rerender({ cats: ["cpus"] });
+
+    expect(loadCategoryFile).toHaveBeenCalledTimes(1);
+    expect(loadCompatibilityFile).toHaveBeenCalledTimes(compatCalls);
+  });
+
   it("falls back to local catalog on load failure and exposes the error", async () => {
     loadCategoryFile.mockRejectedValue(new Error("Network failure"));
     loadCompatibilityFile.mockRejectedValue(new Error("Compat failure"));
