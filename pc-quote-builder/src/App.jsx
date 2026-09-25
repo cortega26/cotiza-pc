@@ -1146,6 +1146,7 @@ function App({ measurement: measurementProp }) {
 
         <section className={"analyzer-workspace" + (mode === "analizar" ? "" : " hidden")} aria-hidden={mode !== "analizar"} aria-label="Analizar cotización">
           <QuoteAnalyzer
+            active={mode === "analizar"}
             quote={activeQuote}
             catalog={catalog}
             compatMeta={compatMeta}

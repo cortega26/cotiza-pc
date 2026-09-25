@@ -46,6 +46,7 @@ function QuoteAnalyzer({
   onApplyQuoteData,
   onQuoteStart,
   measurement,
+  active = true,
 }) {
   const [stage, setStage] = useState("intake");
   const [context, setContext] = useState({ ...ANALYZER_CONTEXT_DEFAULT });
@@ -100,8 +101,11 @@ function QuoteAnalyzer({
   }, [validMappings]);
 
   const resolutions = useMemo(
-    () => resolveRows(analysisRows, catalog, { aliases, explicitMappings, index: catalogIndex }).resolutions,
-    [analysisRows, catalog, aliases, explicitMappings, catalogIndex]
+    () =>
+      active
+        ? resolveRows(analysisRows, catalog, { aliases, explicitMappings, index: catalogIndex }).resolutions
+        : [],
+    [active, analysisRows, catalog, aliases, explicitMappings, catalogIndex]
   );
 
   const integratedGpu =
@@ -142,13 +146,13 @@ function QuoteAnalyzer({
   }, [analysisStart, quote, analysisRows, context, catalog, compatMeta, aliases, explicitMappings]);
 
   const report = useMemo(() => {
-    if (stage !== "verdict" || !isCurrent || !analyzerInput) return null;
+    if (!active || stage !== "verdict" || !isCurrent || !analyzerInput) return null;
     try {
       return analyzeQuote(analyzerInput);
     } catch (err) {
       return { error: err?.message || "No se pudo evaluar la cotización." };
     }
-  }, [stage, isCurrent, analyzerInput]);
+  }, [active, stage, isCurrent, analyzerInput]);
 
   const emit = useCallback(
     (name, payload) => {
@@ -163,7 +167,7 @@ function QuoteAnalyzer({
 
   const startAnalysis = useCallback(
     (inputMethod) => {
-      if (!contextValid || !catalogReady) return;
+      if (!active || !contextValid || !catalogReady) return;
       const now = new Date().toISOString();
       setAnalysisStart({ evaluatedAt: now, signature });
       setActionRecorded(false);
@@ -190,7 +194,7 @@ function QuoteAnalyzer({
       });
       setStage("resolve");
     },
-    [contextValid, catalogReady, signature, onQuoteStart, analysisRows, emit, resolutions, quote]
+    [active, contextValid, catalogReady, signature, onQuoteStart, analysisRows, emit, resolutions, quote]
   );
 
   const handleAnalyzeManual = () => startAnalysis(lastInputMethod || "manual");
