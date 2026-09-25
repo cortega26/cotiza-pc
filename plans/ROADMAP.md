@@ -13,9 +13,10 @@
 > 2026-09-25. Plans 037-049, 051, and 052 are merged; Waves 0-5 are complete.
 > Baseline on the integration branch: `npm run check` exit 0 (zero lint
 > warnings, scripts linted), `npm test` = 1057 passing / 1 todo, assurance and
-> root verification green. 050 is BLOCKED on an owner decision (missing-data
-> clears), WIP preserved on `advisor/041-050-builder-cleanups` (`4e82726`).
-> 033/034 and the page batch plans remain decision-gated (Wave 6).
+> root verification green. 050 is IN PROGRESS under the owner-approved
+> evidence-gated-clears amendment (resumed from WIP
+> `advisor/041-050-builder-cleanups`, `4e82726`). 033/034 and the page batch
+> plans remain decision-gated (Wave 6).
 >
 > **How to use it**: pick the earliest wave that is unblocked, run its plans
 > (one worktree each, serial on shared files), update `plans/README.md` when a
@@ -121,7 +122,7 @@ plans 016-026, 028, 030-032, 035, 036 are `DONE` and listed in
 | [043](043-analyzer-context-and-failure-surfacing.md) | Context edit + degraded-data surfacing | P1 | S | 3B | 042 (same files) | DONE (merged `0de4e23`) | edit-context round trip; compat/coverage failures visible |
 | [044](044-harden-import-persistence-workspace.md) | Import/persistence/workspace hardening | P2 | S-M | 4A | 042, 043 | DONE (merged `b5d7381`) | per-entry recovery + backup; unified detection; slugified filenames; mapper guard; single pushState |
 | [041](041-retire-dead-builder-reducer.md) | Retire dead builder reducer | P2 | S | 4B | 040 | DONE (merged `7d562f7`) | `rg builderReducer src` empty; helpers renamed; suite green |
-| [050](050-non-destructive-conflict-notices.md) | Conflict-clear notices | P2 | S | 4B | 040 | BLOCKED — missing-data clears: empty CPU socket / case form factors satisfy the clear conditions; announcing them would assert mismatches that were never verified. Owner decision in §7; WIP at `4e82726` | five clear conditions announce; dismiss works; no rule change |
+| [050](050-non-destructive-conflict-notices.md) | Conflict-clear notices | P2 | S | 4B | 040 | IN PROGRESS — amended 2026-09-25: owner approved evidence-gated clears (new Step 1); resumed from WIP `4e82726` | five clear conditions announce (only with both sides' data present); dismiss works; no rule change |
 | [046](046-lint-scripts-and-asset-hygiene.md) | Pipeline lint + strict app lint + asset prune | P2 | S-M | 5A | 037, 042/043 | DONE (merged `93dd68d`) | scripts lint 0; `--max-warnings 0`; assets match index.html |
 | [045](045-docs-truth-up.md) | Docs truth-up | P2 | S | 5B | behavior waves merged | DONE (merged `ca0ed6c`) | stale current-state claims gone; example marked synthetic |
 | [033](033-build-crawlable-decision-content-foundation.md) | 3-page crawlable content pilot | P2 | L | 6 | 030-032, 035 | TODO | pilot pages + observation gate; external actions not authorized |
@@ -238,11 +239,12 @@ Wave 6 ─ 033, 034 and future plans unlocked by 048/049/051 decisions
 - **Merge order**: 044, then 041+050 as one commit series.
 - **Status (2026-09-25)**: 044 DONE — reviewed and merged as `b5d7381`
   (StrictMode-safe first-write skip recorded as a deliberate deviation).
-  041 DONE — reviewed and merged as `7d562f7`. 050 **BLOCKED**: the executor
-  hit its STOP condition on missing-data conflation (verified against the
-  shipped catalog: 120 cases with empty form factors, 549 CPUs without a
-  socket); WIP preserved at `4e82726`, unmerged. **Wave 5 (046 → 045) and 049
-  may proceed — neither depends on 050; the owner decision is in §7.**
+  041 DONE — reviewed and merged as `7d562f7`. 050 was BLOCKED on the
+  missing-data conflation STOP (verified against the shipped catalog: 120
+  cases with empty form factors, 549 CPUs without a socket); the owner
+  approved evidence-gated clears on 2026-09-25, the plan was amended (new
+  Step 1), and execution resumed from WIP `4e82726`. **Wave 5 (046 → 045) and
+  049 are complete; 050 is the last plan in flight.**
 
 ### Wave 5 — Tooling and final reconciliation (1–1.5 days)
 
@@ -383,7 +385,7 @@ amendment) when made.
 | Decision | Blocks | Recorded where | Status |
 |---|---|---|---|
 | Consent wording, retention period, hosting, withdrawal SLA for contributed quotes | Any implementation of 048 | 048 §9 + owner note | OPEN |
-| Missing-data builder clears: empty `socket`/`formFactors` currently clear a selection; decide whether to (a) make clears require both sides present (behavior change, needs product-decision record) or (b) announce only clears justified by present data (residual silent clears) | Plan 050 (BLOCKED) and any follow-up plan | 050 maintenance note + this queue | OPEN |
+| Missing-data builder clears: empty `socket`/`formFactors` currently clear a selection; decide whether to (a) make clears require both sides present (behavior change, needs product-decision record) or (b) announce only clears justified by present data (residual silent clears) | Plan 050 (BLOCKED) and any follow-up plan | 050 maintenance note + this queue | RESOLVED 2026-09-25 — owner approved **(a) evidence-gated clears**; plan 050 amended (new Step 1) and resumed from WIP `4e82726` |
 | Topic priority and rule-coverage floor for pages 4-12; observation gate stays evidence-based | Page batch plans after 049 | 049 §8 | OPEN |
 | Measurement sink model, consent, retention, access; acquisition-class derivation rule | Any implementation of 051 ("`product_start` + non-branded separation") | 051 §9 + contract amendment if needed | OPEN — deferred: no collection authorized until M1 traffic; owner re-approval required (051 merged `12a900b`) |
 | SoloTodo go/no-go after qualification | Price-intelligence integration | 034 plan | OPEN (qualification may start) |
@@ -438,3 +440,4 @@ amendment) when made.
 | 2026-09-25 | merged `7d562f7`; WIP `4e82726` | Wave 4 step 2: 041 (`b49f7a9`) executed and merged; dead builder reducer retired, `builderHelpers.js` in place. 050 implemented and green but correctly STOPPED on its missing-data-conflation condition (verified reachable in the shipped catalog); WIP committed unmerged, plan marked BLOCKED, owner decision queued. Baseline 1052 passing / 1 todo (9 deleted reducer tests). |
 | 2026-09-25 | merged `0236a7a` | Wave 5 step 1 + docs track: 046 executed (`3e80934`; plan amended mid-execution for the ESLint 10 base-path invocation), 049 executed (`5bfbc10`), both reviewed and merged. Scripts linted with 16 dead bindings removed, app lint now zero-warning, workflow gates extended, 5 stale bundles pruned; pages 4-12 inventory authored (page 5 deferred). Baseline 1057 passing / 1 todo. |
 | 2026-09-25 | merged `ca0ed6c` | Wave 5 step 2: 045 executed (`ea37c9b`), reviewed (APPROVE; one justified extra doc), merged. Measurement/validation docs reconciled with shipped state, synthetic report example labeled, code refs corrected. Integration baseline `npm run check` exit 0 with zero warnings, 1057 passing / 1 todo, assurance and `verify.sh` green. **Waves 0-5 complete; 050 BLOCKED on owner decision.** |
+| 2026-09-25 | plans only | Owner approved **evidence-gated clears**; plan 050 amended (new Step 1 guards missing data, notice tests extended to ten cases) and resumed from WIP `4e82726`; ROADMAP §7 decision resolved. |

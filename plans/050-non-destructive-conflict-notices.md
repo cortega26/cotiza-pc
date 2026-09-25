@@ -44,11 +44,21 @@ does not change compatibility rules.
   the improve audit. It is the "explicit notice" variant of the silent-clear
   replacement recorded as an open owner decision in `docs/design/builder-modes.md`
   §8; selections are still cleared, but visibly.
+- **Owner decision extension (2026-09-25, after the STOP review)**: the owner
+  approved **evidence-gated clears**. A selection may only be cleared when the
+  data needed to establish the conflict is present on both sides; unknown or
+  missing data must never clear a selection and must never announce a conflict.
+  This is the only behavior change this plan authorizes; compatibility rules,
+  evaluation semantics, and the real-conflict clears are unchanged. Rationale:
+  the repository's own compatibility checks already return `unknown` for
+  missing data, so keeping the selection lets the assessment surface the
+  unknown honestly instead of destroying user work (see STOP history in
+  Maintenance notes).
 - **Dimension improved**: explainability / trust on the Expert surface.
-- **Evidence type**: deterministic (the same conditions already used to clear).
+- **Evidence type**: deterministic (the same conditions already used to clear,
+  now gated on data presence).
 - **Failure modes**: more on-screen text; a notice must never appear when
-  nothing was cleared, and must never claim a compatibility failure where data
-  is merely missing.
+  nothing was cleared; missing data never clears and never announces.
 - **Milestone**: no numeric Milestone exit criterion; supports trustworthy
   Expert behavior while the Analyzer remains the primary flow.
 
@@ -103,7 +113,8 @@ when CPU socket changes").
 - `pc-quote-builder/src/App.test.jsx`
 
 **Out of scope**:
-- Changing any clearing condition or compatibility rule.
+- Changing compatibility rules, evaluation semantics, or the real-conflict
+  clear outcomes; only the three evidence guards in Step 1 are authorized.
 - Preserving/restoring the cleared selection, "undo", or override mechanics.
 - `builder-modes.md` — plan 045 corrects its current-state facts; do not add
   features to it here.
@@ -117,7 +128,35 @@ when CPU socket changes").
 
 ## Steps
 
-### Step 1: Collect a notice inside `handleBuilderChange`
+### Step 1: Gate each clear on present data (owner decision 2026-09-25)
+
+Guard only the clear conditions that currently treat missing data as a
+conflict. Do not change the comparison operators or the compatibility rules.
+
+1. CPU socket (`key === "cpuId"`):
+   `if (mobo && cpu && cpu.socket && mobo.socket && mobo.socket !== cpu.socket)`
+2. CPU memory type: the condition already requires `cpu.memoryTypeExplicit`;
+   additionally require the RAM type to be present:
+   `if (ram && cpu && cpu.memoryTypeExplicit && ram.type && ram.type !== cpu.memoryType)`
+3. Motherboard memory type: already requires `mobo.memoryTypeExplicit`; add
+   `ram.type` as in (2).
+4. Motherboard → case form factor:
+   `if (mobo && currentCase && mobo.formFactor && currentCase.formFactors?.length && !currentCase.formFactors.includes(mobo.formFactor))`
+5. GPU length: already safe (`gpu.length > currentCase.maxGpuLength` is false
+   when either value is missing); do not change it.
+
+Rationale: `checkCpuMoboCompatibility`, `checkRamMoboCompatibility` and
+`checkMoboCaseCompatibility` already return `unknown` when the data needed for
+judgment is missing, so keeping the selection lets the assessment surface the
+unknown honestly instead of destroying the selection.
+
+**Verify**: `npm test -- App` passes, including new cases asserting that a CPU
+with no socket does not clear a selected motherboard, that a case with empty
+`formFactors` is not cleared by a motherboard selection, and that a RAM row
+with no type is not cleared; the plan-040 characterization tests for real
+conflicts remain green.
+
+### Step 2: Collect a notice inside `handleBuilderChange`
 
 1. Add state near the builder state: `const [builderNotice, setBuilderNotice] = useState("");`.
 2. Inside `handleBuilderChange`, accumulate reason strings while building
@@ -154,7 +193,7 @@ when CPU socket changes").
 4. Do not clear the notice when a subsequent change clears nothing — it stays
    until dismissed (the user may still be reading it).
 
-### Step 2: Render the notice
+### Step 3: Render the notice
 
 Immediately after the `builder-head` `</div>` at `App.jsx:824`, add:
 
@@ -173,7 +212,7 @@ Keep the existing copy rules: only appear for the five clear conditions in
 Step 1; no notice for missing data (a `null` socket/form factor never triggers
 a clear today, so it must never trigger a notice).
 
-### Step 3: Tests
+### Step 4: Tests
 
 Extend `App.test.jsx` (use the plan 040 cascade tests as the base). Each case
 asserts both the cleared selection and the notice text:
@@ -185,12 +224,15 @@ asserts both the cleared selection and the notice text:
 5. GPU too long clears case → notice about GPU/gabinete.
 6. A compatible change produces **no** notice.
 7. "Cerrar" dismisses the notice; clearing the builder also resets it.
+8. Missing CPU socket + selected mobo → selection kept, **no** notice.
+9. Case with empty `formFactors` + mobo selection → selection kept, **no** notice.
+10. RAM with no type + explicit CPU memory type → selection kept, **no** notice.
 
-**Verify**: `npm test -- App` → all pass, including the seven cases.
+**Verify**: `npm test -- App` → all pass, including the ten cases.
 
 ## Test plan
 
-As in Step 3. Use exact Spanish strings from Step 1; assert with
+As in Step 4. Use exact Spanish strings from Step 2; assert with
 `screen.getByText(...)` / `getByRole("status")`.
 
 **Verification**: `npm test` → all pass; `npm run lint` → exit 0.
@@ -200,7 +242,11 @@ As in Step 3. Use exact Spanish strings from Step 1; assert with
 ALL must hold:
 
 - [ ] `npm run lint` exits 0
-- [ ] `npm test` exits 0, including the seven new/updated App cases
+- [ ] `npm test` exits 0, including the five notice cases, the no-notice case,
+      dismiss/reset, and the three missing-data no-clear cases
+- [ ] The three evidence guards (CPU socket, RAM type, case form factors) are
+      present in the clear conditions, and the plan-040 real-conflict cascade
+      tests are unchanged and green
 - [ ] `rg -n "builderNotice" pc-quote-builder/src/App.jsx` shows state,
       five clear sites, render, dismiss, and clear-builder reset
 - [ ] `rg -n 'role="status"' pc-quote-builder/src/App.jsx` matches once
@@ -215,9 +261,12 @@ Stop and report back (do not improvise) if:
 - Plan 040 has not landed (cascade behavior lacks characterization tests).
 - The cascade conditions have changed shape (e.g. plan 038/042 rewrote them) —
   report the divergence rather than reintroducing old conditions.
-- A notice would fire for an `unknown`/missing-data case; that violates the
-  "we cannot verify this is not the same as this will not work" rule — fix the
-  condition, or STOP if the existing code already conflates them.
+- After the evidence guards, a real-conflict clear stops firing its notice
+  (clear condition and notice must stay in lockstep) — report the mismatch.
+- `checkCpuMoboCompatibility`, `checkRamMoboCompatibility`, or
+  `checkMoboCaseCompatibility` stops returning `unknown` for missing data (the
+  rationale for keeping the selection) — report it instead of adding
+  compensating copy.
 - StrictMode testing shows duplicated notice text (the accumulation is not
   idempotent) — restructure rather than deduplicate display strings.
 
@@ -227,30 +276,29 @@ Stop and report back (do not improvise) if:
   it, update the tests in the same change.
 - If a future plan adds override/undo behavior, the notice component is the
   natural place to host the action; do not build it now.
-- Reviewer should scrutinize: exactly the five existing clear conditions fire
-  notices, and no compatibility rule changed.
-- **STOPPED (2026-09-25)**: implementation complete on branch
-  `advisor/041-050-builder-cleanups` (WIP commit `4e82726`, unmerged) — five
-  notices, seven tests, StrictMode single-notice test, suite green (1060
-  passing / 1 todo) — but the STOP condition "a notice would fire for an
-  unknown/missing-data case" is real and was verified against the shipped
-  catalog:
+- The evidence guards (Step 1) are part of the 2026-09-25 owner decision; do
+  not weaken them. A clear without both sides' data present is a bug, not a
+  preference.
+- Reviewer should scrutinize: exactly the five clear conditions fire notices,
+  each only when both sides' data is present; missing data keeps the selection;
+  no compatibility rule changed.
+- **Execution history and amendment (2026-09-25)**: the first execution
+  stopped on branch `advisor/041-050-builder-cleanups` (WIP commit `4e82726`)
+  after implementing the five notices, seven tests, and the StrictMode
+  single-notice test (suite green, 1060 passing / 1 todo), because the STOP
+  condition "a notice would fire for an unknown/missing-data case" is real:
   - `mobo && cpu && mobo.socket !== cpu.socket` is true when `cpu.socket` is
     missing; 549 of 1,255 shipped CPUs have no `socket` in the raw artifact
     (some are inferred by the mapper, but unknown-socket CPUs remain
-    selectable), so the mobo is cleared and the notice would claim a socket
+    selectable), so the mobo was cleared and the notice would claim a socket
     mismatch that was never established.
   - `!currentCase.formFactors?.includes(mobo.formFactor)` is true when
     `formFactors` is empty; 120 of 7,914 shipped cases have no
-    `supported_mobo_form_factors`, so the case is cleared and the notice would
+    `supported_mobo_form_factors`, so the case was cleared and the notice would
     claim a form-factor mismatch.
   - `mobo.formFactor` missing would do the same for the mobo→case path (0
     occurrences in the shipped catalog, but possible with degraded data).
-  The clears themselves are pre-existing and "changing any clearing condition"
-  is out of this plan's scope, so per the STOP the work stops here rather than
-  announcing unverified conflicts (violates the vision's
-  unknown-never-fails rule). **Owner decision required**: (a) fix the clear
-  conditions so missing data never clears (behavior change — needs a
-  product-decision record), then finish 050; or (b) keep clears unchanged and
-  announce only the clears whose conditions are fully evidenced (residual
-  silent clears remain). Recorded in ROADMAP §7.
+  **Resolution**: the owner approved evidence-gated clears (see the
+  product-decision record and Step 1). Resume from the WIP commit, apply the
+  three guards, and extend the tests with the three missing-data no-clear
+  cases; the notice WIP otherwise stands.
