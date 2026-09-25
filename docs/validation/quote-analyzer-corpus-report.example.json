@@ -1,5 +1,6 @@
 {
   "schemaVersion": "quote-analyzer-assurance/report/v1",
+  "illustrative": true,
   "generatedAt": "2026-08-01T13:00:00.000Z",
   "rulesVersion": "quote-analyzer/rules/v1",
   "conformance": {
@@ -104,6 +105,7 @@
   "limitations": [
     "No expert validation",
     "No universal real-world false-negative estimate",
-    "No gaming-balance validation"
+    "No gaming-balance validation",
+    "Ilustración sintética; no se ha recolectado un corpus real (waiver del propietario, 2026-09-25)"
   ]
 }

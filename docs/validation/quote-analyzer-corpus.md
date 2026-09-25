@@ -2,9 +2,14 @@
 
 > **Estado**: modelo automatizado aprobado por el propietario del proyecto
 > (2026-07-31). Sustituye el requisito de revisores independientes de Plan 029.
-> Plan 035 implementa el contrato y los harnesses nuevos; hasta que termine,
-> este documento autoriza la recolección privada conforme a este protocolo,
-> pero no permite declarar cumplida la puerta automatizada de lanzamiento.
+> Plan 035 está DONE: el contrato y los harnesses ya están implementados. Este
+> documento sigue siendo el protocolo rector para la recolección privada, pero
+> la puerta automatizada de lanzamiento sigue sin evaluarse porque no existe un
+> corpus privado (waiver del propietario, 2026-09-25).
+>
+> Suite de conformidad, desde la raíz del repositorio:
+> `node scripts/quote_analyzer_assurance.js --conformance-dir scripts/fixtures/quote-analyzer-assurance`
+> (o `npm run test:assurance` desde `pc-quote-builder/`, script de Plan 037).
 >
 > Este documento gobierna dos activos distintos: un corpus privado de
 > cotizaciones reales para medir cobertura y una suite versionada de

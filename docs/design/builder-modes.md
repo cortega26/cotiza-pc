@@ -6,7 +6,7 @@
 
 ## 1. Problem and users
 
-The current UI labels a component-by-component picker "Builder guiado" (`App.jsx:748`), but its selection model contains only six component IDs and an integrated-GPU flag (`EMPTY_BUILDER`, `builderReducer.js:10-18`). There is no intent, budget, workload, priority, or owned-parts model. The vision requires two explicit experiences: a **Guided Builder** where users who do not know their components answer understandable questions and receive explained builds, and an **Expert Builder** where users with complete control select manually, compare alternatives, override, and inspect detailed compatibility without being forced through a questionnaire.
+The current UI labels the component-by-component picker "Constructor experto" (expert workspace mode, `src/lib/workspaceMode.js`), but its selection model contains only six component IDs and an integrated-GPU flag (`EMPTY_BUILDER`, `builderReducer.js:10-18`). There is no intent, budget, workload, priority, or owned-parts model. The vision requires two explicit experiences: a **Guided Builder** where users who do not know their components answer understandable questions and receive explained builds, and an **Expert Builder** where users with complete control select manually, compare alternatives, override, and inspect detailed compatibility without being forced through a questionnaire.
 
 Value: beginners get defensible starting builds without drowning in part numbers; experts keep unrestricted inspection and override. Both share the same assessment engine, so a guided proposal degrades gracefully into an expert session and vice versa.
 
@@ -20,7 +20,7 @@ The existing picker is the production baseline for the Expert surface. It alread
 | Dependency filtering | Mobo by CPU socket; RAM by mobo/CPU memory type; case by mobo form factor + GPU length (`App.jsx:31-70`); PSU by wattage floor `recommendedPsuWatts - 100` (`App.jsx:209-212`, `psuOptionsForStep`) | Filter reasons are not shown as evidence |
 | Auto-clear on conflict | CPU change clears mobo/ram; mobo change clears ram/case; GPU change clears case (`App.jsx:313-355`) | Destructive clears are silent — no "we cleared X because Y" |
 | Live assessment | `evaluateSelection`: issues, warnings, statuses, summaryVerdict, selectionChips (`App.jsx:197`) | No per-component explanation of *why this part was chosen* |
-| Power | `estimatePowerEnvelope`, `checkPsuPowerSufficiency`, `checkPsuConnectors` (compatibility.js) | PSU connector data missing for 100% of PSUs (0/2128 `pcie_power_connectors`); `checkPsuConnectors` reports `unknown` on missing data — never a confirmed incompatibility (2026-07-30 fix) |
+| Power | `estimatePowerEnvelope`, `checkPsuPowerSufficiency`, `checkPsuConnectors` (compatibility.js) | PSU↔GPU connector coverage measured 0 → 17.0% by Plan 036 (2026-09-25); when connector data is missing, `checkPsuConnectors` reports `unknown` — never a confirmed incompatibility (2026-07-30 fix) |
 | Tiers | CPU tier 1-4 (961 items), GPU tier 1-4 (3869 items) via `compatibility.min.json` | Tier is displayed raw, never translated to workload fit |
 | Data staging | Staged catalog loading by builder step (`useCatalog` `neededCategories`) | Prices are not part of the catalog at all |
 
@@ -114,7 +114,7 @@ Current picker + three additions:
 | P1 | Gonzalo, gaming beachhead (vision §persona) | 1440p, tower-only CLP 1.2M, priorities performance+upgradeability | 2 builds: mid-tier AMD + Intel; per-part evidence; balance notes; budget marker "within/over" only if prices exist | tiers full, tdp_w full, prices absent → budget shown as preference only |
 | P2 | María, constrained office | ≤ CLP 500k total, integrated-GPU acceptable, office+web | single build with integrated-GPU start; explanation of why dedicated GPU is not proposed; silent case note | CPU tier 1-2; no prices |
 | P3 | Pablo, development/workstation | compile + VM workloads | **deferred**: workload→component mapping is `unsupported` (no benchmark data). Proposal explains deferral and offers mid-high tier manual defaults with evidence labels | no licensed benchmark source |
-| P4 | Daniela, owned-parts upgrade | owns PSU + case; buys cpu/mobo/ram/gpu | proposals exclude owned parts from cost scope; owned parts integrated into compatibility validation; connector/power checks flagged `unknown` where PSU connector data missing | PSU connectors 0/2128 → honest unknown |
+| P4 | Daniela, owned-parts upgrade | owns PSU + case; buys cpu/mobo/ram/gpu | proposals exclude owned parts from cost scope; owned parts integrated into compatibility validation; connector/power checks flagged `unknown` where PSU connector data missing | PSU connector coverage 17.0% (Plan 036) → honest unknown where data is missing |
 | P5 | Luis, no-valid-build / insufficient data | minimal budget + conflicting priorities (performance vs silence vs budget) | conflict explanation, constraint removal suggestions, handoff to Expert with intent record | demonstrates §4.4 paths |
 
 P3 is deliberately gated: its rule would require unavailable performance/benchmark data, triggering the plan's STOP condition. The design does not encode it.
@@ -124,7 +124,7 @@ P3 is deliberately gated: its rule would require unavailable performance/benchma
 | Phase | Contents | Gate |
 |---|---|---|
 | A | Expert evidence panel + alternatives + non-destructive conflicts (no new recommendation rules) | none beyond current engine — production-safe today |
-| B | Intake schema + deterministic gaming recommendation engine | **shared analyzer assessment contract in production (Plan 024 implementation) + Milestone 2 quality gates** (vision sequencing, plans/README) |
+| B | Intake schema + deterministic gaming recommendation engine | **shared analyzer assessment contract in production (Plans 028/032, DONE) + Milestone 2 quality gates** (vision sequencing, plans/README) |
 | C | Proposal presentation + guided→expert handoff | Phase B |
 | D | Budget/value rules | a licensed or source-verifiable price feed exists (owner decision, plan 024 §12 companion) |
 | E | Non-gaming workloads | benchmark data with declared provenance (P3) |
