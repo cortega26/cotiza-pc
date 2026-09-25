@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { StrictMode } from "react";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { cleanup, render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import App from "./App";
@@ -1180,6 +1181,210 @@ describe("[plan 014] Builder flow", () => {
     await waitFor(() => expect(screen.getByLabelText("Gabinete").value).toBe(""));
     expect(storedBuilder().gpuId).toBe("gpu-1");
     expect(storedBuilder().caseId).toBe("");
+  });
+
+  describe("[plan 050] conflict notices", () => {
+    it("announces mobo clear when CPU socket changes", async () => {
+      renderWithBuilder({
+        cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+        useIntegratedGpu: false,
+      });
+      expect(screen.getByLabelText("Placa madre").value).toBe("ASUS Z790-P");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("Placa madre").value).toBe(""));
+      expect(storedBuilder().moboId).toBe("");
+      expect(
+        screen.getByText("Se quitó la placa madre porque su socket no coincide con el CPU seleccionado.")
+      ).toBeTruthy();
+    });
+
+    it("announces RAM clear when CPU memory type changes", async () => {
+      const catalog = buildRichCatalog();
+      catalog.cpus = [
+        ...catalog.cpus,
+        {
+          id: "cpu-4", name: "AMD Ryzen 7 5700X", brand: "AMD", family: "Ryzen 7",
+          socket: "AM4", memoryType: "DDR4", memoryTypeExplicit: true, tdp: 65, tdp_w: 65,
+        },
+      ];
+      renderWithBuilder(
+        {
+          cpuId: "cpu-1", moboId: "", ramId: "ram-1", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("RAM").value).toBe("Corsair Vengeance 32GB");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "Ryzen 7 5700X" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("AMD Ryzen 7 5700X");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("RAM").value).toBe(""));
+      expect(storedBuilder().ramId).toBe("");
+      expect(
+        screen.getByText("Se quitó la RAM porque su tipo no coincide con el CPU seleccionado.")
+      ).toBeTruthy();
+    });
+
+    it("announces RAM clear when motherboard memory type changes", async () => {
+      const catalog = buildRichCatalog();
+      catalog.motherboards = catalog.motherboards.map((m) =>
+        m.id === "mobo-2" ? { ...m, memoryType: "DDR4" } : m
+      );
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "", ramId: "ram-1", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("RAM").value).toBe("Corsair Vengeance 32GB");
+
+      fireEvent.change(screen.getByLabelText("Placa madre"), { target: { value: "Gigabyte" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("Gigabyte B650M");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("RAM").value).toBe(""));
+      expect(storedBuilder().ramId).toBe("");
+      expect(
+        screen.getByText("Se quitó la RAM porque su tipo no coincide con la placa madre seleccionada.")
+      ).toBeTruthy();
+    });
+
+    it("announces case clear when motherboard form factor changes", async () => {
+      renderWithBuilder({
+        cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+        useIntegratedGpu: false,
+      });
+      expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+      fireEvent.change(screen.getByLabelText("Placa madre"), { target: { value: "ASUS" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("ASUS Z790-P");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("Gabinete").value).toBe(""));
+      expect(storedBuilder().caseId).toBe("");
+      expect(
+        screen.getByText(
+          "Se quitó el gabinete porque no admite el factor de forma de la placa madre seleccionada."
+        )
+      ).toBeTruthy();
+    });
+
+    it("announces case clear when GPU length exceeds the case", async () => {
+      const catalog = buildRichCatalog();
+      catalog.pcCases = catalog.pcCases.map((c) => (c.id === "case-2" ? { ...c, maxGpuLength: 200 } : c));
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+      fireEvent.change(screen.getByLabelText("GPU"), { target: { value: "RTX 4060" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("RTX 4060");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("Gabinete").value).toBe(""));
+      expect(storedBuilder().caseId).toBe("");
+      expect(
+        screen.getByText("Se quitó el gabinete porque la GPU seleccionada es más larga que el espacio disponible.")
+      ).toBeTruthy();
+    });
+
+    it("does not announce anything when the change is compatible", async () => {
+      renderWithBuilder({
+        cpuId: "", moboId: "mobo-1", ramId: "ram-1", gpuId: "", psuId: "", caseId: "case-1",
+        useIntegratedGpu: false,
+      });
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "Intel Core i5-13600K" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe("Intel Core i5-13600K"));
+      expect(storedBuilder().moboId).toBe("mobo-1");
+      expect(storedBuilder().ramId).toBe("ram-1");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("dismisses the notice and resets it when the builder is cleared", async () => {
+      const catalog = buildRichCatalog();
+      catalog.pcCases = catalog.pcCases.map((c) => (c.id === "case-2" ? { ...c, maxGpuLength: 200 } : c));
+      renderWithBuilder(
+        {
+          cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+      await waitFor(() =>
+        expect(screen.getByText(/Se quitó la placa madre/)).toBeTruthy()
+      );
+      expect(storedBuilder().moboId).toBe("");
+
+      fireEvent.click(screen.getByRole("button", { name: "Cerrar aviso" }));
+      expect(screen.queryByRole("status")).toBeNull();
+
+      fireEvent.change(screen.getByLabelText("GPU"), { target: { value: "RTX 4060" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+      await waitFor(() =>
+        expect(screen.getByText(/Se quitó el gabinete/)).toBeTruthy()
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Limpiar selección" }));
+      expect(screen.queryByRole("status")).toBeNull();
+      await waitFor(() => expect(storedBuilder().cpuId).toBe(""));
+    });
+
+    it("renders a single notice under StrictMode", async () => {
+      localStorage.setItem(
+        "pcqb:builder:v1",
+        JSON.stringify({
+          cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        })
+      );
+      mockUseCatalog.mockReturnValue({
+        catalog: buildRichCatalog(),
+        compatMeta: null,
+        tierMaps: buildDefaultTierMaps(),
+        socketSet: new Set(),
+        loading: false,
+        error: "",
+        fallbackUsed: false,
+        categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+      });
+      render(
+        <StrictMode>
+          <App />
+        </StrictMode>
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() =>
+        expect(
+          screen.getAllByText("Se quitó la placa madre porque su socket no coincide con el CPU seleccionado.")
+        ).toHaveLength(1)
+      );
+    });
   });
 
   it("integrated GPU toggle clears GPU selection [plan 014]", async () => {
