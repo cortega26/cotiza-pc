@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DEFAULT_WORKSPACE_MODE,
   parseWorkspaceMode,
@@ -14,14 +14,18 @@ import {
 export function useWorkspaceMode() {
   const [mode, setModeState] = useState(() => parseWorkspaceMode(window.location.search));
 
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
   const setMode = useCallback((next) => {
-    setModeState((current) => {
-      if (current === next) return current;
-      const url = new URL(window.location.href);
-      const search = serializeWorkspaceMode(next, url.search);
-      window.history.pushState({ workspaceMode: next }, "", `${url.pathname}${search}${url.hash}`);
-      return next;
-    });
+    if (modeRef.current === next) return;
+    modeRef.current = next;
+    const url = new URL(window.location.href);
+    const search = serializeWorkspaceMode(next, url.search);
+    window.history.pushState({ workspaceMode: next }, "", `${url.pathname}${search}${url.hash}`);
+    setModeState(next);
   }, []);
 
   useEffect(() => {

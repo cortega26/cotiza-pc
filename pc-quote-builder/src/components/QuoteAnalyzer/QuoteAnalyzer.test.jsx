@@ -310,4 +310,16 @@ describe("QuoteAnalyzer", () => {
     expect(rows.map((row) => row.product)).toEqual(["Ryzen 5 7600", "RTX 4060"]);
     expect(rows.every((row) => !("lineNo" in row))).toBe(true);
   });
+
+  it("rejects an empty JSON import with an explicit error [plan 044]", async () => {
+    const { onApplyQuoteData } = renderAnalyzer();
+    const input = screen.getByTestId("analyzer-import-input");
+    const file = new File(["[]"], "empty.json", { type: "application/json" });
+    file.text = vi.fn().mockResolvedValue("[]");
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await screen.findByText("El archivo JSON no contiene cotizaciones.");
+    expect(onApplyQuoteData).not.toHaveBeenCalled();
+  });
 });

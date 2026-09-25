@@ -17,6 +17,13 @@ export const freshIds = (obj) => ({
     : obj.rows,
 });
 
+export const detectQuoteFileKind = (fileName, content) => {
+  const isJson = String(fileName || "").toLowerCase().endsWith(".json")
+    || content.trim().startsWith("{")
+    || content.trim().startsWith("[");
+  return isJson ? "json" : "csv";
+};
+
 export const buildQuotesFromJson = (data, normalizeQuote) => {
   if (Array.isArray(data)) {
     return data.map((q, idx) => normalizeQuote(freshIds(q), q.name || `Importada ${idx + 1}`));
