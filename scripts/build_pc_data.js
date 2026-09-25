@@ -17,7 +17,14 @@ const PROCESSED_DIR = path.join(ROOT, "data", "processed");
 ensureDir(PROCESSED_DIR);
 
 function build() {
-  const { cpus: bcCpus, ram: bcRam } = loadBuildCores(RAW_DIR);
+  const {
+    cpus: bcCpus,
+    ram: bcRam,
+    mobos: bcMobos,
+    psus: bcPsus,
+    pcCases: bcCases,
+    gpus: bcGpus,
+  } = loadBuildCores(RAW_DIR);
   const { gpus: dbGpus } = loadDbGpu(RAW_DIR);
   const { cpus: pcCpus, gpus: pcGpus, mobos, psus, cases, ram: pcRam, coolers, fans } = loadPcPart(RAW_DIR);
 
@@ -29,10 +36,10 @@ function build() {
   assert((dbGpus?.length || 0) + (pcGpus?.length || 0) > 0, "GPU dataset vacio (dbgpu + pc-part-dataset).");
 
   const mergedCpus = deduplicateIds(mergeGrouped([...bcCpus, ...pcCpus], mergeCpu).sort(stableIdSort));
-  const mergedGpus = deduplicateIds(mergeGrouped([...dbGpus, ...pcGpus], mergeGpu).sort(stableIdSort));
-  const mergedMobos = deduplicateIds(mergeGrouped([...mobos], mergeMobo).sort(stableIdSort));
-  const mergedPsus = deduplicateIds(mergeGrouped([...psus], mergePsu).sort(stableIdSort));
-  const mergedCases = deduplicateIds(mergeGrouped([...cases], mergeCase).sort(stableIdSort));
+  const mergedGpus = deduplicateIds(mergeGrouped([...dbGpus, ...bcGpus, ...pcGpus], mergeGpu).sort(stableIdSort));
+  const mergedMobos = deduplicateIds(mergeGrouped([...bcMobos, ...mobos], mergeMobo).sort(stableIdSort));
+  const mergedPsus = deduplicateIds(mergeGrouped([...bcPsus, ...psus], mergePsu).sort(stableIdSort));
+  const mergedCases = deduplicateIds(mergeGrouped([...bcCases, ...cases], mergeCase).sort(stableIdSort));
   const mergedRam = deduplicateIds(mergeGrouped([...bcRam, ...pcRam], mergeRam).sort(stableIdSort));
   const mergedCoolers = deduplicateIds(mergeGrouped([...coolers], mergeCooler).sort(stableIdSort));
   const mergedFans = deduplicateIds(mergeGrouped([...fans], mergeFan).sort(stableIdSort));

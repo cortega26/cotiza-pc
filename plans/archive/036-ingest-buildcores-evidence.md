@@ -16,6 +16,9 @@
 
 ## Status
 
+**DONE — archived 2026-09-25.** Measured coverage, identity, and size results
+are recorded in the completion summary.
+
 - **Priority**: P1
 - **Effort**: L
 - **Risk**: HIGH
@@ -82,6 +85,10 @@ Root causes (verified against `data/raw` and `data/processed`):
 - Regenerated `data/processed/`, `pc-quote-builder/public/data/`, `docs/data/`
   via the pipeline.
 - `README.md` data-sources attribution note.
+- `pc-quote-builder/src/lib/catalogMapper.js` and its tests only for the
+  explicit-over-inferred CPU socket precedence: the runtime name heuristic
+  must not override a source socket (`Threadripper 9980X` must stay `sTR5`,
+  `i9-10980XE` must stay `LGA2066`).
 - `pc-quote-builder/src/lib/artifactContract.test.js` only if a documented gap
   list must change (counts are structural, not fixed).
 
@@ -91,7 +98,7 @@ Root causes (verified against `data/raw` and `data/processed`):
 - New runtime fields, new rules, or changes to Analyzer verdict semantics.
 - Price, stock, benchmark, or quality data.
 - Running `download:pc-data` or changing pinned upstream SHAs.
-- `catalogMapper.js` semantics outside what existing tests already cover.
+- Other `catalogMapper.js` semantics beyond socket precedence.
 
 ## Steps
 
@@ -232,3 +239,81 @@ enter through the same explicit-vs-inferred classification and must never
 silently overwrite an existing catalog identity. When the scheduled pin
 changes, re-run the coverage comparison in Step 4 and report regressions
 instead of merging them.
+
+---
+
+## Completion — 2026-09-25
+
+Branch: `advisor/b1-cotiza-verify`. Plan archived on completion.
+
+### What was done
+
+- Fixed the BuildCores adapter: identity from `metadata.manufacturer/name`,
+  nested CPU fields (`socket`, `specifications.memory.types`, `tdp`, clocks,
+  cores), motherboard memory fields, case clearance and explicit supported
+  form factors, PSU connector maps, and GPU length/connectors/TDP. Socket and
+  form-factor spellings are canonicalized so BuildCores and pc-part compare
+  equal; no value is invented.
+- Generalized `mergeCpu`, `mergeGpu`, `mergeMobo`, `mergePsu`, `mergeCase`, and
+  `mergeRam` for multi-source evidence with source attribution, identity
+  preference for existing pc-part/dbgpu records, and explicit-vs-inferred case
+  form-factor evidence.
+- Wired all six BuildCores categories into `build_pc_data.js`.
+- Fixed explicit-over-inferred CPU socket precedence in `catalogMapper.js`:
+  the runtime name heuristic no longer overrides a source socket.
+- Regenerated and synced `data/processed/`, `public/data/`, and `docs/data/`
+  through the pipeline; added README source attribution.
+
+### Coverage before → after (assessable combinations)
+
+| Rule | Before | After |
+|---|---:|---:|
+| compat-cpu-mobo-socket | 0.000% | 56.255% |
+| compat-cpu-ram-memory | 0.000% | 49.696% |
+| compat-gpu-case-length | 0.000% | 44.393% |
+| compat-mobo-case-ff | 97.150% | 98.484% |
+| compat-mobo-ram-memory | 0.000% | 0.000% (no source for `max_memory_speed_mts`) |
+| power-connectors-pcie | 0.000% | 17.019% |
+| power-psu-headroom | 3.257% | 50.760% |
+
+No rule regressed. `mobo.max_memory_speed_mts` remains the only required field
+with no available source; it stays a documented gap rather than being inferred.
+
+### Identity audit (multi-source merges and new entries)
+
+| Category | Total | Exact-matched (multi-source) | BuildCores-only | pc-part-only | dbgpu-only |
+|---|---:|---:|---:|---:|---:|
+| cpus | 1,255 | 412 | 294 | 549 | — |
+| gpus | 7,614 | 2 | 3,745 | 3,552 | 315 |
+| mobos | 8,289 | 339 | 3,333 | 4,617 | — |
+| psus | 5,379 | 6 | 3,251 | 2,122 | — |
+| cases | 7,914 | 7 | 3,703 | 4,204 | — |
+| ram | 7,959 | 0 | 4,478 | 3,481 | — |
+
+Unmatched BuildCores records were included as separate source-attributed
+entries exactly as the owner approved; no fuzzy spec assignment occurred.
+
+### Size
+
+`data/processed/` grew from 12.27 MB to 29.71 MB (2.4×);
+`compatibility.min.json` from 0.40 MB to 1.50 MB because tiers now cover
+1,255 CPUs and 7,614 GPUs. The staged catalog loader fetches only demanded
+categories, so per-user payload growth is limited to the Analyzer's six
+categories.
+
+### Verification
+
+- `npx vitest run ../scripts/lib` — 207 passed (nested/flat adapters,
+  canonicalization, connector mapping, multi-source merges, no-fuzzy-merge).
+- `npm run check` — lint 0 errors, 942 tests passed, 27 todo, disposable build.
+- `npm run test:artifacts` — 31 passed on the regenerated manifest.
+- `npm run build` + `npx vitest run src/lib/postBuildAssertion.test.js` — 12
+  passed; `docs/data/` matches `public/data/` byte for byte.
+- `bash scripts/verify.sh` — 43 contract tests passed.
+- `git diff --check` — clean.
+
+### Follow-ups (not part of this plan)
+
+- `mobo.max_memory_speed_mts` and per-rule coverage thresholds remain open.
+- The Plan 035 real-input corpus gate is still unevaluable; Plan 032's waiver
+  stays in force until a private corpus exists.

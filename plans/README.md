@@ -60,7 +60,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [033](033-build-crawlable-decision-content-foundation.md) | Build the crawlable Spanish decision-content foundation | P2 | L | 030, 031, 032, 035 | TODO |
 | [034](034-qualify-solotodo-price-intelligence-source.md) | Qualify SoloTodo as a permissioned Chilean price-intelligence source | P1 | L | 030, 035 for evaluation; qualification may start now | TODO |
 | [035](archive/035-automate-analyzer-assurance.md) | Replace expert labeling with automated Analyzer assurance | P1 | L | 028; 030 before final scoring | DONE |
-| [036](036-ingest-buildcores-evidence.md) | Ingest BuildCores evidence to unlock Analyzer rule coverage | P1 | L | 030, 032 | TODO |
+| [036](archive/036-ingest-buildcores-evidence.md) | Ingest BuildCores evidence to unlock Analyzer rule coverage | P1 | L | 030, 032 | DONE — six BuildCores categories ingested; 4 rules unlocked, headroom 3.3%→50.8%; `mobo.max_memory_speed_mts` remains a documented gap |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale).
 
@@ -129,15 +129,16 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJE
   conflicting evidence still resolves to `unknown`, and the coverage gate is a
   later validation item rather than a launch blocker. See the archived plan for
   the full record.
-- Plan 036 raises catalog evidence coverage after Plan 032 shipped the Analyzer.
-  It merges only exact BuildCores identity matches and includes unmatched
-  BuildCores records as separate source-attributed entries (owner decision
-  2026-09-25); fuzzy spec assignment to an existing identity is forbidden
-  because a wrong socket or clearance is a false compatibility conclusion. It
-  changes no rule semantics and makes no assurance claim; the Plan 035
-  real-input gate remains a later validation item. Do not run
-  `download:pc-data`; regenerate from the pinned raw snapshot and measure
-  before/after coverage.
+- Plan 036 shipped catalog evidence coverage after Plan 032 shipped the
+  Analyzer. It merged only exact BuildCores identity matches and included
+  unmatched BuildCores records as separate source-attributed entries (owner
+  decision 2026-09-25); no fuzzy spec assignment occurred. Measured results:
+  cpu↔mobo socket 0→56.3%, cpu↔RAM 0→49.7%, gpu↔case length 0→44.4%,
+  psu↔gpu connectors 0→17.0%, PSU headroom 3.3→50.8%, mobo↔case FF
+  97.2→98.5%; `mobo.max_memory_speed_mts` has no source and remains a
+  documented gap. It changed no rule semantics and makes no assurance claim;
+  the Plan 035 real-input gate remains a later validation item. Future pin
+  refreshes must re-run the before/after coverage comparison.
 - Plan 033 is a three-page authored pilot, not the full twelve-page Milestone 1
   target and not programmatic SEO. External Search Console, sitemap submission,
   production build, and deployment remain separate explicitly authorized

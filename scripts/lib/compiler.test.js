@@ -15,6 +15,7 @@ import {
   mergeFan,
   computeCompatibilityMeta,
   canonicalizeFormFactors,
+  canonicalizeSupportedFormFactors,
   deduplicateIds,
   computeLegacyAliases,
   SOURCE_TAGS,
@@ -437,6 +438,204 @@ describe("mergeCase", () => {
     expect(result.chassis_type).toBe("");
     expect(result.supported_mobo_form_factors).toEqual([]);
     expect(result.form_factor_evidence).toBe("unknown");
+  });
+});
+
+describe("multi-source BuildCores merges", () => {
+  it("keeps the pc-part identity and fills missing CPU evidence from BuildCores", () => {
+    const result = mergeCpu([
+      {
+        source: "pcpart",
+        category: "cpu",
+        id: "pc-cpu",
+        brand: "AMD",
+        model: "Ryzen 5 5600",
+        socket: "",
+        tdp_w: 65,
+        normalized_key: "amd ryzen 5 5600",
+      },
+      {
+        source: "buildcores",
+        category: "cpu",
+        id: "bc-cpu",
+        brand: "AMD",
+        model: "Ryzen 5 5600",
+        socket: "AM4",
+        memory_support: { types: ["DDR4"], max_speed_mts: 3200 },
+        normalized_key: "amd ryzen 5 5600",
+      },
+    ]);
+    expect(result.id).toBe("cpu_amd_ryzen_5_5600");
+    expect(result.socket).toBe("AM4");
+    expect(result.memory_support.types).toEqual(["DDR4"]);
+    expect(result.sources.buildcores_id).toBe("bc-cpu");
+    expect(result.sources.pcpart_id).toBe("pc-cpu");
+    expect(result.meta.created_from).toEqual(["buildcores", "pcpart"]);
+  });
+
+  it("prefers explicit case form factors over chassis inference", () => {
+    const result = mergeCase([
+      {
+        source: "pcpart",
+        category: "case",
+        id: "pc-case",
+        brand: "Fractal",
+        model: "Meshify C",
+        chassis_type: "ATX Mid Tower",
+        normalized_key: "fractal meshify c",
+      },
+      {
+        source: "buildcores",
+        category: "case",
+        id: "bc-case",
+        brand: "Fractal",
+        model: "Meshify C",
+        supported_mobo_form_factors: ["Mini-ITX", "ATX"],
+        max_gpu_length_mm: 315,
+        normalized_key: "fractal meshify c",
+      },
+    ]);
+    expect(result.id).toBe("case_fractal_meshify_c");
+    expect(result.supported_mobo_form_factors).toEqual(["Mini ITX", "ATX"]);
+    expect(result.form_factor_evidence).toBe("explicit");
+    expect(result.max_gpu_length_mm).toBe(315);
+  });
+
+  it("keeps inferred evidence when no explicit list exists", () => {
+    const result = mergeCase([
+      {
+        source: "pcpart",
+        category: "case",
+        id: "pc-case",
+        brand: "Fractal",
+        model: "Meshify C",
+        chassis_type: "ATX Mid Tower",
+        normalized_key: "fractal meshify c",
+      },
+    ]);
+    expect(result.form_factor_evidence).toBe("inferred");
+  });
+
+  it("fills motherboard memory evidence from BuildCores without changing identity", () => {
+    const result = mergeMobo([
+      {
+        source: "pcpart",
+        category: "motherboard",
+        id: "pc-mobo",
+        brand: "ASUS",
+        model: "B550-Plus",
+        socket: "AM4",
+        form_factor: "ATX",
+        memory_type: "",
+        normalized_key: "asus b550 plus",
+      },
+      {
+        source: "buildcores",
+        category: "motherboard",
+        id: "bc-mobo",
+        brand: "ASUS",
+        model: "B550-Plus",
+        socket: "AM4",
+        memory_type: "DDR4",
+        memory_slots: 4,
+        normalized_key: "asus b550 plus",
+      },
+    ]);
+    expect(result.id).toBe("mobo_asus_b550_plus");
+    expect(result.memory_type).toBe("DDR4");
+    expect(result.memory_slots).toBe(4);
+    expect(result.sources.buildcores_id).toBe("bc-mobo");
+  });
+
+  it("fills PSU connectors from BuildCores", () => {
+    const result = mergePsu([
+      {
+        source: "pcpart",
+        category: "psu",
+        id: "pc-psu",
+        brand: "Corsair",
+        model: "RM750x",
+        wattage_w: 750,
+        pcie_power_connectors: {},
+        normalized_key: "corsair rm750x",
+      },
+      {
+        source: "buildcores",
+        category: "psu",
+        id: "bc-psu",
+        brand: "Corsair",
+        model: "RM750x",
+        wattage_w: 750,
+        pcie_power_connectors: { "8_pin": 4 },
+        normalized_key: "corsair rm750x",
+      },
+    ]);
+    expect(result.pcie_power_connectors).toEqual({ "8_pin": 4 });
+    expect(result.id).toBe("psu_corsair_rm750x");
+  });
+
+  it("fills GPU physical evidence from BuildCores while dbgpu keeps identity", () => {
+    const result = mergeGpu([
+      {
+        source: "dbgpu",
+        category: "gpu",
+        id: "db-gpu",
+        brand: "NVIDIA",
+        model: "RTX 4060",
+        chipset: "RTX 4060",
+        vram_gb: 8,
+        tdp_w: 115,
+        board_length_mm: null,
+        power_connectors: "",
+        normalized_key: "nvidia rtx 4060",
+      },
+      {
+        source: "buildcores",
+        category: "gpu",
+        id: "bc-gpu",
+        brand: "NVIDIA",
+        model: "RTX 4060",
+        board_length_mm: 250,
+        power_connectors: "1x8-pin",
+        normalized_key: "nvidia rtx 4060",
+      },
+    ]);
+    expect(result.id).toBe("gpu_nvidia_rtx_4060");
+    expect(result.board_length_mm).toBe(250);
+    expect(result.power_connectors).toBe("1x8-pin");
+    expect(result.vram_gb).toBe(8);
+    expect(result.sources.buildcores_id).toBe("bc-gpu");
+  });
+
+  it("does not merge records with different normalized keys", () => {
+    const merged = mergeGrouped(
+      [
+        { source: "buildcores", id: "a", brand: "ASUS", model: "B760M-AYW WIFI D4", normalized_key: "asus b760m ayw wifi d4" },
+        { source: "pcpart", id: "b", brand: "ASUS", model: "B760M-AYW", normalized_key: "asus b760m ayw" },
+      ],
+      mergeMobo
+    );
+    expect(merged).toHaveLength(2);
+  });
+});
+
+describe("canonicalizeSupportedFormFactors", () => {
+  it("maps BuildCores spellings to the canonical set", () => {
+    expect(canonicalizeSupportedFormFactors(["Mini-ITX", "ATX", "MicroATX"])).toEqual([
+      "Mini ITX",
+      "ATX",
+      "Micro ATX",
+    ]);
+  });
+
+  it("deduplicates and drops unknown values", () => {
+    expect(canonicalizeSupportedFormFactors(["ATX", "atx", "BTX"])).toEqual(["ATX"]);
+  });
+
+  it("handles empty and malformed input", () => {
+    expect(canonicalizeSupportedFormFactors([])).toEqual([]);
+    expect(canonicalizeSupportedFormFactors(null)).toEqual([]);
+    expect(canonicalizeSupportedFormFactors(["", null])).toEqual([]);
   });
 });
 

@@ -6,6 +6,45 @@ export const SOURCE_TAGS = {
   PCPART: "pcpart",
 };
 
+const isUsableValue = (value) => {
+  if (value === null || value === undefined || value === "") return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  return true;
+};
+
+const sourceList = (records) => Array.from(new Set(records.map((r) => r.source))).sort();
+
+/**
+ * Pick the first usable value following the given source precedence, then any
+ * remaining record. Missing/empty values never block a later source.
+ */
+const pickField = (records, order, selector) => {
+  for (const source of order) {
+    const record = records.find((r) => r.source === source);
+    if (!record) continue;
+    const value = selector(record);
+    if (isUsableValue(value)) return value;
+  }
+  for (const record of records) {
+    const value = selector(record);
+    if (isUsableValue(value)) return value;
+  }
+  return null;
+};
+
+const identityRecord = (records, order) =>
+  order.map((source) => records.find((r) => r.source === source)).find(Boolean) || records[0];
+
+const evidenceSources = (records, selectors) => {
+  const result = {};
+  for (const [key, source, selector] of selectors) {
+    const record = records.find((r) => r.source === source);
+    result[key] = record ? selector(record) : null;
+  }
+  return result;
+};
+
 export const computeTierCpu = (cpu) => {
   const cores = safeNumber(cpu.cores) || 0;
   const boost = safeNumber(cpu.boost_clock_ghz) || 0;
@@ -48,13 +87,10 @@ export const range = (list, key) => {
 
 export function mergeCpu(records) {
   if (!records.length) return null;
-  const sources = Array.from(new Set(records.map((r) => r.source))).sort();
-  const pick = (fn) => {
-    const buildcores = records.find((r) => r.source === SOURCE_TAGS.BUILDCORES);
-    const pcpart = records.find((r) => r.source === SOURCE_TAGS.PCPART);
-    return fn({ buildcores, pcpart });
-  };
-  const b = pick(({ buildcores, pcpart }) => buildcores || pcpart || records[0]);
+  const sources = sourceList(records);
+  const field = (selector) =>
+    pickField(records, [SOURCE_TAGS.BUILDCORES, SOURCE_TAGS.PCPART], selector);
+  const b = identityRecord(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES]);
   const canonicalId = `cpu_${slug(`${b.brand} ${b.model}`)}`;
   const legacyCpuId = `cpu_${legacySlug(`${b.brand} ${b.model}`)}`;
   const tdpValues = records.map((r) => r.tdp_w).filter((v) => v != null);
@@ -64,23 +100,30 @@ export function mergeCpu(records) {
     const min = Math.min(...tdpValues);
     if (Math.abs(max - min) > 5) conflict_flags.push("cpu_tdp_conflict");
   }
+  const memorySupport =
+    field((r) =>
+      Array.isArray(r.memory_support?.types) && r.memory_support.types.length ? r.memory_support : null
+    ) || (() => {
+      const memoryType = field((r) => r.memory_type);
+      return { types: memoryType ? [memoryType] : [] };
+    })();
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
     brand: b.brand,
     model: b.model,
     category: "cpu",
-    socket: pick(({ buildcores, pcpart }) => buildcores?.socket || pcpart?.socket || ""),
-    tdp_w: pick(({ buildcores, pcpart }) => buildcores?.tdp_w ?? pcpart?.tdp_w ?? null),
-    cores: pick(({ buildcores, pcpart }) => buildcores?.cores ?? pcpart?.cores ?? null),
-    threads: pick(({ buildcores, pcpart }) => buildcores?.threads ?? pcpart?.threads ?? null),
-    base_clock_ghz: pick(({ buildcores, pcpart }) => buildcores?.base_clock_ghz ?? pcpart?.base_clock_ghz ?? null),
-    boost_clock_ghz: pick(({ buildcores, pcpart }) => buildcores?.boost_clock_ghz ?? pcpart?.boost_clock_ghz ?? null),
-    memory_support: pick(({ buildcores, pcpart }) => buildcores?.memory_support || { types: pcpart?.memory_type ? [pcpart.memory_type] : [] }),
-    sources: {
-      buildcores_id: records.find((r) => r.source === SOURCE_TAGS.BUILDCORES)?.id || null,
-      pcpart_id: records.find((r) => r.source === SOURCE_TAGS.PCPART)?.id || null,
-    },
+    socket: field((r) => r.socket) || "",
+    tdp_w: field((r) => r.tdp_w),
+    cores: field((r) => r.cores),
+    threads: field((r) => r.threads),
+    base_clock_ghz: field((r) => r.base_clock_ghz),
+    boost_clock_ghz: field((r) => r.boost_clock_ghz),
+    memory_support: memorySupport,
+    sources: evidenceSources(records, [
+      ["buildcores_id", SOURCE_TAGS.BUILDCORES, (r) => r.id],
+      ["pcpart_id", SOURCE_TAGS.PCPART, (r) => r.id],
+    ]),
     legacy_id: legacyCpuId !== canonicalId ? legacyCpuId : undefined,
     meta: {
       created_from: sources,
@@ -93,13 +136,10 @@ export function mergeCpu(records) {
 
 export function mergeGpu(records) {
   if (!records.length) return null;
-  const sources = Array.from(new Set(records.map((r) => r.source))).sort();
-  const pick = (fn) => {
-    const dbgpu = records.find((r) => r.source === SOURCE_TAGS.DBGPU);
-    const pcpart = records.find((r) => r.source === SOURCE_TAGS.PCPART);
-    return fn({ dbgpu, pcpart });
-  };
-  const base = pick(({ dbgpu, pcpart }) => dbgpu || pcpart || records[0]);
+  const sources = sourceList(records);
+  const field = (selector) =>
+    pickField(records, [SOURCE_TAGS.DBGPU, SOURCE_TAGS.BUILDCORES, SOURCE_TAGS.PCPART], selector);
+  const base = identityRecord(records, [SOURCE_TAGS.DBGPU, SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES]);
   const brand = base.brand || "";
   const gpuModel = base.model || base.chipset || base.normalized_key || "";
   const canonicalId = `gpu_${slug(`${brand} ${gpuModel}`)}`;
@@ -111,31 +151,30 @@ export function mergeGpu(records) {
     const min = Math.min(...tdpValues);
     if (Math.abs(max - min) > 5) conflict_flags.push("gpu_tdp_conflict");
   }
+  const tdp_w = field((r) => r.tdp_w);
+  const suggested_psu_w = field((r) => r.suggested_psu_w);
+  const recommendedCalc = Math.ceil(((tdp_w || 0) + 75) * 1.3 + 50);
   return {
     id: canonicalId,
     name: `${brand} ${base.model || base.chipset}`.trim(),
     brand: brand,
     model: base.model || base.chipset,
     category: "gpu",
-    chipset: pick(({ dbgpu, pcpart }) => dbgpu?.chipset || pcpart?.chipset || base.model),
-    vram_gb: pick(({ dbgpu, pcpart }) => dbgpu?.vram_gb ?? pcpart?.vram_gb ?? null),
-    vram_type: pick(({ dbgpu, pcpart }) => dbgpu?.vram_type || pcpart?.vram_type || ""),
-    tdp_w: pick(({ dbgpu, pcpart }) => dbgpu?.tdp_w ?? pcpart?.tdp_w ?? null),
-    suggested_psu_w: pick(({ dbgpu, pcpart }) => dbgpu?.suggested_psu_w ?? pcpart?.suggested_psu_w ?? null),
-    recommended_psu_w: (() => {
-      const tdp = pick(({ dbgpu, pcpart }) => dbgpu?.tdp_w ?? pcpart?.tdp_w ?? 0) || 0;
-      const suggested = pick(({ dbgpu, pcpart }) => dbgpu?.suggested_psu_w ?? pcpart?.suggested_psu_w ?? 0) || 0;
-      const calc = Math.ceil((tdp + 75) * 1.3 + 50);
-      return Math.max(suggested, calc);
-    })(),
-    board_length_mm: pick(({ dbgpu, pcpart }) => dbgpu?.board_length_mm ?? pcpart?.board_length_mm ?? null),
-    board_slot_width: pick(({ dbgpu, pcpart }) => dbgpu?.board_slot_width ?? pcpart?.board_slot_width ?? null),
-    power_connectors: pick(({ dbgpu, pcpart }) => dbgpu?.power_connectors || pcpart?.power_connectors || ""),
-    architecture: pick(({ dbgpu }) => dbgpu?.architecture || ""),
-    sources: {
-      dbgpu_id: records.find((r) => r.source === SOURCE_TAGS.DBGPU)?.id || null,
-      pcpart_id: records.find((r) => r.source === SOURCE_TAGS.PCPART)?.id || null,
-    },
+    chipset: field((r) => r.chipset) || base.model,
+    vram_gb: field((r) => r.vram_gb),
+    vram_type: field((r) => r.vram_type) || "",
+    tdp_w,
+    suggested_psu_w,
+    recommended_psu_w: Math.max(suggested_psu_w || 0, recommendedCalc),
+    board_length_mm: field((r) => r.board_length_mm),
+    board_slot_width: field((r) => r.board_slot_width),
+    power_connectors: field((r) => r.power_connectors) || "",
+    architecture: field((r) => r.architecture) || "",
+    sources: evidenceSources(records, [
+      ["dbgpu_id", SOURCE_TAGS.DBGPU, (r) => r.id],
+      ["buildcores_id", SOURCE_TAGS.BUILDCORES, (r) => r.id],
+      ["pcpart_id", SOURCE_TAGS.PCPART, (r) => r.id],
+    ]),
     legacy_id: legacyId !== canonicalId ? legacyId : undefined,
     meta: { created_from: sources, conflict_flags, quality_score: sources.length > 1 ? 0.9 : 0.8 },
     normalized_key: base.normalized_key,
@@ -144,7 +183,10 @@ export function mergeGpu(records) {
 
 export function mergeMobo(records) {
   if (!records.length) return null;
-  const b = records[0];
+  const sources = sourceList(records);
+  const field = (selector) =>
+    pickField(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES], selector);
+  const b = identityRecord(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES]);
   const canonicalId = `mobo_${slug(`${b.brand} ${b.model}`)}`;
   const legacyMoboId = `mobo_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
@@ -153,24 +195,30 @@ export function mergeMobo(records) {
     brand: b.brand,
     model: b.model,
     category: "motherboard",
-    socket: b.socket,
-    chipset: b.chipset || "",
-    form_factor: b.form_factor || "",
-    memory_type: b.memory_type || "",
-    memory_slots: b.memory_slots || null,
-    max_memory_gb: b.max_memory_gb || null,
-    m2_slots: b.m2_slots || null,
-    sata_ports: b.sata_ports || null,
-    sources: { pcpart_id: b.id },
+    socket: field((r) => r.socket) || "",
+    chipset: field((r) => r.chipset) || "",
+    form_factor: field((r) => r.form_factor) || "",
+    memory_type: field((r) => r.memory_type) || "",
+    memory_slots: field((r) => r.memory_slots),
+    max_memory_gb: field((r) => r.max_memory_gb),
+    m2_slots: field((r) => r.m2_slots),
+    sata_ports: field((r) => r.sata_ports),
+    sources: evidenceSources(records, [
+      ["buildcores_id", SOURCE_TAGS.BUILDCORES, (r) => r.id],
+      ["pcpart_id", SOURCE_TAGS.PCPART, (r) => r.id],
+    ]),
     legacy_id: legacyMoboId !== canonicalId ? legacyMoboId : undefined,
-    meta: { created_from: [SOURCE_TAGS.PCPART], conflict_flags: [], quality_score: 0.8 },
+    meta: { created_from: sources, conflict_flags: [], quality_score: sources.length > 1 ? 0.9 : 0.8 },
     normalized_key: b.normalized_key,
   };
 }
 
 export function mergePsu(records) {
   if (!records.length) return null;
-  const b = records[0];
+  const sources = sourceList(records);
+  const field = (selector) =>
+    pickField(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES], selector);
+  const b = identityRecord(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES]);
   const canonicalId = `psu_${slug(`${b.brand} ${b.model}`)}`;
   const legacyPsuId = `psu_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
@@ -179,13 +227,16 @@ export function mergePsu(records) {
     brand: b.brand,
     model: b.model,
     category: "psu",
-    wattage_w: b.wattage_w || null,
-    form_factor: b.form_factor || "ATX",
-    efficiency_rating: b.efficiency_rating || "",
-    pcie_power_connectors: b.pcie_power_connectors || {},
-    sources: { pcpart_id: b.id },
+    wattage_w: field((r) => r.wattage_w),
+    form_factor: field((r) => r.form_factor) || "ATX",
+    efficiency_rating: field((r) => r.efficiency_rating) || "",
+    pcie_power_connectors: field((r) => r.pcie_power_connectors) || {},
+    sources: evidenceSources(records, [
+      ["buildcores_id", SOURCE_TAGS.BUILDCORES, (r) => r.id],
+      ["pcpart_id", SOURCE_TAGS.PCPART, (r) => r.id],
+    ]),
     legacy_id: legacyPsuId !== canonicalId ? legacyPsuId : undefined,
-    meta: { created_from: [SOURCE_TAGS.PCPART], conflict_flags: [], quality_score: 0.8 },
+    meta: { created_from: sources, conflict_flags: [], quality_score: sources.length > 1 ? 0.9 : 0.8 },
     normalized_key: b.normalized_key,
   };
 }
@@ -217,34 +268,69 @@ export function canonicalizeFormFactors(chassisType) {
   return { formFactors: [], evidence: "unknown" };
 }
 
+const SUPPORTED_FORM_FACTOR_MAP = Object.freeze({
+  "E ATX": "E-ATX",
+  ATX: "ATX",
+  "MICRO ATX": "Micro ATX",
+  MICROATX: "Micro ATX",
+  "MINI ITX": "Mini ITX",
+  MINIITX: "Mini ITX",
+});
+
+/** Canonicalize an explicit supported-form-factor list; unknown values drop. */
+export function canonicalizeSupportedFormFactors(list) {
+  if (!Array.isArray(list) || !list.length) return [];
+  const canonical = [];
+  for (const value of list) {
+    const key = String(value ?? "").trim().toUpperCase().replace(/[-\s]+/g, " ");
+    const mapped = SUPPORTED_FORM_FACTOR_MAP[key];
+    if (mapped && !canonical.includes(mapped)) canonical.push(mapped);
+  }
+  return canonical;
+}
+
 export function mergeCase(records) {
   if (!records.length) return null;
-  const b = records[0];
+  const sources = sourceList(records);
+  const field = (selector) =>
+    pickField(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES], selector);
+  const b = identityRecord(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES]);
   const canonicalId = `case_${slug(`${b.brand} ${b.model}`)}`;
   const legacyCaseId = `case_${legacySlug(`${b.brand} ${b.model}`)}`;
-  const { formFactors, evidence } = canonicalizeFormFactors(b.chassis_type);
+  const explicitFormFactors = records
+    .map((record) => canonicalizeSupportedFormFactors(record.supported_mobo_form_factors))
+    .find((list) => list.length > 0);
+  const inferred = canonicalizeFormFactors(field((r) => r.chassis_type));
+  const formFactors = explicitFormFactors || inferred.formFactors;
+  const evidence = explicitFormFactors ? "explicit" : inferred.evidence;
   return {
     id: canonicalId,
     name: `${b.brand} ${b.model}`.trim(),
     brand: b.brand,
     model: b.model,
     category: "case",
-    chassis_type: b.chassis_type || "",
+    chassis_type: field((r) => r.chassis_type) || "",
     supported_mobo_form_factors: formFactors,
     form_factor_evidence: evidence,
-    max_gpu_length_mm: b.max_gpu_length_mm || null,
-    max_cpu_cooler_height_mm: b.max_cpu_cooler_height_mm || null,
-    psu_form_factor: b.psu_form_factor || "ATX",
+    max_gpu_length_mm: field((r) => r.max_gpu_length_mm),
+    max_cpu_cooler_height_mm: field((r) => r.max_cpu_cooler_height_mm),
+    psu_form_factor: field((r) => r.psu_form_factor) || "ATX",
     legacy_id: legacyCaseId !== canonicalId ? legacyCaseId : undefined,
-    sources: { pcpart_id: b.id },
-    meta: { created_from: [SOURCE_TAGS.PCPART], conflict_flags: [], quality_score: 0.8 },
+    sources: evidenceSources(records, [
+      ["buildcores_id", SOURCE_TAGS.BUILDCORES, (r) => r.id],
+      ["pcpart_id", SOURCE_TAGS.PCPART, (r) => r.id],
+    ]),
+    meta: { created_from: sources, conflict_flags: [], quality_score: sources.length > 1 ? 0.9 : 0.8 },
     normalized_key: b.normalized_key,
   };
 }
 
 export function mergeRam(records) {
   if (!records.length) return null;
-  const b = records[0];
+  const sources = sourceList(records);
+  const field = (selector) =>
+    pickField(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES], selector);
+  const b = identityRecord(records, [SOURCE_TAGS.PCPART, SOURCE_TAGS.BUILDCORES]);
   const canonicalId = `ram_${slug(`${b.brand} ${b.model}`)}`;
   const legacyRamId = `ram_${legacySlug(`${b.brand} ${b.model}`)}`;
   return {
@@ -253,14 +339,21 @@ export function mergeRam(records) {
     brand: b.brand,
     model: b.model,
     category: "ram",
-    type: b.type || "",
-    capacity_gb_total: b.capacity_gb_total || null,
-    modules: b.modules || null,
-    speed_mts: b.speed_mts || null,
-    cas_latency: b.cas_latency || null,
+    type: field((r) => r.type) || "",
+    capacity_gb_total: field((r) => r.capacity_gb_total),
+    modules: field((r) => r.modules),
+    speed_mts: field((r) => r.speed_mts),
+    cas_latency: field((r) => r.cas_latency),
     legacy_id: legacyRamId !== canonicalId ? legacyRamId : undefined,
-    sources: { source_id: b.id, source: b.source },
-    meta: { created_from: [b.source], conflict_flags: [], quality_score: 0.8 },
+    sources: {
+      ...evidenceSources(records, [
+        ["buildcores_id", SOURCE_TAGS.BUILDCORES, (r) => r.id],
+        ["pcpart_id", SOURCE_TAGS.PCPART, (r) => r.id],
+      ]),
+      source_id: b.id,
+      source: b.source,
+    },
+    meta: { created_from: sources, conflict_flags: [], quality_score: sources.length > 1 ? 0.9 : 0.8 },
     normalized_key: b.normalized_key,
   };
 }

@@ -27,6 +27,24 @@ describe("catalogMapper", () => {
     expect(mapped.cpus[0]).toMatchObject({ socket: "LGA1700", memoryType: "DDR4", memoryTypeExplicit: true });
   });
 
+  it("prefers an explicit CPU socket over name-based inference", () => {
+    const mapped = mapProcessedToCatalog({
+      cpus: [
+        { id: "cpu1", name: "AMD Ryzen Threadripper 9980X", socket: "sTR5", tdp_w: 350 },
+        { id: "cpu2", name: "Intel Core i9-10980XE", socket: "LGA2066", tdp_w: 165 },
+      ],
+    });
+    expect(mapped.cpus[0].socket).toBe("sTR5");
+    expect(mapped.cpus[1].socket).toBe("LGA2066");
+  });
+
+  it("still infers the socket when the processed record has none", () => {
+    const mapped = mapProcessedToCatalog({
+      cpus: [{ id: "cpu1", name: "Intel Core i5-13600K", tdp_w: 125 }],
+    });
+    expect(mapped.cpus[0].socket).toBe("LGA1700");
+  });
+
   it("accepts UI-shaped keys (motherboards/ramKits/pcCases) as fallback", () => {
     const mapped = mapProcessedToCatalog({
       cpus: [{ id: "cpu1", name: "Intel i5", socket: "LGA1700", memoryType: "DDR4", tdp: 65 }],

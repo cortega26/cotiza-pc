@@ -99,7 +99,7 @@ export const mapProcessedToCatalog = (processed) => {
         name: cpu.name,
         brand: inferBrand(cpu),
         family: extractCpuFamily(cpu),
-        socket: inferSocket(cpu),
+        socket: cpu.socket || inferSocket(cpu),
         memoryType,
         memoryTypeExplicit,
         tdp: cpu.tdp_w ?? cpu.tdp ?? null,

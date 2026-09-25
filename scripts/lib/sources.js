@@ -9,41 +9,298 @@ export const SOURCE_TAGS = {
   PCPART: "pcpart",
 };
 
-export function loadBuildCores(rawDir) {
-  const base = path.join(rawDir, "buildcores-open-db", "open-db");
-  const cpuDir = path.join(base, "CPU");
-  const ramDir = path.join(base, "RAM");
-  const cpus = readJsonFiles(cpuDir).map((item) => ({
+const BUILD_CORES_CATEGORIES = Object.freeze({
+  cpus: "CPU",
+  ram: "RAM",
+  mobos: "Motherboard",
+  pcCases: "PCCase",
+  psus: "PSU",
+  gpus: "GPU",
+});
+
+/**
+ * Canonical socket spelling so BuildCores ("LGA 1700") and pc-part ("LGA1700")
+ * compare equal. Empty input stays empty; no socket is ever invented.
+ */
+export function canonicalSocket(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  return raw
+    .toUpperCase()
+    .replace(/^LGA\s+/, "LGA")
+    .replace(/\s+/g, " ");
+}
+
+const FORM_FACTOR_CANONICAL = Object.freeze({
+  "E ATX": "E-ATX",
+  ATX: "ATX",
+  "MICRO ATX": "Micro ATX",
+  MICROATX: "Micro ATX",
+  "MINI ITX": "Mini ITX",
+  MINIITX: "Mini ITX",
+});
+
+/**
+ * Canonical motherboard/case form factor spelling so BuildCores ("Mini-ITX")
+ * and pc-part ("Mini ITX") compare equal. Unknown values pass through.
+ */
+export function canonicalFormFactor(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const key = raw.toUpperCase().replace(/[-\s]+/g, " ");
+  return FORM_FACTOR_CANONICAL[key] || raw;
+}
+
+export function stripBrandPrefix(name, brand) {
+  const trimmed = String(name ?? "").trim();
+  const brandText = String(brand ?? "").trim();
+  if (!trimmed) return "";
+  if (brandText && trimmed.toLowerCase().startsWith(`${brandText.toLowerCase()} `)) {
+    return trimmed.slice(brandText.length).trim();
+  }
+  return trimmed;
+}
+
+/**
+ * PSU connector map in the shape consumed by the Analyzer (`8_pin`,
+ * `12vhpwr`). 12V-2x6 counts as 12VHPWR. Empty stays empty.
+ */
+export function mapPsuConnectors(item = {}) {
+  const source = item.connectors || {};
+  const direct = item.pcie_power_connectors || {};
+  const eight =
+    safeNumber(source.pcie_6_plus_2_pin) ??
+    safeNumber(direct["8_pin"]) ??
+    safeNumber(direct["6+2"]);
+  const twelve =
+    (safeNumber(source.pcie_12vhpwr) || 0) +
+    (safeNumber(source.pcie_12V_2x6) || 0) +
+    (safeNumber(direct["12vhpwr"]) || 0);
+  const connectors = {};
+  if (eight != null && eight > 0) connectors["8_pin"] = eight;
+  if (twelve > 0) connectors["12vhpwr"] = twelve;
+  return connectors;
+}
+
+/**
+ * GPU connector requirement as the string contract consumed by
+ * `checkPsuConnectors` ("2x8-pin", "1x12vhpwr"). BuildCores stores an object;
+ * dbgpu/pc-part may store a string. Placeholder strings are discarded.
+ */
+export function mapGpuPowerConnectors(item = {}) {
+  if (typeof item.power_connectors === "string") {
+    return sanitizeConnectorString(item.power_connectors);
+  }
+  if (typeof item.power === "string") {
+    return sanitizeConnectorString(item.power);
+  }
+  const connectors = item.power_connectors || {};
+  const parts = [];
+  const twelve =
+    (safeNumber(connectors.pcie_12VHPWR) || 0) +
+    (safeNumber(connectors.pcie_12vhpwr) || 0) +
+    (safeNumber(connectors.pcie_12V_2x6) || 0);
+  const eight = safeNumber(connectors.pcie_8_pin) || 0;
+  const six = safeNumber(connectors.pcie_6_pin) || 0;
+  if (twelve > 0) parts.push(`${twelve}x12vhpwr`);
+  if (eight > 0) parts.push(`${eight}x8-pin`);
+  if (six > 0) parts.push(`${six}x6-pin`);
+  return parts.join(" ");
+}
+
+export function sanitizeConnectorString(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  if (/^(none|null|n\/a|na|unknown|-)$/i.test(text)) return "";
+  return text;
+}
+
+const buildCoresIdentity = (item) => {
+  const metadata = item.metadata || {};
+  const brand = String(item.brand || item.manufacturer || metadata.manufacturer || "").trim();
+  const rawName = item.model || item.name || metadata.name || "";
+  return { brand, model: stripBrandPrefix(rawName, brand) };
+};
+
+const buildCoresId = (item, brand, model) =>
+  item.id || item.opendb_id || item.slug || slug(`${brand} ${model}`);
+
+const hasIdentity = (record) =>
+  Boolean((record.brand || "").trim() && (record.model || "").trim());
+
+const memorySupportFor = (item) => {
+  if (item.memory_support && typeof item.memory_support === "object") {
+    return item.memory_support;
+  }
+  const memory = (item.specifications || {}).memory || {};
+  const types = Array.isArray(memory.types)
+    ? memory.types.map((type) => String(type).toUpperCase()).filter(Boolean)
+    : item.memory_type
+      ? [String(item.memory_type).toUpperCase()]
+      : [];
+  return {
+    types,
+    max_speed_mts: safeNumber(item.memory_speed ?? memory.max_speed_mts),
+  };
+};
+
+const mapBuildCoresCpu = (item) => {
+  const { brand, model } = buildCoresIdentity(item);
+  const specs = item.specifications || {};
+  const cores = item.cores && typeof item.cores === "object" ? item.cores : null;
+  return {
     source: SOURCE_TAGS.BUILDCORES,
     category: "cpu",
-    id: item.id || item.slug || slug(item.name || item.model || ""),
-    brand: item.brand || item.manufacturer || "",
-    model: item.model || item.name || "",
-    socket: item.socket || item.socket_name || "",
-    tdp_w: safeNumber(item.tdp || item.tdp_w),
-    cores: safeNumber(item.cores),
-    threads: safeNumber(item.threads),
-    base_clock_ghz: safeNumber(item.base_clock_ghz || item.base_clock),
-    boost_clock_ghz: safeNumber(item.boost_clock_ghz || item.boost_clock),
-    memory_support: item.memory_support || {
-      types: item.memory_type ? [item.memory_type] : [],
-      max_speed_mts: safeNumber(item.memory_speed),
-    },
-    normalized_key: normalizeKey(item.brand || "", item.model || item.name || ""),
-  }));
-  const ram = readJsonFiles(ramDir).map((item) => ({
+    id: buildCoresId(item, brand, model),
+    brand,
+    model,
+    socket: canonicalSocket(item.socket || item.socket_name),
+    tdp_w: safeNumber(item.tdp_w ?? item.tdp ?? specs.tdp),
+    cores: safeNumber(cores?.total ?? item.cores),
+    threads: safeNumber(cores?.threads ?? item.threads),
+    base_clock_ghz: safeNumber(item.base_clock_ghz ?? item.base_clock ?? item.clocks?.performance?.base),
+    boost_clock_ghz: safeNumber(item.boost_clock_ghz ?? item.boost_clock ?? item.clocks?.performance?.boost),
+    memory_support: memorySupportFor(item),
+    normalized_key: normalizeKey(brand, model),
+  };
+};
+
+const mapBuildCoresRam = (item) => {
+  const { brand, model } = buildCoresIdentity(item);
+  const modules = item.modules && typeof item.modules === "object" ? item.modules : null;
+  const capacity = safeNumber(item.capacity_gb_total ?? item.capacity_gb ?? item.capacity);
+  return {
     source: SOURCE_TAGS.BUILDCORES,
     category: "ram",
-    id: item.id || slug(item.name || item.model || ""),
-    brand: item.brand || item.manufacturer || "",
-    model: item.model || item.name || "",
-    type: (item.type || item.memory_type || "").toUpperCase(),
-    speed_mts: safeNumber(item.speed_mts || item.speed),
-    capacity_gb_total: safeNumber(item.capacity_gb || item.capacity),
-    modules: safeNumber(item.modules),
-    normalized_key: normalizeKey(item.brand || "", item.model || item.name || ""),
-  }));
-  return { cpus, ram };
+    id: buildCoresId(item, brand, model),
+    brand,
+    model,
+    type: String(item.ram_type || item.memory_type || item.type || "").toUpperCase(),
+    speed_mts: safeNumber(item.speed_mts ?? item.speed),
+    capacity_gb_total: capacity,
+    modules: modules ? safeNumber(modules.quantity) : safeNumber(item.modules),
+    cas_latency: safeNumber(item.cas_latency),
+    normalized_key: normalizeKey(brand, model),
+  };
+};
+
+const mapBuildCoresMobo = (item) => {
+  const { brand, model } = buildCoresIdentity(item);
+  const memory = item.memory || {};
+  const storage = item.storage_devices || {};
+  const m2 = item.m2_slots;
+  return {
+    source: SOURCE_TAGS.BUILDCORES,
+    category: "motherboard",
+    id: buildCoresId(item, brand, model),
+    brand,
+    model,
+    socket: canonicalSocket(item.socket),
+    chipset: item.chipset || "",
+    form_factor: canonicalFormFactor(item.form_factor),
+    memory_type: String(item.memory_type || memory.ram_type || "").toUpperCase(),
+    memory_slots: safeNumber(item.memory_slots ?? memory.slots),
+    max_memory_gb: safeNumber(item.max_memory_gb ?? memory.max),
+    m2_slots: Array.isArray(m2) ? m2.length : safeNumber(m2),
+    sata_ports: safeNumber(item.sata_ports ?? storage.sata_6_gb_s),
+    normalized_key: normalizeKey(brand, model),
+  };
+};
+
+const mapBuildCoresPsu = (item) => {
+  const { brand, model } = buildCoresIdentity(item);
+  return {
+    source: SOURCE_TAGS.BUILDCORES,
+    category: "psu",
+    id: buildCoresId(item, brand, model),
+    brand,
+    model,
+    wattage_w: safeNumber(item.wattage_w ?? item.wattage),
+    form_factor: item.form_factor || "ATX",
+    efficiency_rating: item.efficiency_rating || item.efficiency || "",
+    pcie_power_connectors: mapPsuConnectors(item),
+    normalized_key: normalizeKey(brand, model),
+  };
+};
+
+const mapBuildCoresCase = (item) => {
+  const { brand, model } = buildCoresIdentity(item);
+  const explicit = item.supported_mobo_form_factors || item.supported_motherboard_form_factors;
+  const psuFormFactors = item.supported_power_supply_form_factors;
+  return {
+    source: SOURCE_TAGS.BUILDCORES,
+    category: "case",
+    id: buildCoresId(item, brand, model),
+    brand,
+    model,
+    chassis_type: item.chassis_type || item.form_factor || "",
+    supported_mobo_form_factors: Array.isArray(explicit) ? explicit : [],
+    max_gpu_length_mm: safeNumber(
+      item.max_gpu_length_mm ?? item.max_video_card_length ?? item.gpu_length ?? item.gpu_max_length
+    ),
+    max_cpu_cooler_height_mm: safeNumber(
+      item.max_cpu_cooler_height_mm ?? item.max_cpu_cooler_height ?? item.cpu_cooler ?? item.cpu_cooler_height
+    ),
+    psu_form_factor: item.psu_form_factor || (Array.isArray(psuFormFactors) && psuFormFactors[0]) || "ATX",
+    normalized_key: normalizeKey(brand, model),
+  };
+};
+
+const mapBuildCoresGpu = (item) => {
+  const { brand, model } = buildCoresIdentity(item);
+  return {
+    source: SOURCE_TAGS.BUILDCORES,
+    category: "gpu",
+    id: buildCoresId(item, brand, model),
+    brand,
+    model,
+    chipset: item.chipset || model,
+    vram_gb: safeNumber(item.vram_gb ?? item.memory),
+    vram_type: item.vram_type || item.memory_type || "",
+    tdp_w: safeNumber(item.tdp_w ?? item.tdp),
+    suggested_psu_w: safeNumber(item.suggested_psu_w),
+    board_length_mm: safeNumber(item.board_length_mm ?? item.length ?? item.length_mm),
+    board_slot_width: safeNumber(item.board_slot_width ?? item.total_slot_width),
+    power_connectors: mapGpuPowerConnectors(item),
+    architecture: item.architecture || "",
+    normalized_key: normalizeKey(brand, model),
+  };
+};
+
+const isValidCpu = (record) => hasIdentity(record);
+
+const isValidMobo = (record) => hasIdentity(record);
+
+const isValidRam = (record) =>
+  hasIdentity(record) && (record.speed_mts == null || record.speed_mts > 0);
+
+const isValidPsu = (record) =>
+  hasIdentity(record) && record.wattage_w != null && record.wattage_w > 0 && record.wattage_w < 5000;
+
+const isValidCase = (record) =>
+  hasIdentity(record) &&
+  (record.max_gpu_length_mm == null ||
+    (record.max_gpu_length_mm > 0 && record.max_gpu_length_mm < 1000));
+
+const isValidGpu = (record) => {
+  if (!hasIdentity(record)) return false;
+  const tdpOk = record.tdp_w == null || (record.tdp_w > 0 && record.tdp_w < 1200);
+  const vramOk = record.vram_gb == null || (record.vram_gb > 0 && record.vram_gb < 128);
+  const lengthOk =
+    record.board_length_mm == null || (record.board_length_mm > 0 && record.board_length_mm < 1000);
+  return tdpOk && vramOk && lengthOk;
+};
+
+export function loadBuildCores(rawDir) {
+  const base = path.join(rawDir, "buildcores-open-db", "open-db");
+  const read = (category) => readJsonFiles(path.join(base, BUILD_CORES_CATEGORIES[category]));
+  const cpus = read("cpus").map(mapBuildCoresCpu).filter(isValidCpu);
+  const ram = read("ram").map(mapBuildCoresRam).filter(isValidRam);
+  const mobos = read("mobos").map(mapBuildCoresMobo).filter(isValidMobo);
+  const pcCases = read("pcCases").map(mapBuildCoresCase).filter(isValidCase);
+  const psus = read("psus").map(mapBuildCoresPsu).filter(isValidPsu);
+  const gpus = read("gpus").map(mapBuildCoresGpu).filter(isValidGpu);
+  return { cpus, ram, mobos, pcCases, psus, gpus };
 }
 
 export function loadDbGpu(rawDir) {
@@ -69,7 +326,7 @@ export function loadDbGpu(rawDir) {
       suggested_psu_w: safeNumber(item.suggested_psu_w),
       board_length_mm: safeNumber(item.board_length_mm || item.length_mm),
       board_slot_width: safeNumber(item.board_slot_width),
-      power_connectors: item.power_connectors || item.power || "",
+      power_connectors: sanitizeConnectorString(item.power_connectors || item.power),
       architecture: item.architecture || "",
       normalized_key: normalizeKey(item.brand || "", item.chipset || item.model || item.gpu_name || ""),
     }))
@@ -111,7 +368,7 @@ export function loadPcPart(rawDir) {
       id: slug(item.name || ""),
       brand,
       model,
-      socket: item.socket || item.socket_type || "",
+      socket: canonicalSocket(item.socket || item.socket_type || ""),
       tdp_w: safeNumber(item.tdp),
       cores: safeNumber(item.core_count),
       threads: safeNumber(item.core_count ? item.core_count * 2 : null),
@@ -137,7 +394,7 @@ export function loadPcPart(rawDir) {
       suggested_psu_w: safeNumber(item.psu || item.suggested_psu_w),
       board_length_mm: safeNumber(item.length),
       board_slot_width: safeNumber(item.slot_width),
-      power_connectors: item.power_connectors || "",
+      power_connectors: mapGpuPowerConnectors(item),
       normalized_key: normalizeKey(brand, model),
     };
   });
@@ -150,9 +407,9 @@ export function loadPcPart(rawDir) {
       id: slug(item.name || ""),
       brand,
       model,
-      socket: item.socket || "",
+      socket: canonicalSocket(item.socket || ""),
       chipset: item.chipset || "",
-      form_factor: item.form_factor || item.type || "",
+      form_factor: canonicalFormFactor(item.form_factor || item.type || ""),
       memory_type: (item.memory_type || "").toUpperCase(),
       memory_slots: safeNumber(item.memory_slots),
       max_memory_gb: safeNumber(item.max_memory),
@@ -171,7 +428,7 @@ export function loadPcPart(rawDir) {
       wattage_w: safeNumber(item.wattage),
       form_factor: item.type || "ATX",
       efficiency_rating: item.efficiency || "",
-      pcie_power_connectors: {},
+      pcie_power_connectors: mapPsuConnectors(item),
       normalized_key: normalizeKey(brand, model),
     };
   });
