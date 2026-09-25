@@ -114,10 +114,6 @@ function App({ measurement: measurementProp }) {
   );
 
   const cpus = useMemo(() => catalog.cpus || [], [catalog]);
-  const motherboards = useMemo(() => catalog.motherboards || [], [catalog]);
-  const ramKits = useMemo(() => catalog.ramKits || [], [catalog]);
-  const gpus = useMemo(() => catalog.gpus || [], [catalog]);
-  const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
   const familyOrderByBrand = useMemo(
     () => ({
