@@ -5,7 +5,7 @@ import { cleanup, render, screen, waitFor, fireEvent, within } from "@testing-li
 import App from "./App";
 import { createInMemorySink, createMeasurement } from "./lib/measurement/measurement";
 import {
-  buildDefaultCatalog, buildRichCatalog, buildRichTierMaps, buildDefaultTierMaps, buildCompatMeta,
+  buildDefaultCatalog, buildRichCatalog, buildRichTierMaps, buildDefaultTierMaps, buildCompatMeta, gpuSparse,
 } from "./test/fixtures";
 
 const { mockUseCatalog } = vi.hoisted(() => ({ mockUseCatalog: vi.fn() }));
@@ -795,6 +795,29 @@ describe("[plan 014] Builder flow", () => {
     fireEvent.focus(psuInput);
 
     expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(2);
+  });
+
+  it("shows 'Sin datos de consumo' and keeps low-wattage PSUs when the GPU TDP is missing", async () => {
+    const catalog = buildRichCatalog();
+    catalog.gpus = [...catalog.gpus, gpuSparse];
+    catalog.psus = [
+      ...catalog.psus,
+      { id: "psu-4", name: "Genérica 150W", wattage: 150, wattage_w: 150, pcie_power_connectors: { "8_pin": 1 } },
+    ];
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-3", psuId: "", caseId: "case-1",
+      useIntegratedGpu: false,
+    }, { catalog });
+
+    await waitFor(() => {
+      expect(screen.getByText("Sin datos de consumo")).toBeTruthy();
+    });
+
+    const psuInput = await screen.findByLabelText("Fuente");
+    fireEvent.focus(psuInput);
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(3);
+    expect(options.some((opt) => opt.textContent.includes("Genérica 150W"))).toBe(true);
   });
 
   it("deselects incompatible mobo when CPU socket changes [plan 014]");

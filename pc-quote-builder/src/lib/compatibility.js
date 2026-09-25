@@ -2,13 +2,21 @@
 
 const toNumber = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
+/**
+ * Estima consumo y PSU mínima. Devuelve `null` en vez de inventar números
+ * cuando falta el TDP del CPU o de la GPU; en ese caso solo puede caer al
+ * `suggested_psu_w` del fabricante.
+ */
 export function estimatePowerEnvelope(cpu, gpu, extraHeadroomW = 50) {
-  const cpuTdp = toNumber(cpu?.tdp_w ?? cpu?.tdp) || 0;
-  const gpuTdp = toNumber(gpu?.tdp_w ?? gpu?.tdp) || 0;
-  const estimated_load_w = cpuTdp + gpuTdp + extraHeadroomW;
+  const cpuTdp = toNumber(cpu?.tdp_w ?? cpu?.tdp);
+  const gpuTdp = toNumber(gpu?.tdp_w ?? gpu?.tdp);
   const suggestedByGpu = toNumber(gpu?.suggested_psu_w);
-  const recommendedRaw = Math.max(estimated_load_w * 1.3 + 50, suggestedByGpu || 0);
-  const recommended_min_psu_w = Math.ceil(recommendedRaw / 50) * 50;
+  const hasTdp = cpuTdp !== null && gpuTdp !== null;
+  const estimated_load_w = hasTdp ? cpuTdp + gpuTdp + extraHeadroomW : null;
+  const computedRaw = hasTdp ? estimated_load_w * 1.3 + 50 : null;
+  const recommendedRaw = hasTdp ? Math.max(computedRaw, suggestedByGpu || 0) : suggestedByGpu;
+  const recommended_min_psu_w =
+    recommendedRaw == null ? null : Math.ceil(recommendedRaw / 50) * 50;
   return { estimated_load_w, recommended_min_psu_w };
 }
 
@@ -72,12 +80,20 @@ export function checkPsuPowerSufficiency(psu, cpu, gpu, extraHeadroomW = 50) {
   const { estimated_load_w, recommended_min_psu_w } = estimatePowerEnvelope(cpu, gpu, extraHeadroomW);
   const wattage = toNumber(psu.wattage_w ?? psu.wattage);
   if (!wattage) return { status: "unknown", reason: "PSU sin wattage" };
+  if (estimated_load_w == null) {
+    return { status: "unknown", reason: "Faltan datos de consumo (TDP) para estimar la fuente" };
+  }
   if (wattage >= recommended_min_psu_w) return { status: "ok", estimated_load_w, recommended_min_psu_w };
   if (wattage >= estimated_load_w)
     return { status: "warning", estimated_load_w, recommended_min_psu_w, reason: "Poco margen" };
   return { status: "fail", estimated_load_w, recommended_min_psu_w, reason: "PSU insuficiente" };
 }
 
+/**
+ * Verifica los cables PCIe de la PSU contra el requerimiento de la GPU.
+ * Reconoce 12VHPWR/16-pin, 8-pin y 6-pin; un token no reconocido queda
+ * como `unknown` y nunca como `ok`.
+ */
 export function checkPsuConnectors(psu, gpu) {
   if (!psu || !gpu) return { status: "unknown", reason: "Faltan datos" };
   const connectors = psu.pcie_power_connectors || {};
@@ -85,22 +101,33 @@ export function checkPsuConnectors(psu, gpu) {
   const needRaw = (typeof gpu.power_connectors === "string" ? gpu.power_connectors : "").toLowerCase();
   if (!knownConnectorData) return { status: "unknown", reason: "PSU sin datos de conectores" };
   if (!needRaw) return { status: "unknown", reason: "GPU sin datos de conectores" };
-  const parseRequired = (pattern) => {
-    const match = needRaw.match(pattern);
-    if (!match) return 0;
-    const count = parseInt(match[1], 10);
-    return Number.isFinite(count) ? count : 1;
+
+  const stripRequirement = (text, pattern) => {
+    let required = 0;
+    const rest = text.replace(pattern, (_match, count) => {
+      const parsed = parseInt(count, 10);
+      required += Number.isFinite(parsed) ? parsed : 1;
+      return " ";
+    });
+    return { required, rest };
   };
 
-  const required12 = needRaw.includes("12vhpwr") ? parseRequired(/(\d+)\s*x?\s*12vhpwr/) || 1 : 0;
-  if (required12 > 0 && (connectors["12vhpwr"] || 0) < required12) {
-    return { status: "fail", reason: "Falta 12VHPWR" };
+  const twelve = stripRequirement(needRaw, /(\d+)?\s*x?\s*(?:12vhpwr|16-pin)/g);
+  const eight = stripRequirement(twelve.rest, /(\d+)?\s*x?\s*8-pin/g);
+  const six = stripRequirement(eight.rest, /(\d+)?\s*x?\s*6-pin/g);
+
+  if (twelve.required > 0 && (connectors["12vhpwr"] || 0) < twelve.required) {
+    return { status: "fail", reason: "Falta 12VHPWR/16-pin" };
   }
 
-  const required8 = needRaw.includes("8-pin") ? parseRequired(/(\d+)\s*x?\s*8-pin/) || 1 : 0;
-  if (required8 > 0) {
-    const count = (connectors["8_pin"] || 0) + (connectors["6+2"] || 0);
-    if (count < required8) return { status: "fail", reason: "Faltan 8-pin" };
+  const pciePool = (connectors["8_pin"] || 0) + (connectors["6+2"] || 0);
+  if (eight.required + six.required > pciePool) {
+    return { status: "fail", reason: "Faltan cables PCIe" };
+  }
+
+  const residue = six.rest.replace(/[\s,;/|+]+/g, "");
+  if (residue) {
+    return { status: "unknown", reason: `Conectores de GPU no reconocidos: ${residue}` };
   }
 
   return { status: "ok" };

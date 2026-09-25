@@ -270,6 +270,21 @@ describe("mergeGpu", () => {
     expect(result.recommended_psu_w).toBeGreaterThan(0);
   });
 
+  it("computes recommended_psu_w from TDP when the vendor value is absent", () => {
+    const result = mergeGpu([{ ...dbGpu, suggested_psu_w: null }]);
+    expect(result.recommended_psu_w).toBe(297);
+  });
+
+  it("does not fabricate recommended_psu_w when TDP is missing", () => {
+    const result = mergeGpu([{ ...dbGpu, tdp_w: null, suggested_psu_w: null }]);
+    expect(result.recommended_psu_w).toBe(null);
+  });
+
+  it("falls back to the vendor suggested_psu_w when TDP is missing", () => {
+    const result = mergeGpu([{ ...dbGpu, tdp_w: null, suggested_psu_w: 600 }]);
+    expect(result.recommended_psu_w).toBe(600);
+  });
+
   it("flags gpu_tdp_conflict", () => {
     const dbAlt = { ...dbGpu, tdp_w: 200 };
     const result = mergeGpu([dbAlt, pcGpu]);
