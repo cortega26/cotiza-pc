@@ -18,7 +18,6 @@ import {
   canonicalizeSupportedFormFactors,
   deduplicateIds,
   computeLegacyAliases,
-  SOURCE_TAGS,
 } from "./compiler.js";
 
 describe("computeTierCpu", () => {

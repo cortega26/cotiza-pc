@@ -45,7 +45,7 @@ jobs:
 
       - name: Lint and test
         working-directory: pc-quote-builder
-        run: npm run lint && npm test && npm run test:assurance
+        run: npm run lint && npm run lint:scripts && npm test && npm run test:assurance
 
       - name: Download datasets (BuildCores, PC Part, DBGPU)
         run: /tmp/pc-venv/bin/python scripts/download_pc_datasets.py
@@ -65,6 +65,10 @@ jobs:
       - name: Build production site
         working-directory: pc-quote-builder
         run: npm run build
+
+      - name: Prune stale hashed assets
+        working-directory: pc-quote-builder
+        run: npm run prune:assets
 
       - name: Assert docs/data matches synced public/data
         working-directory: pc-quote-builder

@@ -67,7 +67,7 @@ function QuoteAnalyzer({
   const catalogVersion =
     compatMeta?.generatedAt || String(compatMeta?.schemaVersion ?? "") || "unknown";
 
-  const rows = Array.isArray(quote?.rows) ? quote.rows : [];
+  const rows = useMemo(() => (Array.isArray(quote?.rows) ? quote.rows : []), [quote]);
   const catalogIndex = useMemo(() => buildCatalogIndex(catalog), [catalog]);
 
   const validMappings = useMemo(

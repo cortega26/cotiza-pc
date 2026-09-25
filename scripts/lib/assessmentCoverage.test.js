@@ -12,7 +12,6 @@ import {
   ASSESSMENT_RULE_IDS,
   EVIDENCE_CLASSES,
   CATEGORY_ARRAY_KEYS,
-  RULES_VERSION_STRING,
   buildFieldSpecsByComponent,
   classifyFieldValue,
   computeFieldCounts,
@@ -39,8 +38,6 @@ const makeItem = (overrides = {}) => ({
   meta: { created_from: ["pcpart"], conflict_flags: [], quality_score: 0.8 },
   ...overrides,
 });
-
-const catalogWith = (category, items) => ({ ...emptyCatalog, [category]: items });
 
 describe("rule registry (Plan 030 Step 1)", () => {
   it("has exactly one entry per Plan 028 v1 rule and matches the assurance inventory", () => {
