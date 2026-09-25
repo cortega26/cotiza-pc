@@ -209,10 +209,10 @@ function App({ measurement: measurementProp }) {
   const gpuTier = useMemo(() => (selection.gpu ? tierMaps.gpu.get(selection.gpu.id) || null : null), [selection, tierMaps.gpu]);
   const assessment = useMemo(() => evaluateSelection(selection, tierMaps, { extraHeadroomW: 50 }), [selection, tierMaps]);
   const { power } = assessment;
-  const estimatedTdp = power?.estimated_load_w || 0;
-  const suggestedWatts = power?.recommended_min_psu_w || 0;
+  const estimatedTdp = power?.estimated_load_w ?? null;
+  const suggestedWatts = power?.recommended_min_psu_w ?? null;
   const gpuPsuRequirement = selection.gpu?.psuMin || 0;
-  const recommendedPsuWatts = Math.max(suggestedWatts, gpuPsuRequirement || 0);
+  const recommendedPsuWatts = Math.max(suggestedWatts || 0, gpuPsuRequirement || 0);
   const cpuOptionsForStep = useMemo(() => {
     const base = optionsByStep.cpuId || [];
     return base
@@ -869,7 +869,13 @@ function App({ measurement: measurementProp }) {
                         ? "No hay gabinetes en el catálogo cargado."
                         : "Elige GPU/placa para validar espacio."
                       : step.key === "psuId"
-                      ? `Sugerido: ${recommendedPsuWatts}W (estimado ${estimatedTdp}W).${
+                      ? `${
+                          recommendedPsuWatts > 0
+                            ? `Sugerido: ${recommendedPsuWatts}W${
+                                estimatedTdp != null ? ` (estimado ${estimatedTdp}W)` : ""
+                              }`
+                            : "Sin datos de consumo"
+                        }.${
                           selection.gpu && !selection.gpu.power_connectors ? " GPU sin dato de conectores; valida manualmente." : ""
                         }`
                       : "Selecciona un componente.";
@@ -1001,16 +1007,20 @@ function App({ measurement: measurementProp }) {
             <div className="metric-grid">
               <div className="metric">
                 <span className="metric-label">Consumo estimado</span>
-                <span className="metric-value">{estimatedTdp} W</span>
+                <span className="metric-value">{estimatedTdp != null ? `${estimatedTdp} W` : "Sin datos de consumo"}</span>
               </div>
               <div className="metric">
                 <span className="metric-label">PSU sugerida</span>
-                <span className="metric-value">{recommendedPsuWatts} W</span>
+                <span className="metric-value">{recommendedPsuWatts > 0 ? `${recommendedPsuWatts} W` : "—"}</span>
               </div>
               <div className="metric">
                 <span className="metric-label">Margen actual</span>
                 <span className="metric-value">
-                  {selection.psu ? `${selection.psu.wattage - estimatedTdp} W` : "Selecciona una fuente"}
+                  {!selection.psu
+                    ? "Selecciona una fuente"
+                    : estimatedTdp == null
+                    ? "Sin datos de consumo"
+                    : `${selection.psu.wattage - estimatedTdp} W`}
                 </span>
               </div>
               <div className="metric">
@@ -1023,7 +1033,11 @@ function App({ measurement: measurementProp }) {
               </div>
             </div>
             {gpuPsuRequirement > 0 && (
-              <p className="field-hint">La GPU sugiere {gpuPsuRequirement} W; el cálculo ya lo incorpora.</p>
+              <p className="field-hint">
+                {estimatedTdp != null
+                  ? `La GPU sugiere ${gpuPsuRequirement} W; el cálculo ya lo incorpora.`
+                  : `La GPU sugiere ${gpuPsuRequirement} W; sin TDP no se puede calcular el margen.`}
+              </p>
             )}
 
               <div className="status-line">

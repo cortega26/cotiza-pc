@@ -153,7 +153,11 @@ export function mergeGpu(records) {
   }
   const tdp_w = field((r) => r.tdp_w);
   const suggested_psu_w = field((r) => r.suggested_psu_w);
-  const recommendedCalc = Math.ceil(((tdp_w || 0) + 75) * 1.3 + 50);
+  const hasTdp = typeof tdp_w === "number" && Number.isFinite(tdp_w);
+  const vendorPsu =
+    typeof suggested_psu_w === "number" && Number.isFinite(suggested_psu_w) ? suggested_psu_w : null;
+  const recommendedCalc = hasTdp ? Math.ceil((tdp_w + 75) * 1.3 + 50) : null;
+  const recommended_psu_w = hasTdp ? Math.max(vendorPsu || 0, recommendedCalc) : vendorPsu;
   return {
     id: canonicalId,
     name: `${brand} ${base.model || base.chipset}`.trim(),
@@ -165,7 +169,7 @@ export function mergeGpu(records) {
     vram_type: field((r) => r.vram_type) || "",
     tdp_w,
     suggested_psu_w,
-    recommended_psu_w: Math.max(suggested_psu_w || 0, recommendedCalc),
+    recommended_psu_w,
     board_length_mm: field((r) => r.board_length_mm),
     board_slot_width: field((r) => r.board_slot_width),
     power_connectors: field((r) => r.power_connectors) || "",

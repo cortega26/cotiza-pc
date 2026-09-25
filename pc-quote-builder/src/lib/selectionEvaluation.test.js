@@ -18,7 +18,7 @@ describe("selectionEvaluation", () => {
     expect(labels).toContain("PSU potencia");
     expect(labels).toContain("PSU conectores");
     expect(connectorStatus?.ok).toBe(false);
-    expect(result.issues.some((msg) => msg.toLowerCase().includes("8-pin"))).toBe(true);
+    expect(result.issues.some((msg) => msg.toLowerCase().includes("cables pcie"))).toBe(true);
     expect(result.warnings.some((msg) => msg.toLowerCase().includes("sugiere"))).toBe(true);
   });
 
@@ -87,6 +87,23 @@ describe("selectionEvaluation", () => {
     expect(conn?.ok).toBe(false);
     expect(res.issues.some((msg) => msg.toLowerCase().includes("8-pin"))).toBe(false);
     expect(res.summaryVerdict).not.toBe("fail");
+  });
+
+  it("does not mark PSU power ok when the GPU TDP is unknown", () => {
+    const unknownTdp = {
+      cpu: { id: "cpu1", socket: "LGA1700", memoryType: "DDR5", tdp: 125 },
+      mobo: { id: "m1", socket: "LGA1700", memoryType: "DDR5", formFactor: "ATX" },
+      ram: { id: "ram1", type: "DDR5" },
+      gpu: { id: "gpu1", tdp: null, tdp_w: null, length: 310, power_connectors: "2x 8-pin" },
+      psu: { id: "psu1", wattage: 650, pcie_power_connectors: { "8_pin": 2 } },
+      pcCase: { id: "case1", formFactors: ["ATX"], maxGpuLength: 320 },
+    };
+    const res = evaluateSelection(unknownTdp, { cpu: new Map(), gpu: new Map() }, { extraHeadroomW: 50 });
+    const power = res.statuses.find((s) => s.label === "PSU potencia");
+    expect(res.psuStatus.status).toBe("unknown");
+    expect(power?.unknown).toBe(true);
+    expect(power?.ok).toBe(false);
+    expect(res.summaryVerdict).not.toBe("ok");
   });
 
   it("does not warn CPU↔RAM mismatch when CPU memoryType is inferred", () => {
