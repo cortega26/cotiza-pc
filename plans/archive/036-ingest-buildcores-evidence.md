@@ -312,6 +312,20 @@ categories.
 - `bash scripts/verify.sh` — 43 contract tests passed.
 - `git diff --check` — clean.
 
+### Browser end-to-end verification (real catalog)
+
+Using the dev server and six real catalog IDs selected from the regenerated
+data:
+
+- Compatible AM5 build (EPYC 4244P + ASRock B650 + DDR5 + Arc B570 +
+  1100W PSU + ABKONCORE C750): verdict `TÉCNICAMENTE VÁLIDA` with all seven
+  dimensions `ok`.
+- Same build with an LGA1700 board: verdict `PROBLEMAS CONFIRMADOS`,
+  compatibility `fail`, critical finding naming the AM5 ↔ LGA1700 socket
+  mismatch.
+- Same build with a GPU requiring 2×8-pin and a PSU providing 1×8-pin:
+  compatibility `ok`, connectors `fail`, critical finding `Faltan 8-pin`.
+
 ### Follow-ups (not part of this plan)
 
 - `mobo.max_memory_speed_mts` and per-rule coverage thresholds remain open.
