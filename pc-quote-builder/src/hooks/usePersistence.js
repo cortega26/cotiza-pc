@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { normalizeCurrency } from "../lib/money";
 import { createEmptyQuote, normalizeQuote } from "../lib/quoteModel";
-import { EMPTY_BUILDER } from "../lib/builderReducer";
+import { EMPTY_BUILDER } from "../lib/builderHelpers";
 
 const STORAGE_KEYS = {
   quotes: "pcqb:quotes:v1",

@@ -15,7 +15,7 @@ import {
   getNextStep,
   isStepDone,
   builderComplete as isBuilderComplete,
-} from "./lib/builderReducer";
+} from "./lib/builderHelpers";
 import { ANALYZER_CATEGORIES } from "./components/QuoteAnalyzer/session";
 import { buildCatalogIndex } from "./lib/quoteAnalyzer/resolver";
 import {
