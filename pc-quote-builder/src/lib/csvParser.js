@@ -189,7 +189,10 @@ export const parsePriceCsv = (text) => {
 
   const headers = rawHeaders.map((h) => h.toLowerCase());
 
-  const idxId = headers.findIndex((h) => h.includes("id"));
+  let idxId = findColumnIndex(rawHeaders, ["id", "itemid", "idproducto", "catalogid", "sku"]);
+  if (idxId === -1) {
+    idxId = headers.findIndex((h) => h.includes("id") && !/cantidad|unidad|medida|validez/.test(h));
+  }
   const idxOffer = headers.findIndex((h) => h.includes("offer") || h.includes("oferta"));
   const idxNormal = headers.findIndex((h) => h.includes("regular") || h.includes("normal"));
   const idxStore = headers.findIndex((h) => h.includes("store") || h.includes("tienda"));

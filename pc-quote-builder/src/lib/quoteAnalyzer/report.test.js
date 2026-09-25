@@ -15,6 +15,7 @@ import {
   psuMarginal,
   ramDdr5_1,
 } from "../../test/fixtures";
+import { createEmptyRow } from "../quoteModel";
 import { RULES_VERSION } from "./contracts";
 import { buildReport } from "./report";
 
@@ -316,6 +317,45 @@ describe("quoteAnalyzer report — F6 stale and partial prices", () => {
     expect(report.dimensions.priceCompleteness.status).toBe("ok");
     expect(report.verdict.overall).toBe("ok");
   });
+
+  it("ignores blank placeholder rows in price completeness", () => {
+    const report = buildReport(buildContext({
+      quote: { ...buildContext().quote, rows: [...buildContext().quote.rows, createEmptyRow()] },
+    }));
+    expect(findingIds(report)).not.toContain("price-completeness-rows");
+    expect(report.dimensions.priceCompleteness.status).toBe("ok");
+    expect(report.verdict.overall).toBe("ok");
+  });
+
+  it("never warns about price completeness when every row is blank", () => {
+    const report = buildReport(buildContext({
+      selection: {},
+      gaps: { cpu: "missing", mobo: "missing", ram: "missing", gpu: "missing", psu: "missing", pcCase: "missing" },
+      resolutions: [],
+      quote: { ...buildContext().quote, rows: [createEmptyRow()] },
+    }));
+    expect(findingIds(report)).not.toContain("price-completeness-rows");
+    expect(report.dimensions.priceCompleteness.status).toBeNull();
+    expect(report.verdict.overall).toBe("incomplete");
+  });
+
+  it("still warns for a real unpriced row alongside a blank row", () => {
+    const report = buildReport(buildContext({
+      quote: {
+        ...buildContext().quote,
+        rows: [
+          row({ id: "r-cpu", offerPrice: "", regularPrice: "" }),
+          ...buildContext().quote.rows.slice(1),
+          createEmptyRow(),
+        ],
+      },
+    }));
+    const completeness = findingsBy(report)["price-completeness-rows"];
+    expect(completeness.severity).toBe("warning");
+    expect(completeness.affected).toEqual(["r-cpu"]);
+    expect(completeness.conclusion).toMatch(/una fila sin precio válido/i);
+    expect(report.dimensions.priceCompleteness.status).toBe("warning");
+  });
 });
 
 describe("quoteAnalyzer report — completeness and verdict precedence", () => {
@@ -483,6 +523,35 @@ describe("quoteAnalyzer report — evidence, confidence, ordering", () => {
     const finding = findingsBy(report)["compat-mobo-case-ff"];
     expect(finding.severity).toBe("critical");
     expect(finding.confidence).toBe("medium");
+  });
+
+  it("lowers confidence to medium for inferred case form factors and keeps high for explicit", () => {
+    const inferredCase = { ...caseItx, formFactorEvidence: "inferred" };
+    const inferredReport = buildReport(buildContext({
+      selection: { ...fullSelection(), mobo: moboAm5, pcCase: inferredCase },
+      resolutions: [
+        exact("cpu", cpuIntel), exact("mobo", moboAm5), exact("ram", ramDdr5_1),
+        exact("gpu", gpuLow), exact("psu", psu750), exact("pcCase", inferredCase),
+      ],
+    }));
+    const inferred = findingsBy(inferredReport)["compat-mobo-case-ff"];
+    expect(inferred.severity).toBe("critical");
+    expect(inferred.decisionType).toBe("deterministic");
+    expect(inferred.confidence).toBe("medium");
+    expect(inferredReport.dimensions.caseFit.status).toBe("fail");
+    expect(inferredReport.verdict.overall).toBe("fail");
+
+    const explicitCase = { ...caseItx, formFactorEvidence: "explicit" };
+    const explicitReport = buildReport(buildContext({
+      selection: { ...fullSelection(), mobo: moboAm5, pcCase: explicitCase },
+      resolutions: [
+        exact("cpu", cpuIntel), exact("mobo", moboAm5), exact("ram", ramDdr5_1),
+        exact("gpu", gpuLow), exact("psu", psu750), exact("pcCase", explicitCase),
+      ],
+    }));
+    const explicit = findingsBy(explicitReport)["compat-mobo-case-ff"];
+    expect(explicit.severity).toBe("critical");
+    expect(explicit.confidence).toBe("high");
   });
 
   it("sorts findings by severity then stable id", () => {

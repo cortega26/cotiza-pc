@@ -89,6 +89,8 @@ describe("validMappingsFor", () => {
 describe("analysisSignature", () => {
   const quote = {
     id: "q1",
+    currency: "CLP",
+    priceUpdatedAt: "2026-07-20T00:00:00.000Z",
     rows: [{ id: "r1", category: "Procesador", product: "Intel i5", itemId: "", offerPrice: "", regularPrice: "" }],
   };
   const context = { targetResolution: "1080p", usesIntegratedGpu: false, assemblyScope: "full", budget: null };
@@ -105,6 +107,16 @@ describe("analysisSignature", () => {
     expect(analysisSignature(quote, context, {}, ["r1"], "gen-1")).not.toBe(baseSig);
     expect(analysisSignature(quote, context, {}, [], "gen-2")).not.toBe(baseSig);
     expect(base()).toBe(baseSig);
+  });
+
+  it("changes when the quote currency changes", () => {
+    expect(analysisSignature({ ...quote, currency: "USD" }, context, {}, [], "gen-1")).not.toBe(base());
+  });
+
+  it("changes when the quote price freshness changes", () => {
+    expect(
+      analysisSignature({ ...quote, priceUpdatedAt: "2026-07-01T00:00:00.000Z" }, context, {}, [], "gen-1")
+    ).not.toBe(base());
   });
 });
 
