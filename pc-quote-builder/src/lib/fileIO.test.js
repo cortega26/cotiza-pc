@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { slugify, freshIds, buildQuotesFromJson, exportCSV, exportJSON, downloadFile } from "./fileIO";
+import { escapeCsvField } from "./csvParser";
 
 describe("slugify", () => {
   it("lowercases and replaces spaces with hyphens", () => {
@@ -90,12 +91,6 @@ describe("buildQuotesFromJson", () => {
 });
 
 describe("exportCSV", () => {
-  const esc = (v) => {
-    if (v == null) return "";
-    const s = String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
-
   const quote = {
     name: "Test",
     rows: [
@@ -107,18 +102,18 @@ describe("exportCSV", () => {
   const totals = { totalOffer: 400, totalRegular: 470, saving: 70 };
 
   it("includes header row", () => {
-    const csv = exportCSV(quote, totals, esc);
+    const csv = exportCSV(quote, totals, escapeCsvField);
     expect(csv).toMatch(/^Componente,Producto,itemId/);
   });
 
   it("includes data rows", () => {
-    const csv = exportCSV(quote, totals, esc);
+    const csv = exportCSV(quote, totals, escapeCsvField);
     expect(csv).toContain("CPU,Ryzen 5,cpu1");
     expect(csv).toContain("GPU,RTX 4060,gpu1");
   });
 
   it("includes totals at the end", () => {
-    const csv = exportCSV(quote, totals, esc);
+    const csv = exportCSV(quote, totals, escapeCsvField);
     const lines = csv.split("\n");
     expect(lines[lines.length - 3]).toBe("Total oferta,400");
     expect(lines[lines.length - 2]).toBe("Total normal,470");
@@ -127,18 +122,28 @@ describe("exportCSV", () => {
 
   it("escapes fields containing quotes or commas", () => {
     const q = { ...quote, rows: [{ category: 'CPU, AMD', product: 'Ryzen "5"', itemId: '', store: '', offerPrice: '', regularPrice: '', notes: '' }] };
-    const csv = exportCSV(q, totals, esc);
+    const csv = exportCSV(q, totals, escapeCsvField);
     expect(csv).toContain('"CPU, AMD"');
     expect(csv).toContain('"Ryzen ""5"""');
   });
 
+  it("neutralizes formula-prefixed notes through the real escaper", () => {
+    const notes = "=SUM(A1, B1)";
+    const escaped = escapeCsvField(notes);
+    expect(escaped).toBe("\"'=SUM(A1, B1)\"");
+    const q = { ...quote, rows: [{ category: "CPU", product: "Ryzen 5", itemId: "", store: "", offerPrice: "", regularPrice: "", notes }] };
+    const csv = exportCSV(q, totals, escapeCsvField);
+    expect(csv).toContain(escaped);
+    expect(csv).not.toContain(",=SUM");
+  });
+
   it("handles null totals without crashing", () => {
-    const csv = exportCSV(quote, null, esc);
+    const csv = exportCSV(quote, null, escapeCsvField);
     expect(csv).toContain("Total oferta,0");
   });
 
   it("handles undefined totals without crashing", () => {
-    const csv = exportCSV(quote, undefined, esc);
+    const csv = exportCSV(quote, undefined, escapeCsvField);
     expect(csv).toContain("Total oferta,0");
   });
 });
