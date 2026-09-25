@@ -106,6 +106,44 @@ describe("AnalyzerContextForm", () => {
     expect(screen.queryByText(/necesitas indicar la resolución objetivo/)).toBeNull();
   });
 
+  it("hides the edit button when the form is disabled without a handler", () => {
+    render(
+      <AnalyzerContextForm
+        context={{ ...ANALYZER_CONTEXT_DEFAULT, targetResolution: "1080p" }}
+        onChange={() => {}}
+        disabled
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Editar contexto" })).toBeNull();
+  });
+
+  it("hides the edit button when the form is enabled", () => {
+    render(
+      <AnalyzerContextForm
+        context={{ ...ANALYZER_CONTEXT_DEFAULT, targetResolution: "1080p" }}
+        onChange={() => {}}
+        onEditContext={() => {}}
+      />
+    );
+    expect(screen.queryByRole("button", { name: "Editar contexto" })).toBeNull();
+  });
+
+  it("calls the edit handler from the disabled form", () => {
+    const onEditContext = vi.fn();
+    render(
+      <AnalyzerContextForm
+        context={{ ...ANALYZER_CONTEXT_DEFAULT, targetResolution: "1080p" }}
+        onChange={() => {}}
+        disabled
+        onEditContext={onEditContext}
+      />
+    );
+    const editButton = screen.getByRole("button", { name: "Editar contexto" });
+    expect(editButton.disabled).toBe(false);
+    fireEvent.click(editButton);
+    expect(onEditContext).toHaveBeenCalledTimes(1);
+  });
+
   it("disables all controls when disabled", () => {
     const { container } = render(
       <AnalyzerContextForm context={{ ...ANALYZER_CONTEXT_DEFAULT, targetResolution: "1080p" }} onChange={() => {}} disabled />

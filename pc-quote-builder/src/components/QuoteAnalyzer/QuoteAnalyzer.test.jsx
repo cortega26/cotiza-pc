@@ -252,6 +252,36 @@ describe("QuoteAnalyzer", () => {
     expect(screen.getByText(/Revisa la identidad de cada componente/)).toBeTruthy();
   });
 
+  it("edits the purchase context after a verdict and re-analyzes with the new context", async () => {
+    renderAnalyzer();
+    await runToVerdict();
+
+    expect(screen.getByLabelText("Resolución objetivo").disabled).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Editar contexto" }));
+    const select = screen.getByLabelText("Resolución objetivo");
+    expect(select.disabled).toBe(false);
+    expect(screen.getByRole("button", { name: "Analizar cotización activa" })).toBeTruthy();
+
+    fireEvent.change(select, { target: { value: "1440p" } });
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización activa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await screen.findByText(/Veredicto/);
+
+    expect(screen.queryByText(/La cotización o el contexto cambiaron/)).toBeNull();
+    expect(screen.getByLabelText("Resolución objetivo").disabled).toBe(true);
+  });
+
+  it("shows a coverage-unavailable hint without blocking the verdict", async () => {
+    renderAnalyzer({ coverageFailed: true });
+    await runToVerdict();
+
+    expect(
+      screen.getByText(/La cobertura de reglas del catálogo no está disponible/)
+    ).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Veredicto del análisis" })).toBeTruthy();
+  });
+
   it("moves focus to the new stage after an explicit submit", async () => {
     renderAnalyzer();
     await completeContext();

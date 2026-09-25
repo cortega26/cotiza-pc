@@ -43,6 +43,7 @@ function QuoteAnalyzer({
   fallbackUsed,
   categoryStates,
   assessmentCoverage,
+  coverageFailed = false,
   onApplyQuoteData,
   onQuoteStart,
   measurement,
@@ -343,6 +344,7 @@ function QuoteAnalyzer({
         context={context}
         onChange={setContext}
         disabled={stage !== "intake"}
+        onEditContext={() => setStage("intake")}
       />
 
       {stage === "intake" && (
@@ -422,6 +424,12 @@ function QuoteAnalyzer({
 
           {isCurrent && report && !report.error && (
             <>
+              {coverageFailed && (
+                <p className="field-hint">
+                  La cobertura de reglas del catálogo no está disponible; el veredicto se muestra sin
+                  notas de cobertura.
+                </p>
+              )}
               <AnalyzerVerdict
                 report={report}
                 manifest={assessmentCoverage}

@@ -7,7 +7,7 @@ const GPU_OPTIONS = [
   { value: "null", label: "No estoy seguro(a) todavía" },
 ];
 
-function AnalyzerContextForm({ context, onChange, disabled = false }) {
+function AnalyzerContextForm({ context, onChange, disabled = false, onEditContext }) {
   const setPartial = (partial) => onChange?.({ ...context, ...partial });
 
   const gpuValue = context.usesIntegratedGpu === null ? "null" : String(context.usesIntegratedGpu);
@@ -107,6 +107,12 @@ function AnalyzerContextForm({ context, onChange, disabled = false }) {
           Para evaluar necesitas indicar la resolución objetivo y confirmar si usarás GPU dedicada o
           gráficos integrados.
         </p>
+      )}
+
+      {disabled && onEditContext && (
+        <button className="secondary-btn" onClick={onEditContext}>
+          Editar contexto
+        </button>
       )}
     </div>
   );
