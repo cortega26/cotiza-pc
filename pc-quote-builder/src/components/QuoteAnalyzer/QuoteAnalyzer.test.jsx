@@ -134,6 +134,27 @@ describe("QuoteAnalyzer", () => {
     expect(inputCompleted.missingPriceRowCount).toBe(1);
   });
 
+  it("defers resolution and analysis while the workspace is inactive", async () => {
+    const quote = makeQuote({
+      rows: [
+        ...makeQuote().rows,
+        { id: "r-amb", category: "Procesador", product: "Intel Core", itemId: "", offerPrice: 100000 },
+      ],
+    });
+    const { view, sink, ...props } = renderAnalyzer({ quote, active: false });
+
+    await completeContext();
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización activa" }));
+    expect(screen.queryByRole("region", { name: "Revisión de identidad de componentes" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Usar este" })).toBeNull();
+    expect(eventNames(sink)).not.toContain("quote_input_completed");
+
+    view.rerender(<QuoteAnalyzer {...props} active />);
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización activa" }));
+    expect(screen.getByRole("region", { name: "Revisión de identidad de componentes" })).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Usar este" }).length).toBeGreaterThan(0);
+  });
+
   it("exports a valid minimized case without changing resolved component keys", async () => {
     vi.stubGlobal("crypto", {
       randomUUID: vi.fn(() => "12345678-1234-4234-8234-123456789abc"),

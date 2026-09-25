@@ -13,10 +13,10 @@ function addCacheBust(url, cacheBust) {
 }
 
 export async function loadCatalogFile(path, options = {}) {
-  const { cacheBust = "", fetchOptions = {} } = options;
+  const { cacheBust = "", fetchOptions = {}, noCache = false } = options;
   const url = addCacheBust(path, cacheBust);
 
-  if (cache.has(url)) return cache.get(url);
+  if (!noCache && cache.has(url)) return cache.get(url);
   if (pending.has(url)) return pending.get(url);
 
   const promise = (async () => {
@@ -24,7 +24,7 @@ export async function loadCatalogFile(path, options = {}) {
       const res = await fetch(url, fetchOptions);
       if (!res.ok) throw new Error(`No se pudo cargar ${path}`);
       const data = await res.json();
-      cache.set(url, data);
+      if (!noCache) cache.set(url, data);
       return data;
     } finally {
       pending.delete(url);

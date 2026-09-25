@@ -110,7 +110,10 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
 
       for (const cat of needed) {
         promises.push(
-          loadCategoryFile(dataBase, cat, { cacheBust: isReload ? String(reloadToken) : "" })
+          loadCategoryFile(dataBase, cat, {
+            cacheBust: isReload ? String(reloadToken) : "",
+            noCache: true,
+          })
             .then((data) => {
               if (currentTokenRef.current !== token) return;
               const mapped = mapSingleCategory(cat, data);
@@ -130,7 +133,10 @@ export function useCatalog(reloadToken = 0, requestedCategories = []) {
 
       if (needsCompat) {
         promises.push(
-          loadCompatibilityFile(dataBase, { cacheBust: isReload ? String(reloadToken) : "" })
+          loadCompatibilityFile(dataBase, {
+            cacheBust: isReload ? String(reloadToken) : "",
+            noCache: true,
+          })
             .then((compat) => {
               if (currentTokenRef.current !== token) return;
               setCompatMeta(compat || null);

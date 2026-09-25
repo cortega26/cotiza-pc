@@ -37,9 +37,10 @@ function catalogListFor(componentKey, catalog) {
  * A mapping entry is valid only while its row still has the same product and
  * category that were captured when the user confirmed it, and while the mapped
  * catalog item still exists in the current catalog. Stale entries are ignored,
- * never silently applied.
+ * never silently applied. Passing a prebuilt catalog index makes the existence
+ * check O(1); without one it falls back to a linear scan.
  */
-export function validMappingsFor(rows, mappings, catalog) {
+export function validMappingsFor(rows, mappings, catalog, index) {
   if (!mappings || typeof mappings !== "object") return {};
   if (!Array.isArray(rows)) return {};
   const valid = {};
@@ -48,8 +49,12 @@ export function validMappingsFor(rows, mappings, catalog) {
     const entry = mappings[row.id];
     if (!entry || typeof entry !== "object") continue;
     if (entry.product !== row.product || entry.category !== row.category) continue;
-    const list = catalogListFor(entry.componentKey, catalog);
-    const exists = list.some((item) => item && String(item.id) === String(entry.itemId));
+    const byId = index?.byId?.[entry.componentKey];
+    const exists = byId
+      ? byId.has(String(entry.itemId))
+      : catalogListFor(entry.componentKey, catalog).some(
+          (item) => item && String(item.id) === String(entry.itemId)
+        );
     if (!exists) continue;
     valid[row.id] = { ...entry };
   }

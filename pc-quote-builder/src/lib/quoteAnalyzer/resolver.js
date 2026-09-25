@@ -19,6 +19,9 @@ const CATALOG_LISTS = Object.freeze({
   pcCase: "pcCases",
 });
 
+/** Advisory UI bound; candidate lists beyond this are truncated but never lose the manual search. */
+export const MAX_CANDIDATES = 20;
+
 /**
  * Catalog items for a component key. Never throws on malformed catalogs.
  * @param {string} componentKey
@@ -29,6 +32,25 @@ function catalogListFor(componentKey, catalog) {
   if (!catalog || typeof catalog !== "object") return [];
   const list = catalog[CATALOG_LISTS[componentKey]];
   return Array.isArray(list) ? list : [];
+}
+
+/**
+ * Build per-component id -> item maps once per catalog snapshot.
+ * @param {object|null|undefined} catalog
+ * @returns {{ byId: Record<string, Map<string, object>> }}
+ */
+export function buildCatalogIndex(catalog) {
+  const byId = {};
+  for (const key of Object.keys(CATALOG_LISTS)) {
+    const map = new Map();
+    for (const item of catalogListFor(key, catalog)) {
+      if (item && item.id !== undefined && item.id !== null) {
+        map.set(String(item.id), item);
+      }
+    }
+    byId[key] = map;
+  }
+  return { byId };
 }
 
 /**
@@ -57,7 +79,8 @@ export function findCandidates(productText, items) {
  * @param {object} [options]
  * @param {object|null} [options.aliases] { [oldId]: newId } from catalog metadata
  * @param {object|null} [options.explicitMappings] { [rowId]: catalogItemId } per-analysis user confirmations
- * @returns {{ state: string, rowId: string, componentKey: string|null, item?: object, itemId?: string, candidates?: Array<object> }|null}
+ * @param {{ byId: Record<string, Map<string, object>> }} [options.index] prebuilt catalog id index
+ * @returns {{ state: string, rowId: string, componentKey: string|null, item?: object, itemId?: string, candidates?: Array<object>, candidateCount?: number, candidatesTruncated?: boolean }|null}
  */
 export function resolveRow(row, catalog, options = {}) {
   if (!row || typeof row !== "object") return null;
@@ -73,12 +96,15 @@ export function resolveRow(row, catalog, options = {}) {
   }
 
   const list = catalogListFor(componentKey, catalog);
+  const byId = options.index?.byId?.[componentKey];
+  const findById = (id) =>
+    byId ? byId.get(String(id)) : list.find((candidate) => candidate && String(candidate.id) === String(id));
 
   // Resolution order follows the design state table: exact-id, then
   // user-mapped, then advisory text candidates.
   if (row.itemId !== undefined && row.itemId !== null && row.itemId !== "") {
     const resolvedId = resolveCatalogId(row.itemId, aliases);
-    const item = list.find((candidate) => candidate && String(candidate.id) === String(resolvedId));
+    const item = findById(resolvedId);
     if (item) {
       return { state: "exact-id", rowId, componentKey, item, itemId: item.id };
     }
@@ -88,16 +114,23 @@ export function resolveRow(row, catalog, options = {}) {
     explicitMappings && rowId ? explicitMappings[rowId] : undefined;
   if (mappingId !== undefined && mappingId !== null) {
     const resolvedMappingId = resolveCatalogId(mappingId, aliases);
-    const mapped = list.find((item) => item && String(item.id) === String(resolvedMappingId));
+    const mapped = findById(resolvedMappingId);
     if (mapped) {
       return { state: "user-mapped", rowId, componentKey, item: mapped, itemId: mapped.id };
     }
     // Invalid mapping falls through; it must never fabricate evidence.
   }
 
-  const candidates = findCandidates(row.product, list);
-  if (candidates.length > 0) {
-    return { state: "ambiguous", rowId, componentKey, candidates };
+  const allCandidates = findCandidates(row.product, list);
+  if (allCandidates.length > 0) {
+    return {
+      state: "ambiguous",
+      rowId,
+      componentKey,
+      candidates: allCandidates.slice(0, MAX_CANDIDATES),
+      candidateCount: allCandidates.length,
+      candidatesTruncated: allCandidates.length > MAX_CANDIDATES,
+    };
   }
   return { state: "unmatched-text", rowId, componentKey };
 }
