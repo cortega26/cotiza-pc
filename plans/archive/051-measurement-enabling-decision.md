@@ -197,3 +197,9 @@ Stop and report back (do not improvise) if:
   future audits.
 - **Deferred**: any sink, consent UI, endpoint, retention job, dashboard, or
   vendor evaluation.
+- **Completion (2026-09-25)**: packet delivered in `78669d5`, reviewed and
+  merged as `12a900b`. The owner decision recorded 2026-09-25 is **stay
+  no-op**: no sink or collection is authorized until Milestone 1 traffic
+  exists and the owner re-approves; the acquisition-class derivation may be
+  built locally with the no-op sink if a future plan is authorized. Sink
+  model, consent, retention, and access remain open in ROADMAP §7.

@@ -291,3 +291,10 @@ Stop and report back (do not improvise) if:
   that is a manifest decision, not a lockfile refresh — surface it instead.
 - **Deferred**: adding `--max-warnings 0` and linting `scripts/` are plan 046;
   do not fold them in here.
+- **Completion (2026-09-25)**: implemented `9a5fc9a`…`97e8760`, reviewed and
+  merged as `c36ee30`. Per-push `verify.yml` (check + artifact contracts +
+  assurance), npm cache in both workflows, lockfile refresh clearing the two
+  high advisories (`npm audit` 0), and the Plan 035 assurance CLI documented
+  and CI-enforced (conformance 44/44). This merge is the batch's verification
+  baseline; plan 046 later extended the gate with `lint:scripts` and
+  `--max-warnings 0`.

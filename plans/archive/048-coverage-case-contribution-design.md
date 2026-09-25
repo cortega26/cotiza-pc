@@ -190,3 +190,10 @@ Stop and report back (do not improvise) if:
 - If the owner declines contribution, record the rejection in
   `plans/README.md` so the finding is not re-audited.
 - **Deferred**: any UI, download button, consent dialog, or aggregation tooling.
+- **Completion (2026-09-25)**: design delivered in `fe1053a`, reviewed and
+  merged as `f5fcf04`. The owner resolved the §9 checklist on 2026-09-25
+  (corpus **adopt**, trust-first: real `itemId`, exact-id/user-mapped only,
+  staging deleted after each run, withdrawal by opaque `caseId`, no upload
+  path), and the decision was implemented by plan 052. Contribution/upload
+  remains unauthorized; consent, retention, hosting, and withdrawal SLA stay
+  open in `plans/README.md` / ROADMAP §7.

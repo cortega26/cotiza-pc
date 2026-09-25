@@ -102,27 +102,11 @@ evidence column. Never lower a threshold to declare success.
 ## 3. Backlog — open plans
 
 Priority is from the plan. "Wave" is the recommended slot from §4. Archived
-plans 016-026, 028, 030-032, 035, 036 are `DONE` and listed in
-`plans/README.md`; they are not repeated here.
+plans 016-026, 028, 030-032, 035, 036, and 037-052 are `DONE` and listed in
+`plans/README.md` (with `archive/` links); they are not repeated here.
 
 | Plan | Title | Pri | Effort | Wave | Depends on | Status | Done gate (summary) |
 |---|---|---|---|---|---|---|---|
-| [037](037-add-per-push-verification-gate.md) | Per-push verification gate, advisories, assurance CLI | P1 | S-M | 0 | — | DONE (merged `c36ee30`) | `verify.yml` runs check + artifacts + assurance; audit clean; docs updated |
-| [047](047-pipeline-symlink-rejection.md) | Reject symlinked dataset files | P2 | S | 1B | — | DONE (merged `4c4e349`) | io tests pass; guard fail-closed in every reader |
-| [038](038-truthful-psu-and-connector-outcomes.md) | Truthful power/connector outcomes | P1 | M | 1A | 037 (merged) | DONE (merged `05e9ca8`) | reproductions return unknown/fail; compiler regenerated with 0 fabricated recommendations; assurance green |
-| [048](048-coverage-case-contribution-design.md) | Coverage-case contribution design | P2 | S | 1C | owner decisions | DONE (merged `f5fcf04`) | design doc with 10 sections; owner checklist resolved 2026-09-25 (adopt, trust-first) |
-| [052](052-coverage-case-export.md) | Local privacy-minimized coverage-case export | P1 | M | — | 048, 037 | DONE (merged `4ff321d`) | corpus flywheel layer 1; no network, no event; validated against the real harness validator; one revision retained user-confirmed rows |
-| [049](049-content-inventory-pages-4-12.md) | Pages 4-12 rule-backed inventory | P2 | S | 1C | — | DONE (merged `0236a7a`) | 9 rows, rule IDs verified vs registry, no pages authored; page 5 deferred (coverage absent) |
-| [051](051-measurement-enabling-decision.md) | Measurement enabling decision packet | P2 | S | 1C | owner decisions | DONE (merged `12a900b`) | decision doc; no sink, no code; measurement stays no-op pending M1 traffic and owner re-approval |
-| [040](040-characterize-app-quote-flows.md) | Characterize App quote CRUD/cascades/exports | P1 | M | 2A | 038 (shared tests) | DONE (merged `5d13de7`) | App suite 121 passed / 1 retained bug-todo; real escaper in export test |
-| [039](039-quote-quality-defects.md) | Analyzer quote-quality defects | P1 | S | 2B | 038 (merged) | DONE (merged `ca11b8e`) | blank rows ignored; price CSV id exact; inferred → medium; signature extended |
-| [042](042-resolver-performance.md) | Resolver performance | P1 | M | 3A | — | DONE (merged `a3e88ab`) | indexed lookup; capped candidates + manual search; hidden-mode laziness; raw cache released; parity proven |
-| [043](043-analyzer-context-and-failure-surfacing.md) | Context edit + degraded-data surfacing | P1 | S | 3B | 042 (same files) | DONE (merged `0de4e23`) | edit-context round trip; compat/coverage failures visible |
-| [044](044-harden-import-persistence-workspace.md) | Import/persistence/workspace hardening | P2 | S-M | 4A | 042, 043 | DONE (merged `b5d7381`) | per-entry recovery + backup; unified detection; slugified filenames; mapper guard; single pushState |
-| [041](041-retire-dead-builder-reducer.md) | Retire dead builder reducer | P2 | S | 4B | 040 | DONE (merged `7d562f7`) | `rg builderReducer src` empty; helpers renamed; suite green |
-| [050](050-non-destructive-conflict-notices.md) | Conflict-clear notices | P2 | S | 4B | 040 | DONE (merged `0f51b58`) | five clears announce; evidence-gated (missing data never clears or announces); dismiss works; no rule change |
-| [046](046-lint-scripts-and-asset-hygiene.md) | Pipeline lint + strict app lint + asset prune | P2 | S-M | 5A | 037, 042/043 | DONE (merged `93dd68d`) | scripts lint 0; `--max-warnings 0`; assets match index.html |
-| [045](045-docs-truth-up.md) | Docs truth-up | P2 | S | 5B | behavior waves merged | DONE (merged `ca0ed6c`) | stale current-state claims gone; example marked synthetic |
 | [033](033-build-crawlable-decision-content-foundation.md) | 3-page crawlable content pilot | P2 | L | 6 | 030-032, 035 | TODO | pilot pages + observation gate; external actions not authorized |
 | [034](034-qualify-solotodo-price-intelligence-source.md) | Qualify SoloTodo source | P1 | L | 6 | 030, 035 | TODO | written permission matrix + go/no-go; no scraping/ingestion |
 | [027](027-adopt-typescript-7-incrementally.md) | Adopt TypeScript 7 incrementally | P2 | L | — | ecosystem gate | BLOCKED | stable typescript-eslint for TS 7 + ESLint 10; do not work around |
@@ -440,3 +424,4 @@ amendment) when made.
 | 2026-09-25 | merged `ca0ed6c` | Wave 5 step 2: 045 executed (`ea37c9b`), reviewed (APPROVE; one justified extra doc), merged. Measurement/validation docs reconciled with shipped state, synthetic report example labeled, code refs corrected. Integration baseline `npm run check` exit 0 with zero warnings, 1057 passing / 1 todo, assurance and `verify.sh` green. **Waves 0-5 complete; 050 BLOCKED on owner decision.** |
 | 2026-09-25 | plans only | Owner approved **evidence-gated clears**; plan 050 amended (new Step 1 guards missing data, notice tests extended to ten cases) and resumed from WIP `4e82726`; ROADMAP §7 decision resolved. |
 | 2026-09-25 | merged `0f51b58` | 050 executed under the amended plan (`bdcec9b`), reviewed (APPROVE; four guards + ten notice/no-clear cases), merged. Missing data now keeps selections and stays silent; real conflicts still clear and announce. Integration baseline `npm run check` exit 0 with zero warnings, 1068 passing / 1 todo, assurance and `verify.sh` green. **All executed plans 037-052 complete.** |
+| 2026-09-25 | plans only | All `DONE` plans 037-052 moved to `plans/archive/` with completion records; README rows now link to `archive/`; ROADMAP backlog lists only the four open/blocked/rejected plans (027, 029, 033, 034). |

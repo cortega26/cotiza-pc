@@ -252,3 +252,8 @@ Stop and report back (do not improvise) if:
   `try/catch`, and the CSV parsing behavior is unchanged for regular files.
 - **Deferred**: verifying upstream commit signatures or hashes at read time is
   a larger supply-chain change and is not authorized here.
+- **Completion (2026-09-25)**: implemented `52e63dd`, reviewed and merged as
+  `4c4e349`. Fail-closed `assertNotSymlink` guard in `readJsonFiles`,
+  `readCsvFile`, the dbgpu CSV loop, and the pc-part reader, placed outside
+  the per-file parse catch so a symlinked dataset aborts the build; 5 new
+  `io.test.js` cases; pipeline suite 215 passing.

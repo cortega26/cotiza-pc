@@ -358,3 +358,10 @@ Stop and report back (do not improvise) if:
 - **Deferred**: `ambiguous`/`unmatched-text` coverage metrics (needs a harness
   amendment), an optional minimization-profile marker, and any in-app
   aggregation. All require owner approval per Plan 048 §8.
+- **Completion (2026-09-25)**: implemented `021d9b8` and `081af99`, reviewed
+  against the real harness validator, merged as `4ff321d`. One revision was
+  required: the first builder dropped user-confirmed rows (their original
+  `itemId` is usually empty), so the revision maps confirmations through
+  `explicitMappings` while keeping the real `itemId`; independently
+  reproduced before and after. No network, no measurement event; the export
+  validates with zero errors against `validateCoverageCase`.
