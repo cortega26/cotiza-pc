@@ -264,3 +264,12 @@ Stop and report back (do not improvise) if:
   synced by the operator manually.
 - **Deferred**: converting the example report into a generated fixture is not
   authorized; it stays a hand-maintained illustration.
+- **Completion (2026-09-25)**: implemented `ea37c9b`, reviewed and merged as
+  `ca0ed6c`. Shipped facts were re-verified against live code and the docs now
+  carry the actual line references (`App.jsx:435-463`/`:465-511`, etc.).
+  Recorded deviation: two "not yet instrumented" claims in
+  `docs/design/measurement-enabling-decision.md` (created by 051 after this
+  plan was written) were corrected because Step 1 made them false and the
+  Step 4 sweep requires no current-state contradictions. The remaining sweep
+  hit is a dated point-in-time audit (`docs/PRODUCT_VISION_RED_TEAM_AUDIT.md`),
+  left unchanged. Branch suite: 1057 passing / 1 todo.

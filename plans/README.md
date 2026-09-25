@@ -85,7 +85,7 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [042](042-resolver-performance.md) | Make analyzer row resolution cheap, bounded, and lazy | P1 | M | — | DONE — reviewed 2026-09-25 (commits `6bff8c9`…`b184520`); merged to `advisor/b1-cotiza-verify` as `a3e88ab`; O(1) id index, 20-candidate cap + manual search, `active` laziness, raw parse no longer retained; resolution parity tests + assurance 44/44 |
 | [043](043-analyzer-context-and-failure-surfacing.md) | Allow context edits after analysis; surface degraded catalog data | P1 | S | 042 | DONE — reviewed 2026-09-25 (commit `90ba921`); merged to `advisor/b1-cotiza-verify` as `0de4e23`; "Editar contexto" reopens intake preserving mappings, `compatFailed` and coverage-unavailable hints surfaced without changing verdicts |
 | [044](044-harden-import-persistence-workspace.md) | Harden persistence, imports, export filenames, mapper, history | P2 | S-M | 042, 043 | DONE — reviewed 2026-09-25 (commit `67acba0`); merged to `advisor/b1-cotiza-verify` as `b5d7381`; per-entry recovery with backup + StrictMode-safe first-write skip, unified import detection, slugified filenames, mapper guard, single `pushState` |
-| [045](045-docs-truth-up.md) | Reconcile design/validation docs with shipped state | P2 | S | — | TODO |
+| [045](045-docs-truth-up.md) | Reconcile design/validation docs with shipped state | P2 | S | — | DONE — reviewed 2026-09-25 (commit `ea37c9b`); merged to `advisor/b1-cotiza-verify` as `ca0ed6c`; measurement/validation status corrected, example report marked synthetic, shipped facts and code refs updated; one justified extra file (`measurement-enabling-decision.md`) had two now-false claims corrected |
 | [046](046-lint-scripts-and-asset-hygiene.md) | Lint the pipeline, strict app lint, prune stale deployed assets | P2 | S-M | 037 | DONE — reviewed 2026-09-25 (commit `3e80934`); merged to `advisor/b1-cotiza-verify` as `93dd68d`; scripts linted (16 dead bindings removed), `--max-warnings 0`, workflow gates, 5 stale bundles pruned; plan amended to fix the ESLint 10 base-path invocation |
 | [047](047-pipeline-symlink-rejection.md) | Reject symlinked dataset files in pipeline readers | P2 | S | — | DONE — reviewed 2026-09-25 (commit `52e63dd`); merged to `advisor/b1-cotiza-verify` as `4c4e349`; guard fail-closed in every dataset read path; 5 new io tests |
 | [048](048-coverage-case-contribution-design.md) | Design a privacy-reviewed coverage-case contribution path | P2 | S | — | DONE — reviewed 2026-09-25 (commit `fe1053a`); merged to `advisor/b1-cotiza-verify` as `f5fcf04`; owner checklist resolved 2026-09-25 (corpus adopt, trust-first); implementation shipped as 052 |
@@ -229,6 +229,7 @@ into the integration branch and the moat slice was executed and reviewed:
 | 050 conflict notices | STOPPED (BLOCKED) | WIP `4e82726` | not merged |
 | 046 lint + asset hygiene | APPROVE (plan amended for ESLint 10 base path) | `3e80934` | `93dd68d` |
 | 049 pages 4-12 inventory | APPROVE | `5bfbc10` | `0236a7a` |
+| 045 docs truth-up | APPROVE (one justified extra doc) | `ea37c9b` | `ca0ed6c` |
 
 - 052's review caught a real corpus-killing defect: a user-confirmed row keeps
   its original (usually empty) `itemId`, so the first builder dropped exactly
@@ -286,10 +287,17 @@ into the integration branch and the moat slice was executed and reviewed:
 - 049's inventory defers page 5 (RAM↔motherboard speed) because
   `compat-mobo-ram-memory` coverage is absent (0%); the document states its
   thresholds and authorizes no page work.
+- 045's review confirmed the doc corrections and accepted one justified extra
+  file: `docs/design/measurement-enabling-decision.md` (created by 051 after
+  045 was planned) carried two "not yet instrumented" claims that Step 1 made
+  false; the sweep's own done criterion requires removing them.
 - Integration branch post-merge: `npm run check` exits 0 (0 errors, 0
   warnings, 44 test files, 1057 passed / 1 todo), `npm run test:assurance`
   passes, `verify.sh` passes.
-- Next: Wave 5 plan 045 (docs truth-up); 050 waits on the owner decision.
+- Batch state: Waves 0-5 complete (037-049, 051, 052). 050 is BLOCKED on the
+  owner decision in ROADMAP §7; 033/034 and the page batches remain
+  decision-gated. The plans docs and roadmap are committed on
+  `advisor/b1-cotiza-verify`.
 
 ### 2026-09-25 batch notes
 
