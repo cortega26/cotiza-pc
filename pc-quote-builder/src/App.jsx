@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import QuoteEditor from "./components/QuoteEditor";
+import QuoteAnalyzer from "./components/QuoteAnalyzer/QuoteAnalyzer";
 import { useCatalog } from "./hooks/useCatalog";
 import { usePersistence } from "./hooks/usePersistence";
+import { useWorkspaceMode } from "./hooks/useWorkspaceMode";
+import { createMeasurement } from "./lib/measurement/measurement";
 import { evaluateSelection } from "./lib/selectionEvaluation";
 import { parsePrice, computeTotals, normalizeCurrency } from "./lib/money";
 import { resolveCatalogId } from "./lib/catalogMapper";
@@ -12,7 +15,9 @@ import {
   getNextStep,
   isStepDone,
   builderComplete as isBuilderComplete,
-} from "./lib/builderReducer";
+} from "./lib/builderHelpers";
+import { ANALYZER_CATEGORIES } from "./components/QuoteAnalyzer/session";
+import { buildCatalogIndex } from "./lib/quoteAnalyzer/resolver";
 import {
   createId,
   createEmptyRow,
@@ -24,7 +29,7 @@ import {
   buildRowsFromSelection,
 } from "./lib/quoteModel";
 import { escapeCsvField, parseCsvToQuote, parsePriceCsv, parsePriceJson, buildPriceMap } from "./lib/csvParser";
-import { exportCSV, exportJSON, downloadFile, buildQuotesFromJson } from "./lib/fileIO";
+import { exportCSV, exportJSON, downloadFile, buildQuotesFromJson, detectQuoteFileKind, slugify } from "./lib/fileIO";
 
 const getNameLabel = (opt) => opt.name;
 
@@ -69,9 +74,13 @@ function getOptionsForStep(key, selection, catalog) {
   }
 }
 
-function App() {
+function App({ measurement: measurementProp }) {
   const { quotes, setQuotes, activeQuoteId, setActiveQuoteId, builder, setBuilder, currencyDraft, setCurrencyDraft } = usePersistence();
+  const [mode, setMode] = useWorkspaceMode();
+  const productStartedRef = useRef(false);
+  const measurement = useMemo(() => measurementProp || createMeasurement(), [measurementProp]);
   const [builderStep, setBuilderStep] = useState(0);
+  const [builderNotice, setBuilderNotice] = useState("");
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
   const importInputRef = useRef(null);
@@ -81,6 +90,7 @@ function App() {
   const drawerRef = useRef(null);
   const [reloadToken, setReloadToken] = useState(0);
   const neededCategories = useMemo(() => {
+    if (mode === "analizar") return ANALYZER_CATEGORIES;
     const step = builderStep;
     const cats = ["cpus"];
     if (step >= 1) cats.push("motherboards");
@@ -89,10 +99,15 @@ function App() {
     if (step >= 4) cats.push("psus");
     if (step >= 5) cats.push("cases");
     return cats;
-  }, [builderStep]);
+  }, [mode, builderStep]);
 
-  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed, categoryStates } =
+  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed, categoryStates, assessmentCoverage, assessmentCoverageFailed, compatFailed } =
     useCatalog(reloadToken, neededCategories);
+
+  const catalogSignature = useMemo(
+    () => compatMeta?.generatedAt || String(compatMeta?.schemaVersion ?? "") || "unknown",
+    [compatMeta]
+  );
 
   const activeQuote = useMemo(
     () => quotes.find((q) => q.id === activeQuoteId),
@@ -100,10 +115,6 @@ function App() {
   );
 
   const cpus = useMemo(() => catalog.cpus || [], [catalog]);
-  const motherboards = useMemo(() => catalog.motherboards || [], [catalog]);
-  const ramKits = useMemo(() => catalog.ramKits || [], [catalog]);
-  const gpus = useMemo(() => catalog.gpus || [], [catalog]);
-  const psus = useMemo(() => catalog.psus || [], [catalog]);
   const pcCases = useMemo(() => catalog.pcCases || [], [catalog]);
   const familyOrderByBrand = useMemo(
     () => ({
@@ -138,18 +149,23 @@ function App() {
     return map;
   }, [cpus]);
 
+  const catalogIndex = useMemo(() => buildCatalogIndex(catalog), [catalog]);
+
   const selection = useMemo(() => {
-    const aliases = compatMeta?.aliases || {};
-    const findOrAlias = (list, id) => list.find((item) => item.id === id) || list.find((item) => item.id === resolveCatalogId(id, aliases));
-    return {
-      cpu: findOrAlias(cpus, builder.cpuId),
-      mobo: findOrAlias(motherboards, builder.moboId),
-      ram: findOrAlias(ramKits, builder.ramId),
-      gpu: findOrAlias(gpus, builder.gpuId),
-      psu: findOrAlias(psus, builder.psuId),
-      pcCase: findOrAlias(pcCases, builder.caseId),
+    const findOrAlias = (componentKey, id) => {
+      if (!id) return undefined;
+      const byId = catalogIndex.byId[componentKey];
+      return byId.get(String(id)) || byId.get(String(resolveCatalogId(id, compatMeta?.aliases || {})));
     };
-  }, [builder, cpus, motherboards, ramKits, gpus, psus, pcCases, compatMeta?.aliases]);
+    return {
+      cpu: findOrAlias("cpu", builder.cpuId),
+      mobo: findOrAlias("mobo", builder.moboId),
+      ram: findOrAlias("ram", builder.ramId),
+      gpu: findOrAlias("gpu", builder.gpuId),
+      psu: findOrAlias("psu", builder.psuId),
+      pcCase: findOrAlias("pcCase", builder.caseId),
+    };
+  }, [builder, catalogIndex, compatMeta?.aliases]);
 
   const optionsByStep = useMemo(() => {
     const options = {};
@@ -196,10 +212,10 @@ function App() {
   const gpuTier = useMemo(() => (selection.gpu ? tierMaps.gpu.get(selection.gpu.id) || null : null), [selection, tierMaps.gpu]);
   const assessment = useMemo(() => evaluateSelection(selection, tierMaps, { extraHeadroomW: 50 }), [selection, tierMaps]);
   const { power } = assessment;
-  const estimatedTdp = power?.estimated_load_w || 0;
-  const suggestedWatts = power?.recommended_min_psu_w || 0;
+  const estimatedTdp = power?.estimated_load_w ?? null;
+  const suggestedWatts = power?.recommended_min_psu_w ?? null;
   const gpuPsuRequirement = selection.gpu?.psuMin || 0;
-  const recommendedPsuWatts = Math.max(suggestedWatts, gpuPsuRequirement || 0);
+  const recommendedPsuWatts = Math.max(suggestedWatts || 0, gpuPsuRequirement || 0);
   const cpuOptionsForStep = useMemo(() => {
     const base = optionsByStep.cpuId || [];
     return base
@@ -312,41 +328,55 @@ function App() {
 
   const handleBuilderChange = (key, value) => {
     const cleanValue = value || "";
-    const aliasMap = compatMeta?.aliases || {};
-    const findInList = (list, id) => list.find((item) => item.id === id) || list.find((item) => item.id === resolveCatalogId(id, aliasMap));
-    setBuilder((prev) => {
-      const next = { ...prev, [key]: cleanValue };
-      if (key === "cpuId") {
-        const selectedCpu = findInList(cpus, cleanValue);
-        if (selectedCpu) {
-          setCpuBrand(selectedCpu.brand || "");
-          setCpuFamily(selectedCpu.family || "");
-        }
-        const cpu = findInList(cpus, cleanValue);
-        const mobo = findInList(motherboards, next.moboId);
-        const ram = findInList(ramKits, next.ramId);
-        if (mobo && cpu && mobo.socket !== cpu.socket) next.moboId = "";
-        if (ram && cpu && cpu.memoryTypeExplicit && ram.type !== cpu.memoryType) next.ramId = "";
+    const findInList = (componentKey, id) => {
+      if (!id) return undefined;
+      const byId = catalogIndex.byId[componentKey];
+      return byId.get(String(id)) || byId.get(String(resolveCatalogId(id, compatMeta?.aliases || {})));
+    };
+    const next = { ...builder, [key]: cleanValue };
+    const builderNotices = [];
+    if (key === "cpuId") {
+      const selectedCpu = findInList("cpu", cleanValue);
+      if (selectedCpu) {
+        setCpuBrand(selectedCpu.brand || "");
+        setCpuFamily(selectedCpu.family || "");
       }
-      if (key === "moboId") {
-        const mobo = findInList(motherboards, cleanValue);
-        const ram = findInList(ramKits, next.ramId);
-        if (mobo && ram && mobo.memoryTypeExplicit && ram.type !== mobo.memoryType) next.ramId = "";
-        const currentCase = findInList(pcCases, next.caseId);
-        if (mobo && currentCase && !currentCase.formFactors?.includes(mobo.formFactor)) {
-          next.caseId = "";
-        }
+      const cpu = findInList("cpu", cleanValue);
+      const mobo = findInList("mobo", next.moboId);
+      const ram = findInList("ram", next.ramId);
+      if (mobo && cpu && cpu.socket && mobo.socket && mobo.socket !== cpu.socket) {
+        next.moboId = "";
+        builderNotices.push("Se quitó la placa madre porque su socket no coincide con el CPU seleccionado.");
       }
-      if (key === "gpuId") {
-        next.useIntegratedGpu = false;
-        const gpu = findInList(gpus, cleanValue);
-        const currentCase = findInList(pcCases, next.caseId);
-        if (gpu && currentCase && gpu.length > currentCase.maxGpuLength) {
-          next.caseId = "";
-        }
+      if (ram && cpu && cpu.memoryTypeExplicit && ram.type && ram.type !== cpu.memoryType) {
+        next.ramId = "";
+        builderNotices.push("Se quitó la RAM porque su tipo no coincide con el CPU seleccionado.");
       }
-      return next;
-    });
+    }
+    if (key === "moboId") {
+      const mobo = findInList("mobo", cleanValue);
+      const ram = findInList("ram", next.ramId);
+      if (mobo && ram && mobo.memoryTypeExplicit && ram.type && ram.type !== mobo.memoryType) {
+        next.ramId = "";
+        builderNotices.push("Se quitó la RAM porque su tipo no coincide con la placa madre seleccionada.");
+      }
+      const currentCase = findInList("pcCase", next.caseId);
+      if (mobo && currentCase && mobo.formFactor && currentCase.formFactors?.length && !currentCase.formFactors.includes(mobo.formFactor)) {
+        next.caseId = "";
+        builderNotices.push("Se quitó el gabinete porque no admite el factor de forma de la placa madre seleccionada.");
+      }
+    }
+    if (key === "gpuId") {
+      next.useIntegratedGpu = false;
+      const gpu = findInList("gpu", cleanValue);
+      const currentCase = findInList("pcCase", next.caseId);
+      if (gpu && currentCase && gpu.length > currentCase.maxGpuLength) {
+        next.caseId = "";
+        builderNotices.push("Se quitó el gabinete porque la GPU seleccionada es más larga que el espacio disponible.");
+      }
+    }
+    setBuilder(next);
+    if (builderNotices.length) setBuilderNotice(builderNotices.join(" "));
 
     const nextStep = getNextStep(builderStep, key, !!cleanValue);
     if (nextStep !== builderStep) {
@@ -403,13 +433,15 @@ function App() {
   const handleDownloadCSV = () => {
     if (!activeQuote) return;
     const csvContent = exportCSV(activeQuote, totals, escapeCsvField);
-    downloadFile(csvContent, `${activeQuote.name}.csv`, "text/csv;charset=utf-8;");
+    const fileBase = slugify(activeQuote.name) || "cotizacion";
+    downloadFile(csvContent, `${fileBase}.csv`, "text/csv;charset=utf-8;");
   };
 
   const handleDownloadJSON = () => {
     if (!activeQuote) return;
     const payload = exportJSON(activeQuote, totals);
-    downloadFile(JSON.stringify(payload, null, 2), `${activeQuote.name}.json`, "application/json");
+    const fileBase = slugify(activeQuote.name) || "cotizacion";
+    downloadFile(JSON.stringify(payload, null, 2), `${fileBase}.json`, "application/json");
   };
 
   const handleImportFile = async (event) => {
@@ -417,8 +449,15 @@ function App() {
     if (!file) return;
     try {
       const content = await file.text();
-      const isJson = file.name.toLowerCase().endsWith(".json") || content.trim().startsWith("{") || content.trim().startsWith("[");
-      const importedQuotes = isJson ? buildQuotesFromJson(JSON.parse(content), normalizeQuote) : [parseCsvToQuote(content, { normalizeRow, normalizeQuote })];
+      let importedQuotes;
+      if (detectQuoteFileKind(file.name, content) === "json") {
+        importedQuotes = buildQuotesFromJson(JSON.parse(content), normalizeQuote);
+        if (!importedQuotes.length) {
+          throw new Error("El archivo no contiene cotizaciones.");
+        }
+      } else {
+        importedQuotes = [parseCsvToQuote(content, { normalizeRow, normalizeQuote })];
+      }
 
       setQuotes((prev) => {
         const next = [...prev, ...importedQuotes];
@@ -526,11 +565,35 @@ function App() {
   const handleClearBuilder = () => {
     setBuilder({ ...EMPTY_BUILDER });
     setBuilderStep(0);
+    setBuilderNotice("");
   };
 
   const handleReloadCatalog = () => {
     setReloadToken((t) => t + 1);
   };
+
+  const handleAnalyzerQuoteStart = useCallback(() => {
+    if (productStartedRef.current) return;
+    productStartedRef.current = true;
+    try {
+      measurement.track("product_start", {
+        acquisitionClass: "unknown",
+        catalogVersion: catalogSignature,
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      // Analytics failure must never affect the assessment.
+    }
+  }, [measurement, catalogSignature]);
+
+  const handleApplyQuoteData = useCallback(
+    ({ rows, currency, name }) => {
+      if (!activeQuote) return;
+      updateActiveQuote(() => ({ rows, currency, name }));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateActiveQuote is recreated per render but only reads refs
+    [activeQuote]
+  );
 
   const toggleMobileMenu = useCallback(() => {
     setMobileMenuOpen((prev) => !prev);
@@ -665,6 +728,11 @@ function App() {
             Importar precios (por id)
           </button>
           <p className="field-hint">Formato CSV/JSON: id, oferta, normal, tienda.</p>
+          {compatFailed && (
+            <p className="field-hint">
+              No se pudo cargar la compatibilidad del catálogo; se usan datos locales.
+            </p>
+          )}
         </div>
       </div>
 
@@ -733,6 +801,23 @@ function App() {
       )}
 
       <main className="main">
+        <nav className="workspace-tabs" aria-label="Espacio de trabajo">
+          <button
+            className={"workspace-tab" + (mode === "analizar" ? " active" : "")}
+            onClick={() => setMode("analizar")}
+            aria-pressed={mode === "analizar"}
+          >
+            Analizar cotización
+          </button>
+          <button
+            className={"workspace-tab" + (mode === "experto" ? " active" : "")}
+            onClick={() => setMode("experto")}
+            aria-pressed={mode === "experto"}
+          >
+            Constructor experto
+          </button>
+        </nav>
+
         {(catalogError || fallbackUsed) && (
           <div className="warning-panel" style={{ marginBottom: "0.75rem" }}>
             <strong>{fallbackUsed ? "Usando catálogo local" : "Aviso de catálogo"}:</strong>{" "}
@@ -742,10 +827,10 @@ function App() {
           </div>
         )}
 
-        <section className="builder-section">
+        <section className={"builder-section" + (mode === "experto" ? "" : " hidden")} aria-hidden={mode !== "experto"}>
           <div className="builder-head">
             <div>
-              <p className="kicker">Builder guiado</p>
+              <p className="kicker">Constructor experto</p>
               <h2>Selecciona piezas compatibles paso a paso</h2>
               <p className="muted">Filtra por socket, RAM, potencia y espacio. Aplica el build a tu cotización con un clic.</p>
             </div>
@@ -769,6 +854,15 @@ function App() {
               </button>
             </div>
           </div>
+
+          {builderNotice && (
+            <div className="warning-panel" role="status">
+              <span>{builderNotice}</span>{" "}
+              <button className="link-btn" onClick={() => setBuilderNotice("")} aria-label="Cerrar aviso">
+                Cerrar
+              </button>
+            </div>
+          )}
 
           <div className="stepper">
             {BUILDER_STEPS.map((step, index) => (
@@ -816,7 +910,13 @@ function App() {
                         ? "No hay gabinetes en el catálogo cargado."
                         : "Elige GPU/placa para validar espacio."
                       : step.key === "psuId"
-                      ? `Sugerido: ${recommendedPsuWatts}W (estimado ${estimatedTdp}W).${
+                      ? `${
+                          recommendedPsuWatts > 0
+                            ? `Sugerido: ${recommendedPsuWatts}W${
+                                estimatedTdp != null ? ` (estimado ${estimatedTdp}W)` : ""
+                              }`
+                            : "Sin datos de consumo"
+                        }.${
                           selection.gpu && !selection.gpu.power_connectors ? " GPU sin dato de conectores; valida manualmente." : ""
                         }`
                       : "Selecciona un componente.";
@@ -948,16 +1048,20 @@ function App() {
             <div className="metric-grid">
               <div className="metric">
                 <span className="metric-label">Consumo estimado</span>
-                <span className="metric-value">{estimatedTdp} W</span>
+                <span className="metric-value">{estimatedTdp != null ? `${estimatedTdp} W` : "Sin datos de consumo"}</span>
               </div>
               <div className="metric">
                 <span className="metric-label">PSU sugerida</span>
-                <span className="metric-value">{recommendedPsuWatts} W</span>
+                <span className="metric-value">{recommendedPsuWatts > 0 ? `${recommendedPsuWatts} W` : "—"}</span>
               </div>
               <div className="metric">
                 <span className="metric-label">Margen actual</span>
                 <span className="metric-value">
-                  {selection.psu ? `${selection.psu.wattage - estimatedTdp} W` : "Selecciona una fuente"}
+                  {!selection.psu
+                    ? "Selecciona una fuente"
+                    : estimatedTdp == null
+                    ? "Sin datos de consumo"
+                    : `${selection.psu.wattage - estimatedTdp} W`}
                 </span>
               </div>
               <div className="metric">
@@ -970,7 +1074,11 @@ function App() {
               </div>
             </div>
             {gpuPsuRequirement > 0 && (
-              <p className="field-hint">La GPU sugiere {gpuPsuRequirement} W; el cálculo ya lo incorpora.</p>
+              <p className="field-hint">
+                {estimatedTdp != null
+                  ? `La GPU sugiere ${gpuPsuRequirement} W; el cálculo ya lo incorpora.`
+                  : `La GPU sugiere ${gpuPsuRequirement} W; sin TDP no se puede calcular el margen.`}
+              </p>
             )}
 
               <div className="status-line">
@@ -1066,6 +1174,25 @@ function App() {
               </button>
             </div>
           </div>
+        </section>
+
+        <section className={"analyzer-workspace" + (mode === "analizar" ? "" : " hidden")} aria-hidden={mode !== "analizar"} aria-label="Analizar cotización">
+          <QuoteAnalyzer
+            active={mode === "analizar"}
+            quote={activeQuote}
+            catalog={catalog}
+            compatMeta={compatMeta}
+            catalogSignature={catalogSignature}
+            catalogLoading={catalogLoading}
+            catalogError={catalogError}
+            fallbackUsed={fallbackUsed}
+            categoryStates={categoryStates}
+            assessmentCoverage={assessmentCoverage}
+            coverageFailed={assessmentCoverageFailed}
+            onApplyQuoteData={handleApplyQuoteData}
+            onQuoteStart={handleAnalyzerQuoteStart}
+            measurement={measurement}
+          />
         </section>
 
         <QuoteEditor

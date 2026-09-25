@@ -120,6 +120,16 @@ También es posible ejecutar pasos individuales:
 | Sincronización | `npm run sync:pc-data` | Copia `data/processed/` → `public/data/` |
 | Validación (pre-build) | `npm run test:artifacts` | Verifica contratos de artefactos en `public/data/` |
 | Validación (post-build) | `npx vitest run src/lib/postBuildAssertion.test.js` | Verifica que `docs/data/` coincide byte a byte con `public/data/` |
+| Validación (conformidad del análisis) | `npm run test:assurance` | Verifica la conformidad del motor de análisis con la suite sintética del Plan 035 |
+| Validación (contratos) | `npm run test:contract` (en `pc-quote-builder/`) / `bash scripts/verify.sh` (raíz) | Artefactos + post-build juntos; `verify.sh` suma `scripts/lib` sin manifest raíz |
+
+### Fuentes de datos
+
+- [BuildCores open-db](https://github.com/buildcores/buildcores-open-db) (ODC-By) — identidad y especificaciones de CPU, placa madre, RAM, GPU, fuente de poder y gabinete; SHA fijado en `scripts/download_pc_datasets.py`.
+- [pc-part-dataset](https://github.com/docyx/pc-part-dataset) (MIT) — especificaciones y precios de referencia; SHA fijado en el mismo script.
+- [dbgpu](https://pypi.org/project/dbgpu/) — especificaciones de GPU; versión hash-lockeada en `scripts/requirements.txt`.
+
+Los registros de BuildCores se incorporan con atribución de origen (`meta.created_from`); los campos inferidos se distinguen de los explícitos, y una identidad existente nunca recibe especificaciones por coincidencia difusa.
 
 ### Despliegue automatizado
 

@@ -5,13 +5,22 @@ export const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 };
 
+export const assertNotSymlink = (filePath) => {
+  if (fs.lstatSync(filePath).isSymbolicLink()) {
+    throw new Error(`Archivo de dataset simbólico rechazado: ${filePath}`);
+  }
+  return filePath;
+};
+
 export const readJsonFiles = (dir) => {
   if (!fs.existsSync(dir)) return [];
   const files = fs.readdirSync(dir).filter((f) => f.endsWith(".json"));
   const items = [];
   for (const file of files) {
+    const full = path.join(dir, file);
+    assertNotSymlink(full);
     try {
-      const raw = fs.readFileSync(path.join(dir, file), "utf8");
+      const raw = fs.readFileSync(full, "utf8");
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) items.push(...parsed);
       else items.push(parsed);
@@ -24,6 +33,7 @@ export const readJsonFiles = (dir) => {
 
 export const readCsvFile = (filePath) => {
   if (!fs.existsSync(filePath)) return [];
+  assertNotSymlink(filePath);
   const text = fs.readFileSync(filePath, "utf8");
 
   const parseCsv = (input) => {

@@ -3,8 +3,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-const SOURCE_TAGS = { BUILDCORES: "buildcores", DBGPU: "dbgpu", PCPART: "pcpart" };
-
 function writeJson(dir, file, data) {
   const fullPath = path.join(dir, file);
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
@@ -292,5 +290,129 @@ describe("catalog compiler end-to-end", () => {
     expect(mergeGrouped([...bcRam, ...pc.ram], mergeRam)).toHaveLength(0);
     expect(mergeGrouped(pc.coolers, mergeCooler)).toHaveLength(0);
     expect(mergeGrouped(pc.fans, mergeFan)).toHaveLength(0);
+  });
+
+  it("maps nested BuildCores open-db records for every ingested category", async () => {
+    writeJson(path.join(rawDir, "buildcores-open-db", "open-db", "CPU"), "cpu.json", {
+      opendb_id: "bc-cpu-1",
+      metadata: { name: "AMD Ryzen 5 5600", manufacturer: "AMD" },
+      socket: "AM5",
+      specifications: { memory: { types: ["DDR5"] }, tdp: 65 },
+      cores: { total: 6, threads: 12 },
+      clocks: { performance: { base: 3.5, boost: 4.4 } },
+    });
+    writeJson(path.join(rawDir, "buildcores-open-db", "open-db", "Motherboard"), "mobo.json", {
+      opendb_id: "bc-mobo-1",
+      metadata: { name: "ASUS B760M-AYW WIFI D4", manufacturer: "ASUS" },
+      socket: "LGA 1700",
+      form_factor: "Micro ATX",
+      memory: { ram_type: "DDR4", slots: 2, max: 64 },
+      m2_slots: [{}, {}],
+      storage_devices: { sata_6_gb_s: 4 },
+    });
+    writeJson(path.join(rawDir, "buildcores-open-db", "open-db", "PCCase"), "case.json", {
+      opendb_id: "bc-case-1",
+      metadata: { name: "Fractal Design Meshify C ATX Mid Tower Black", manufacturer: "Fractal Design" },
+      form_factor: "ATX Mid Tower",
+      supported_motherboard_form_factors: ["ATX", "Micro ATX", "Mini-ITX"],
+      max_video_card_length: 315,
+      max_cpu_cooler_height: 170,
+    });
+    writeJson(path.join(rawDir, "buildcores-open-db", "open-db", "PSU"), "psu.json", {
+      opendb_id: "bc-psu-1",
+      metadata: { name: "Corsair RM750x", manufacturer: "Corsair" },
+      wattage: 750,
+      form_factor: "ATX",
+      efficiency_rating: "80+ Gold",
+      connectors: { pcie_6_plus_2_pin: 4, pcie_12vhpwr: 1 },
+    });
+    writeJson(path.join(rawDir, "buildcores-open-db", "open-db", "GPU"), "gpu.json", {
+      opendb_id: "bc-gpu-1",
+      metadata: { name: "ASUS ROG Strix RTX 4070", manufacturer: "ASUS" },
+      chipset: "RTX 4070",
+      memory: 12,
+      memory_type: "GDDR6X",
+      tdp: 200,
+      length: 300,
+      power_connectors: { pcie_8_pin: 1, pcie_12V_2x6: 1 },
+    });
+    writeJson(path.join(rawDir, "buildcores-open-db", "open-db", "RAM"), "ram.json", {
+      opendb_id: "bc-ram-1",
+      metadata: { name: "Corsair Vengeance LPX DDR4-3200 16GB (2x8GB)", manufacturer: "Corsair" },
+      ram_type: "DDR4",
+      speed: 3200,
+      capacity: 16,
+      modules: { quantity: 2, capacity_gb: 8 },
+    });
+
+    const { loadBuildCores, canonicalSocket, mapPsuConnectors, mapGpuPowerConnectors } =
+      await import("./sources.js");
+    const result = loadBuildCores(rawDir);
+
+    expect(canonicalSocket("LGA 1700")).toBe("LGA1700");
+    expect(canonicalSocket("AM4")).toBe("AM4");
+    expect(canonicalSocket("")).toBe("");
+
+    expect(result.cpus[0].brand).toBe("AMD");
+    expect(result.cpus[0].model).toBe("Ryzen 5 5600");
+    expect(result.cpus[0].socket).toBe("AM5");
+    expect(result.cpus[0].memory_support.types).toEqual(["DDR5"]);
+    expect(result.cpus[0].tdp_w).toBe(65);
+    expect(result.cpus[0].cores).toBe(6);
+    expect(result.cpus[0].boost_clock_ghz).toBe(4.4);
+
+    expect(result.mobos[0].socket).toBe("LGA1700");
+    expect(result.mobos[0].memory_type).toBe("DDR4");
+    expect(result.mobos[0].memory_slots).toBe(2);
+    expect(result.mobos[0].max_memory_gb).toBe(64);
+    expect(result.mobos[0].m2_slots).toBe(2);
+    expect(result.mobos[0].sata_ports).toBe(4);
+
+    expect(result.pcCases[0].max_gpu_length_mm).toBe(315);
+    expect(result.pcCases[0].supported_mobo_form_factors).toEqual(["ATX", "Micro ATX", "Mini-ITX"]);
+
+    expect(result.psus[0].wattage_w).toBe(750);
+    expect(mapPsuConnectors({ connectors: { pcie_6_plus_2_pin: 4, pcie_12vhpwr: 1 } })).toEqual({
+      "8_pin": 4,
+      "12vhpwr": 1,
+    });
+    expect(mapPsuConnectors({ pcie_power_connectors: { "8_pin": 2 } })).toEqual({ "8_pin": 2 });
+
+    expect(result.gpus[0].board_length_mm).toBe(300);
+    expect(result.gpus[0].vram_gb).toBe(12);
+    expect(result.gpus[0].tdp_w).toBe(200);
+    expect(mapGpuPowerConnectors({ power_connectors: { pcie_8_pin: 1, pcie_12V_2x6: 1 } })).toBe(
+      "1x12vhpwr 1x8-pin"
+    );
+    expect(mapGpuPowerConnectors({ power_connectors: "None" })).toBe("");
+    expect(mapGpuPowerConnectors({ power_connectors: "1x8-pin" })).toBe("1x8-pin");
+
+    expect(result.ram[0].type).toBe("DDR4");
+    expect(result.ram[0].speed_mts).toBe(3200);
+    expect(result.ram[0].capacity_gb_total).toBe(16);
+    expect(result.ram[0].modules).toBe(2);
+  });
+
+  it("still accepts flat legacy BuildCores fixtures", async () => {
+    writeJson(path.join(rawDir, "buildcores-open-db", "open-db", "CPU"), "cpu.json", [
+      {
+        brand: "AMD",
+        model: "Ryzen 5 5600",
+        socket: "AM4",
+        cores: 6,
+        threads: 12,
+        base_clock: 3.5,
+        boost_clock: 4.4,
+        tdp: 65,
+      },
+    ]);
+
+    const { loadBuildCores } = await import("./sources.js");
+    const { cpus } = loadBuildCores(rawDir);
+
+    expect(cpus).toHaveLength(1);
+    expect(cpus[0].socket).toBe("AM4");
+    expect(cpus[0].tdp_w).toBe(65);
+    expect(cpus[0].normalized_key).toBe("amd ryzen 5 5600");
   });
 });

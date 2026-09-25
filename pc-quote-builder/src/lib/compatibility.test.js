@@ -138,6 +138,26 @@ describe("compatibility helpers", () => {
     expect(resOk.status).toBe("ok");
     const resWarn = checkPsuPowerSufficiency(psuTight, cpu, gpu);
     expect(resWarn.status).toBe("warning");
+    const resFail = checkPsuPowerSufficiency({ wattage_w: 300 }, cpu, gpu);
+    expect(resFail.status).toBe("fail");
+  });
+
+  it("no inventa un consumo cuando falta el TDP del CPU o de la GPU", () => {
+    const cpuSinTdp = { ...cpu, tdp_w: null, tdp: null };
+    const gpuSinTdp = { ...gpu, tdp_w: null, tdp: null };
+    expect(checkPsuPowerSufficiency(psu, cpuSinTdp, gpu).status).toBe("unknown");
+    expect(checkPsuPowerSufficiency(psu, cpu, gpuSinTdp).status).toBe("unknown");
+    expect(checkPsuPowerSufficiency(psu, cpuSinTdp, gpu).reason).toContain("TDP");
+  });
+
+  it("estima envelope nulo y cae al suggested_psu_w del fabricante sin TDP", () => {
+    const cpuSinTdp = { ...cpu, tdp_w: null, tdp: null };
+    expect(estimatePowerEnvelope(cpu, gpu)).toEqual({ estimated_load_w: 395, recommended_min_psu_w: 750 });
+    expect(estimatePowerEnvelope(cpuSinTdp, gpu)).toEqual({ estimated_load_w: null, recommended_min_psu_w: 750 });
+    expect(estimatePowerEnvelope(cpuSinTdp, { ...gpu, suggested_psu_w: null })).toEqual({
+      estimated_load_w: null,
+      recommended_min_psu_w: null,
+    });
   });
 
   it("estima balance CPU/GPU por tiers", () => {
@@ -157,6 +177,33 @@ describe("compatibility helpers", () => {
     expect(checkPsuConnectors(psuTight, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("fail");
   });
 
+  it("falla cuando la demanda de 6-pin supera el pool de cables PCIe", () => {
+    const res = checkPsuConnectors(psuTight, { ...gpu, power_connectors: "2x 6-pin" });
+    expect(res.status).toBe("fail");
+    expect(res.reason).toBe("Faltan cables PCIe");
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "2x 6-pin" }).status).toBe("ok");
+  });
+
+  it("falla cuando falta 12VHPWR/16-pin", () => {
+    const res16 = checkPsuConnectors(psu, { ...gpu, power_connectors: "1x 16-pin" });
+    expect(res16.status).toBe("fail");
+    expect(res16.reason).toBe("Falta 12VHPWR/16-pin");
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "1x 12vhpwr" }).status).toBe("fail");
+  });
+
+  it("suma demandas mixtas de 8-pin y 6-pin contra un pool compartido", () => {
+    const res = checkPsuConnectors(psuTight, { ...gpu, power_connectors: "1x8-pin 1x6-pin" });
+    expect(res.status).toBe("fail");
+    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "1x8-pin 1x6-pin" }).status).toBe("ok");
+    expect(checkPsuConnectors({ pcie_power_connectors: { "6+2": 2 } }, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("ok");
+  });
+
+  it("no declara ok cuando la GPU trae un conector no reconocido", () => {
+    const res = checkPsuConnectors(psu, { ...gpu, power_connectors: "1x molex" });
+    expect(res.status).toBe("unknown");
+    expect(res.reason).toContain("no reconocidos");
+  });
+
   it("no declara fail cuando la PSU no tiene datos de conectores", () => {
     expect(checkPsuConnectors(psuSinDatos, { ...gpu, power_connectors: "2x 8-pin" }).status).toBe("unknown");
     expect(checkPsuConnectors({ ...psuSinDatos, pcie_power_connectors: {} }, { ...gpu, power_connectors: "1x 12vhpwr" }).status).toBe("unknown");
@@ -168,8 +215,10 @@ describe("compatibility helpers", () => {
     expect(checkPsuConnectors(psu, { ...gpu, power_connectors: undefined }).status).toBe("unknown");
   });
 
-  it("valida GPU sin conectores externos (None) contra PSU con datos", () => {
-    expect(checkPsuConnectors(psu, { ...gpu, power_connectors: "None" }).status).toBe("ok");
+  it("trata 'None' como dato de conectores ausente, no como ok", () => {
+    const res = checkPsuConnectors(psu, { ...gpu, power_connectors: "None" });
+    expect(res.status).toBe("unknown");
+    expect(res.reason).toContain("no reconocidos");
   });
 
   it("mantiene fail real solo cuando hay datos conocidos e insuficientes", () => {

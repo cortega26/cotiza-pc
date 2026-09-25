@@ -134,6 +134,60 @@ describe("loadCatalogFile", () => {
     expect(a).toEqual({ call: 1 });
     expect(b).toEqual({ call: 2 });
   });
+
+  it("does not retain the raw parse when noCache is set", async () => {
+    let callCount = 0;
+    const fetchFn = vi.fn().mockImplementation(() => {
+      callCount++;
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ call: callCount }),
+      });
+    });
+    window.fetch = fetchFn;
+
+    const a = await loadCatalogFile("/data/test.json", { noCache: true });
+    const b = await loadCatalogFile("/data/test.json", { noCache: true });
+
+    expect(a).toEqual({ call: 1 });
+    expect(b).toEqual({ call: 2 });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it("deduplicates concurrent noCache calls through pending", async () => {
+    const d = deferred();
+    const fetchFn = vi.fn(() => d.promise);
+    window.fetch = fetchFn;
+
+    const callA = loadCatalogFile("/data/test.json", { noCache: true });
+    const callB = loadCatalogFile("/data/test.json", { noCache: true });
+
+    d.resolve({ ok: true, json: () => Promise.resolve({ ok: true }) });
+    const [a, b] = await Promise.all([callA, callB]);
+
+    expect(a).toBe(b);
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("bypasses an existing cache entry when noCache is set", async () => {
+    let callCount = 0;
+    window.fetch = vi.fn().mockImplementation(() => {
+      callCount++;
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ call: callCount }),
+      });
+    });
+
+    const cached = await loadCatalogFile("/data/test.json");
+    const fresh = await loadCatalogFile("/data/test.json", { noCache: true });
+    const cachedAgain = await loadCatalogFile("/data/test.json");
+
+    expect(cached).toEqual({ call: 1 });
+    expect(fresh).toEqual({ call: 2 });
+    expect(cachedAgain).toEqual({ call: 1 });
+    expect(window.fetch).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("loadAssessmentCoverageFile", () => {

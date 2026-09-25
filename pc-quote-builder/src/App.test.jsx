@@ -1,10 +1,12 @@
 /* @vitest-environment jsdom */
 
+import { StrictMode } from "react";
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { cleanup, render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import App from "./App";
+import { createInMemorySink, createMeasurement } from "./lib/measurement/measurement";
 import {
-  buildDefaultCatalog, buildRichCatalog, buildRichTierMaps, buildDefaultTierMaps, buildCompatMeta,
+  buildDefaultCatalog, buildRichCatalog, buildRichTierMaps, buildDefaultTierMaps, buildCompatMeta, gpuSparse,
 } from "./test/fixtures";
 
 const { mockUseCatalog } = vi.hoisted(() => ({ mockUseCatalog: vi.fn() }));
@@ -23,6 +25,9 @@ function defaultMock() {
     error: "",
     fallbackUsed: false,
     categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+    assessmentCoverage: null,
+    assessmentCoverageFailed: false,
+    compatFailed: false,
   };
 }
 
@@ -30,6 +35,7 @@ afterEach(() => {
   cleanup();
   mockUseCatalog.mockReset();
   localStorage.clear();
+  window.history.replaceState({}, "", "/");
 });
 
 beforeEach(() => {
@@ -58,6 +64,10 @@ function localStorageWithQuote(overrides = {}) {
 async function renderApp() {
   render(<App />);
   await waitFor(() => expect(screen.getByText("Mi PC actual")).toBeTruthy());
+}
+
+async function switchToExpert() {
+  fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
 }
 
 // ───── Existing startup tests ────────────────────────────────────────────
@@ -288,6 +298,7 @@ describe("Builder assessment and compatibility display", () => {
       ...mockOverrides,
     });
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
   }
 
   it("shows builder summary metrics when builder state has selections", async () => {
@@ -360,7 +371,7 @@ describe("Builder assessment and compatibility display", () => {
       useIntegratedGpu: false,
     });
     await waitFor(() => {
-      expect(screen.getByText(/CPU:/)).toBeTruthy();
+      expect(screen.getAllByText(/CPU:/).length).toBeGreaterThan(0);
     });
   });
 
@@ -518,6 +529,17 @@ describe("Staged catalog demand and reload", () => {
     });
   });
 
+  it("shows the compatibility-failure hint without catalog fallback warnings", async () => {
+    renderWithCatalog({ compatFailed: true });
+    await waitFor(() => {
+      expect(
+        screen.getByText("No se pudo cargar la compatibilidad del catálogo; se usan datos locales.")
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText(/Usando catálogo local/)).toBeNull();
+    expect(screen.getByText("Catálogo cargado")).toBeTruthy();
+  });
+
   it("reload button is disabled while catalog is loading", async () => {
     renderWithCatalog({
       loading: true,
@@ -582,6 +604,7 @@ describe("Staged catalog demand and reload", () => {
     });
     render(<App />);
     // Advance to step 1 so both cpus and motherboards are needed
+    switchToExpert();
     fireEvent.click(screen.getByText("Siguiente →"));
     await waitFor(() => {
       expect(screen.getByText("Catálogo parcial (2 categorías fallback)")).toBeTruthy();
@@ -691,7 +714,7 @@ describe("Currency input and draft behavior", () => {
 
   it("updates currency input on preset click", async () => {
     render(<App />);
-    await waitFor(() => expect(screen.getByText("USD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("radio", { name: "USD" })).toBeTruthy());
     const radioInput = screen.getByRole("radio", { name: "USD" });
     fireEvent.click(radioInput);
     await waitFor(() => {
@@ -701,22 +724,185 @@ describe("Currency input and draft behavior", () => {
   });
 });
 
-// ─────Quote CRUD and persistence — future work ──────────────────────────
+// ─────Quote CRUD and persistence ─────────────────────────────────────────
 
 describe("Quote CRUD and persistence", () => {
-  it.todo("adds a new quote and switches to it");
-  it.todo("duplicates the active quote with fresh IDs");
-  it.todo("deletes the active quote and switches to the remaining one");
-  it.todo("shows alert and does not delete the last quote");
-  it.todo("persists quotes to localStorage on name change");
-  it.todo("persists activeQuoteId to localStorage");
-  it.todo("restores activeQuoteId from localStorage when valid");
-  it.todo("handles empty quotes array gracefully");
-  it.todo("normalizes quotes with missing fields on load");
-  it.todo("persists updated quote rows to localStorage");
+  function storedQuotes() {
+    return JSON.parse(localStorage.getItem("pcqb:quotes:v1"));
+  }
+
+  function storedActiveId() {
+    return localStorage.getItem("pcqb:activeQuoteId:v1");
+  }
+
+  function activeTab() {
+    return document.querySelector(".quote-tab.active");
+  }
+
+  it("adds a new quote and switches to it", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+
+    fireEvent.click(screen.getByText("+ Nueva cotización"));
+
+    await waitFor(() => expect(activeTab().textContent).toBe("Cotización 2"));
+    expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Cotización 2");
+    const quotes = storedQuotes();
+    expect(quotes).toHaveLength(2);
+    expect(quotes[1].name).toBe("Cotización 2");
+    expect(storedActiveId()).toBe(quotes[1].id);
+  });
+
+  it("duplicates the active quote with fresh row IDs", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+
+    fireEvent.click(screen.getByText("⧉ Duplicar actual"));
+
+    await waitFor(() => expect(activeTab().textContent).toBe("Test Quote (copia)"));
+    const quotes = storedQuotes();
+    expect(quotes).toHaveLength(2);
+    const clone = quotes[1];
+    expect(clone.id).not.toBe("test-quote-1");
+    expect(clone.rows).toHaveLength(2);
+    clone.rows.forEach((row) => {
+      expect(row.id).toBeTruthy();
+      expect(["row-1", "row-2"]).not.toContain(row.id);
+    });
+    expect(clone.rows.map((row) => row.product)).toEqual(["Intel i5", "RTX 4060"]);
+    expect(storedActiveId()).toBe(clone.id);
+  });
+
+  it("deletes the active quote and switches to the remaining one", async () => {
+    localStorage.setItem(
+      "pcqb:quotes:v1",
+      JSON.stringify([
+        makeQuote({ id: "q-first", name: "First Build", rows: [] }),
+        makeQuote({ id: "q-second", name: "Second Build", rows: [] }),
+      ])
+    );
+    localStorage.setItem("pcqb:activeQuoteId:v1", "q-second");
+    render(<App />);
+    await waitFor(() => expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Second Build"));
+
+    fireEvent.click(screen.getByText("🗑 Eliminar actual"));
+
+    await waitFor(() => expect(screen.queryByText("Second Build")).toBeNull());
+    expect(screen.getByLabelText("Nombre de la cotización").value).toBe("First Build");
+    const quotes = storedQuotes();
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0].id).toBe("q-first");
+    expect(storedActiveId()).toBe("q-first");
+  });
+
+  it("keeps the last quote protected by a disabled delete button", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+
+    const deleteBtn = screen.getByText("🗑 Eliminar actual");
+    expect(deleteBtn.disabled).toBe(true);
+
+    fireEvent.click(deleteBtn);
+
+    expect(storedQuotes()).toHaveLength(1);
+    expect(screen.getByText("Test Quote")).toBeTruthy();
+    expect(storedActiveId()).toBe("test-quote-1");
+  });
+
+  it.todo("shows alert and does not delete the last quote (bug: alert branch is unreachable because the delete button is disabled when only one quote exists)");
+
+  it("persists the quote name change to pcqb:quotes:v1", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+
+    fireEvent.change(screen.getByLabelText("Nombre de la cotización"), { target: { value: "Renamed Build" } });
+
+    await waitFor(() => expect(storedQuotes()[0].name).toBe("Renamed Build"));
+  });
+
+  it("persists activeQuoteId to pcqb:activeQuoteId:v1", async () => {
+    localStorage.setItem(
+      "pcqb:quotes:v1",
+      JSON.stringify([
+        makeQuote({ id: "q-a", name: "Build A", rows: [] }),
+        makeQuote({ id: "q-b", name: "Build B", rows: [] }),
+      ])
+    );
+    localStorage.setItem("pcqb:activeQuoteId:v1", "q-a");
+    render(<App />);
+    await waitFor(() => expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Build A"));
+
+    fireEvent.click(screen.getByText("Build B"));
+
+    await waitFor(() => expect(storedActiveId()).toBe("q-b"));
+    expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Build B");
+  });
+
+  it("restores activeQuoteId from localStorage when valid", async () => {
+    localStorage.setItem(
+      "pcqb:quotes:v1",
+      JSON.stringify([
+        makeQuote({ id: "q-a", name: "Build A", rows: [] }),
+        makeQuote({ id: "q-b", name: "Build B", rows: [] }),
+      ])
+    );
+    localStorage.setItem("pcqb:activeQuoteId:v1", "q-b");
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Build B"));
+    expect(activeTab().textContent).toBe("Build B");
+  });
+
+  it("handles empty quotes array gracefully", async () => {
+    localStorage.setItem("pcqb:quotes:v1", "[]");
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByText("Mi PC actual")).toBeTruthy());
+    expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Mi PC actual");
+    const quotes = storedQuotes();
+    expect(quotes).toHaveLength(1);
+    expect(quotes[0].rows).toHaveLength(1);
+    expect(storedActiveId()).toBe(quotes[0].id);
+  });
+
+  it("normalizes quotes with missing fields on load", async () => {
+    localStorage.setItem(
+      "pcqb:quotes:v1",
+      JSON.stringify([{ id: "legacy-1", name: "Legacy", rows: [{ product: "Old CPU" }] }])
+    );
+    localStorage.setItem("pcqb:activeQuoteId:v1", "legacy-1");
+    render(<App />);
+
+    await waitFor(() => expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Legacy"));
+    expect(screen.getByPlaceholderText("Modelo exacto").value).toBe("Old CPU");
+    expect(screen.getByPlaceholderText("Tarjeta de video, RAM…").value).toBe("");
+    expect(screen.getByLabelText("Moneda personalizada").value).toBe("CLP");
+
+    const quotes = storedQuotes();
+    expect(quotes[0].currency).toBe("CLP");
+    expect(quotes[0].priceUpdatedAt).toBe("");
+    expect(quotes[0].rows[0].id).toBeTruthy();
+    expect(quotes[0].rows[0].category).toBe("");
+    expect(quotes[0].rows[0].notes).toBe("");
+  });
+
+  it("persists updated quote rows to localStorage", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Test Quote")).toBeTruthy());
+
+    fireEvent.change(screen.getAllByPlaceholderText("Modelo exacto")[0], { target: { value: "Ryzen 9 7950X" } });
+
+    await waitFor(() => expect(storedQuotes()[0].rows[0].product).toBe("Ryzen 9 7950X"));
+    expect(storedQuotes()[0].rows[0].category).toBe("CPU");
+  });
 });
 
-// ─────[plan 014] Builder flow — future work ──────────────────────────────
+// ─────[plan 014] Builder flow ────────────────────────────────────────────
 
 describe("[plan 014] Builder flow", () => {
   function renderWithBuilder(builderState, mockOverrides = {}) {
@@ -733,12 +919,90 @@ describe("[plan 014] Builder flow", () => {
       ...mockOverrides,
     });
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
   }
 
-  it.todo("navigates forward through steps [plan 014]");
-  it.todo("navigates backward through steps [plan 014]");
-  it.todo("clicking stepper chip jumps to that step [plan 014]");
-  it.todo("filters motherboards by selected CPU socket [plan 014]");
+  function activeStepName() {
+    return document.querySelector(".step-chip.active")?.textContent || "";
+  }
+
+  function storedBuilder() {
+    return JSON.parse(localStorage.getItem("pcqb:builder:v1"));
+  }
+
+  function openOptions(label) {
+    const input = screen.getByLabelText(label);
+    fireEvent.focus(input);
+    return within(screen.getByRole("listbox")).getAllByRole("option");
+  }
+
+  it("navigates forward through steps [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    const next = screen.getByText("Siguiente →");
+    expect(activeStepName()).toContain("CPU");
+
+    fireEvent.click(next);
+    expect(activeStepName()).toContain("Placa madre");
+    fireEvent.click(next);
+    expect(activeStepName()).toContain("RAM");
+    fireEvent.click(next);
+    expect(activeStepName()).toContain("GPU");
+    fireEvent.click(next);
+    expect(activeStepName()).toContain("Fuente");
+    fireEvent.click(next);
+    expect(activeStepName()).toContain("Gabinete");
+    expect(next.disabled).toBe(true);
+  });
+
+  it("navigates backward through steps [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    const next = screen.getByText("Siguiente →");
+    const prev = screen.getByText("← Anterior");
+    expect(prev.disabled).toBe(true);
+
+    fireEvent.click(next);
+    fireEvent.click(next);
+    expect(activeStepName()).toContain("RAM");
+
+    fireEvent.click(prev);
+    expect(activeStepName()).toContain("Placa madre");
+    fireEvent.click(prev);
+    expect(activeStepName()).toContain("CPU");
+    expect(prev.disabled).toBe(true);
+  });
+
+  it("clicking stepper chip jumps to that step [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    const chips = Array.from(document.querySelectorAll(".step-chip"));
+
+    fireEvent.click(chips.find((chip) => chip.textContent.includes("Gabinete")));
+
+    expect(activeStepName()).toContain("Gabinete");
+    expect(document.querySelector(".builder-choice.active")?.textContent).toContain("Gabinete");
+
+    fireEvent.click(chips.find((chip) => chip.textContent.includes("Fuente")));
+    expect(activeStepName()).toContain("Fuente");
+  });
+
+  it("filters motherboards by selected CPU socket [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+
+    const options = openOptions("Placa madre");
+    expect(options).toHaveLength(2);
+    options.forEach((opt) => expect(opt.textContent).toContain("LGA1700"));
+  });
   it("filters RAM by selected motherboard memory type", async () => {
     const catalog = buildRichCatalog();
     catalog.ramKits = [
@@ -759,9 +1023,60 @@ describe("[plan 014] Builder flow", () => {
     expect(options).toHaveLength(2);
     options.forEach((opt) => expect(opt.textContent).toContain("DDR5"));
   });
-  it.todo("filter RAM by selected CPU memory type (explicit) [plan 014]");
-  it.todo("filters cases by motherboard form factor [plan 014]");
-  it.todo("filters cases by GPU length [plan 014]");
+  it("filter RAM by selected CPU memory type (explicit) [plan 014]", async () => {
+    const catalog = buildRichCatalog();
+    catalog.ramKits = [
+      ...catalog.ramKits,
+      { id: "ram-4", name: "Kingston Fury 32GB", type: "DDR4", speed: 3200 },
+    ];
+    renderWithBuilder(
+      {
+        cpuId: "cpu-1", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+        useIntegratedGpu: false,
+      },
+      { catalog }
+    );
+
+    const options = openOptions("RAM");
+    expect(options).toHaveLength(2);
+    options.forEach((opt) => expect(opt.textContent).toContain("DDR5"));
+  });
+
+  it("filters cases by motherboard form factor [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+
+    const options = openOptions("Gabinete");
+    expect(options).toHaveLength(1);
+    expect(options[0].textContent).toContain("NZXT H510 Flow");
+  });
+
+  it("filters cases by GPU length [plan 014]", async () => {
+    const catalog = buildRichCatalog();
+    catalog.pcCases = [
+      ...catalog.pcCases,
+      { id: "case-3", name: "Tiny Cube", maxGpuLength: 200, formFactors: ["ATX"] },
+    ];
+    renderWithBuilder(
+      {
+        cpuId: "", moboId: "", ramId: "", gpuId: "gpu-2", psuId: "", caseId: "",
+        useIntegratedGpu: false,
+      },
+      { catalog }
+    );
+
+    const options = openOptions("Gabinete");
+    expect(options).toHaveLength(2);
+    expect(options.map((opt) => opt.textContent)).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("NZXT H510 Flow"),
+        expect.stringContaining("Cooler Master NR200"),
+      ])
+    );
+    expect(options.some((opt) => opt.textContent.includes("Tiny Cube"))).toBe(false);
+  });
   it("filters PSU by minimum wattage recommendation", async () => {
     renderWithBuilder({
       cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-2", psuId: "", caseId: "case-1",
@@ -786,13 +1101,435 @@ describe("[plan 014] Builder flow", () => {
     expect(within(screen.getByRole("listbox")).getAllByRole("option")).toHaveLength(2);
   });
 
-  it("deselects incompatible mobo when CPU socket changes [plan 014]");
-  it.todo("deselects incompatible case when mobo form factor changes [plan 014]");
-  it.todo("deselects case when GPU length exceeds max [plan 014]");
-  it.todo("integrated GPU toggle clears GPU selection [plan 014]");
-  it.todo("integrated GPU toggle advances step when on GPU step [plan 014]");
-  it.todo("clearing builder resets builder state and steps [plan 014]");
-  it.todo("clearing builder does NOT reset cpuBrand/cpuFamily [plan 014]");
+  it("shows 'Sin datos de consumo' and keeps low-wattage PSUs when the GPU TDP is missing", async () => {
+    const catalog = buildRichCatalog();
+    catalog.gpus = [...catalog.gpus, gpuSparse];
+    catalog.psus = [
+      ...catalog.psus,
+      { id: "psu-4", name: "Genérica 150W", wattage: 150, wattage_w: 150, pcie_power_connectors: { "8_pin": 1 } },
+    ];
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-3", psuId: "", caseId: "case-1",
+      useIntegratedGpu: false,
+    }, { catalog });
+
+    await waitFor(() => {
+      expect(screen.getByText("Sin datos de consumo")).toBeTruthy();
+    });
+
+    const psuInput = await screen.findByLabelText("Fuente");
+    fireEvent.focus(psuInput);
+    const options = within(screen.getByRole("listbox")).getAllByRole("option");
+    expect(options).toHaveLength(3);
+    expect(options.some((opt) => opt.textContent.includes("Genérica 150W"))).toBe(true);
+  });
+
+  it("deselects incompatible mobo when CPU socket changes [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    expect(screen.getByLabelText("Placa madre").value).toBe("ASUS Z790-P");
+
+    fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+    const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+    expect(option.textContent).toContain("AMD Ryzen 5 7600");
+    fireEvent.click(option);
+
+    await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe("AMD Ryzen 5 7600"));
+    expect(screen.getByLabelText("Placa madre").value).toBe("");
+    expect(screen.queryByText(/Mobo:/)).toBeNull();
+    expect(storedBuilder().cpuId).toBe("cpu-2");
+    expect(storedBuilder().moboId).toBe("");
+  });
+
+  it("deselects incompatible case when mobo form factor changes [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+      useIntegratedGpu: false,
+    });
+    expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+    fireEvent.change(screen.getByLabelText("Placa madre"), { target: { value: "ASUS" } });
+    const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+    expect(option.textContent).toContain("ASUS Z790-P");
+    fireEvent.click(option);
+
+    await waitFor(() => expect(screen.getByLabelText("Gabinete").value).toBe(""));
+    expect(storedBuilder().moboId).toBe("mobo-1");
+    expect(storedBuilder().caseId).toBe("");
+    expect(screen.getByText(/Mobo:/)).toBeTruthy();
+  });
+
+  it("deselects case when GPU length exceeds max [plan 014]", async () => {
+    const catalog = buildRichCatalog();
+    catalog.pcCases = catalog.pcCases.map((c) => (c.id === "case-2" ? { ...c, maxGpuLength: 200 } : c));
+    renderWithBuilder(
+      {
+        cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+        useIntegratedGpu: false,
+      },
+      { catalog }
+    );
+    expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+    fireEvent.change(screen.getByLabelText("GPU"), { target: { value: "RTX 4060" } });
+    const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+    expect(option.textContent).toContain("RTX 4060");
+    fireEvent.click(option);
+
+    await waitFor(() => expect(screen.getByLabelText("Gabinete").value).toBe(""));
+    expect(storedBuilder().gpuId).toBe("gpu-1");
+    expect(storedBuilder().caseId).toBe("");
+  });
+
+  describe("[plan 050] conflict notices", () => {
+    it("announces mobo clear when CPU socket changes", async () => {
+      renderWithBuilder({
+        cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+        useIntegratedGpu: false,
+      });
+      expect(screen.getByLabelText("Placa madre").value).toBe("ASUS Z790-P");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("Placa madre").value).toBe(""));
+      expect(storedBuilder().moboId).toBe("");
+      expect(
+        screen.getByText("Se quitó la placa madre porque su socket no coincide con el CPU seleccionado.")
+      ).toBeTruthy();
+    });
+
+    it("announces RAM clear when CPU memory type changes", async () => {
+      const catalog = buildRichCatalog();
+      catalog.cpus = [
+        ...catalog.cpus,
+        {
+          id: "cpu-4", name: "AMD Ryzen 7 5700X", brand: "AMD", family: "Ryzen 7",
+          socket: "AM4", memoryType: "DDR4", memoryTypeExplicit: true, tdp: 65, tdp_w: 65,
+        },
+      ];
+      renderWithBuilder(
+        {
+          cpuId: "cpu-1", moboId: "", ramId: "ram-1", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("RAM").value).toBe("Corsair Vengeance 32GB");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "Ryzen 7 5700X" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("AMD Ryzen 7 5700X");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("RAM").value).toBe(""));
+      expect(storedBuilder().ramId).toBe("");
+      expect(
+        screen.getByText("Se quitó la RAM porque su tipo no coincide con el CPU seleccionado.")
+      ).toBeTruthy();
+    });
+
+    it("announces RAM clear when motherboard memory type changes", async () => {
+      const catalog = buildRichCatalog();
+      catalog.motherboards = catalog.motherboards.map((m) =>
+        m.id === "mobo-2" ? { ...m, memoryType: "DDR4" } : m
+      );
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "", ramId: "ram-1", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("RAM").value).toBe("Corsair Vengeance 32GB");
+
+      fireEvent.change(screen.getByLabelText("Placa madre"), { target: { value: "Gigabyte" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("Gigabyte B650M");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("RAM").value).toBe(""));
+      expect(storedBuilder().ramId).toBe("");
+      expect(
+        screen.getByText("Se quitó la RAM porque su tipo no coincide con la placa madre seleccionada.")
+      ).toBeTruthy();
+    });
+
+    it("announces case clear when motherboard form factor changes", async () => {
+      renderWithBuilder({
+        cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+        useIntegratedGpu: false,
+      });
+      expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+      fireEvent.change(screen.getByLabelText("Placa madre"), { target: { value: "ASUS" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("ASUS Z790-P");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("Gabinete").value).toBe(""));
+      expect(storedBuilder().caseId).toBe("");
+      expect(
+        screen.getByText(
+          "Se quitó el gabinete porque no admite el factor de forma de la placa madre seleccionada."
+        )
+      ).toBeTruthy();
+    });
+
+    it("announces case clear when GPU length exceeds the case", async () => {
+      const catalog = buildRichCatalog();
+      catalog.pcCases = catalog.pcCases.map((c) => (c.id === "case-2" ? { ...c, maxGpuLength: 200 } : c));
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+      fireEvent.change(screen.getByLabelText("GPU"), { target: { value: "RTX 4060" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      expect(option.textContent).toContain("RTX 4060");
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("Gabinete").value).toBe(""));
+      expect(storedBuilder().caseId).toBe("");
+      expect(
+        screen.getByText("Se quitó el gabinete porque la GPU seleccionada es más larga que el espacio disponible.")
+      ).toBeTruthy();
+    });
+
+    it("does not announce anything when the change is compatible", async () => {
+      renderWithBuilder({
+        cpuId: "", moboId: "mobo-1", ramId: "ram-1", gpuId: "", psuId: "", caseId: "case-1",
+        useIntegratedGpu: false,
+      });
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "Intel Core i5-13600K" } });
+      const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+      fireEvent.click(option);
+
+      await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe("Intel Core i5-13600K"));
+      expect(storedBuilder().moboId).toBe("mobo-1");
+      expect(storedBuilder().ramId).toBe("ram-1");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("dismisses the notice and resets it when the builder is cleared", async () => {
+      const catalog = buildRichCatalog();
+      catalog.pcCases = catalog.pcCases.map((c) => (c.id === "case-2" ? { ...c, maxGpuLength: 200 } : c));
+      renderWithBuilder(
+        {
+          cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+      await waitFor(() =>
+        expect(screen.getByText(/Se quitó la placa madre/)).toBeTruthy()
+      );
+      expect(storedBuilder().moboId).toBe("");
+
+      fireEvent.click(screen.getByRole("button", { name: "Cerrar aviso" }));
+      expect(screen.queryByRole("status")).toBeNull();
+
+      fireEvent.change(screen.getByLabelText("GPU"), { target: { value: "RTX 4060" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+      await waitFor(() =>
+        expect(screen.getByText(/Se quitó el gabinete/)).toBeTruthy()
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: "Limpiar selección" }));
+      expect(screen.queryByRole("status")).toBeNull();
+      await waitFor(() => expect(storedBuilder().cpuId).toBe(""));
+    });
+
+    it("keeps a selected mobo when the CPU socket is missing", async () => {
+      const catalog = buildRichCatalog();
+      catalog.cpus = [
+        ...catalog.cpus,
+        {
+          id: "cpu-nosocket", name: "CPU desconocida", brand: "Desconocido", family: "Otros",
+          socket: "", memoryType: "", memoryTypeExplicit: false, tdp: null, tdp_w: null,
+        },
+      ];
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("Placa madre").value).toBe("ASUS Z790-P");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "CPU desconocida" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe("CPU desconocida"));
+      expect(storedBuilder().moboId).toBe("mobo-1");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("keeps a selected case when the case form-factor data is missing", async () => {
+      const catalog = buildRichCatalog();
+      catalog.pcCases = catalog.pcCases.map((c) =>
+        c.id === "case-2" ? { ...c, formFactors: [], maxGpuLength: null } : c
+      );
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "case-2",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("Gabinete").value).toBe("Cooler Master NR200");
+
+      fireEvent.change(screen.getByLabelText("Placa madre"), { target: { value: "MSI" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() => expect(screen.getByLabelText("Placa madre").value).toBe("MSI PRO Z690-A"));
+      expect(storedBuilder().caseId).toBe("case-2");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("keeps a selected RAM without type when the CPU memory type is explicit", async () => {
+      const catalog = buildRichCatalog();
+      catalog.ramKits = [
+        ...catalog.ramKits,
+        { id: "ram-notype", name: "RAM sin tipo", type: "", speed: null },
+      ];
+      renderWithBuilder(
+        {
+          cpuId: "", moboId: "", ramId: "ram-notype", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        },
+        { catalog }
+      );
+      expect(screen.getByLabelText("RAM").value).toBe("RAM sin tipo");
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "Intel Core i5-13600K" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe("Intel Core i5-13600K"));
+      expect(storedBuilder().ramId).toBe("ram-notype");
+      expect(screen.queryByRole("status")).toBeNull();
+    });
+
+    it("renders a single notice under StrictMode", async () => {
+      localStorage.setItem(
+        "pcqb:builder:v1",
+        JSON.stringify({
+          cpuId: "cpu-1", moboId: "mobo-1", ramId: "", gpuId: "", psuId: "", caseId: "",
+          useIntegratedGpu: false,
+        })
+      );
+      mockUseCatalog.mockReturnValue({
+        catalog: buildRichCatalog(),
+        compatMeta: null,
+        tierMaps: buildDefaultTierMaps(),
+        socketSet: new Set(),
+        loading: false,
+        error: "",
+        fallbackUsed: false,
+        categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+      });
+      render(
+        <StrictMode>
+          <App />
+        </StrictMode>
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+
+      fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+      fireEvent.click(within(screen.getByRole("listbox")).getAllByRole("option")[0]);
+
+      await waitFor(() =>
+        expect(
+          screen.getAllByText("Se quitó la placa madre porque su socket no coincide con el CPU seleccionado.")
+        ).toHaveLength(1)
+      );
+    });
+  });
+
+  it("integrated GPU toggle clears GPU selection [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-1", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    expect(screen.getByLabelText("GPU").value).toBe("NVIDIA GeForce RTX 4060");
+
+    fireEvent.click(screen.getByLabelText("Usar GPU integrada del procesador"));
+
+    await waitFor(() => expect(storedBuilder().gpuId).toBe(""));
+    expect(storedBuilder().useIntegratedGpu).toBe(true);
+    expect(screen.queryByLabelText("GPU")).toBeNull();
+    expect(screen.getByText("GPU integrada (sin dedicada)")).toBeTruthy();
+  });
+
+  it("integrated GPU toggle advances step when on GPU step [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    const next = screen.getByText("Siguiente →");
+    fireEvent.click(next);
+    fireEvent.click(next);
+    fireEvent.click(next);
+    expect(activeStepName()).toContain("GPU");
+
+    fireEvent.click(screen.getByLabelText("Usar GPU integrada del procesador"));
+
+    await waitFor(() => expect(activeStepName()).toContain("Fuente"));
+  });
+
+  it("clearing builder resets builder state and steps [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-1", psuId: "psu-1", caseId: "case-1",
+      useIntegratedGpu: false,
+    });
+    const chips = Array.from(document.querySelectorAll(".step-chip"));
+    fireEvent.click(chips.find((chip) => chip.textContent.includes("Gabinete")));
+    expect(activeStepName()).toContain("Gabinete");
+    expect(screen.getByText(/CPU: LGA1700/)).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Limpiar selección"));
+
+    await waitFor(() => expect(storedBuilder().caseId).toBe(""));
+    expect(activeStepName()).toContain("CPU");
+    expect(screen.getByLabelText("CPU").value).toBe("");
+    expect(screen.getByLabelText("Placa madre").value).toBe("");
+    expect(screen.getByLabelText("RAM").value).toBe("");
+    expect(screen.getByLabelText("GPU").value).toBe("");
+    expect(screen.getByLabelText("Fuente").value).toBe("");
+    expect(screen.getByLabelText("Gabinete").value).toBe("");
+    expect(screen.queryByText(/CPU: LGA1700/)).toBeNull();
+    expect(screen.getByText("← Anterior").disabled).toBe(true);
+  });
+
+  it("clearing builder does NOT reset cpuBrand/cpuFamily [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    fireEvent.change(screen.getByLabelText("CPU"), { target: { value: "AMD Ryzen 5 7600" } });
+    const option = within(screen.getByRole("listbox")).getAllByRole("option")[0];
+    fireEvent.click(option);
+    await waitFor(() => expect(screen.getByLabelText("Marca CPU").value).toBe("AMD"));
+    expect(screen.getByLabelText("Línea").value).toBe("Ryzen 5");
+
+    fireEvent.click(screen.getByText("Limpiar selección"));
+
+    await waitFor(() => expect(screen.getByLabelText("CPU").value).toBe(""));
+    expect(screen.getByLabelText("Marca CPU").value).toBe("AMD");
+    expect(screen.getByLabelText("Línea").value).toBe("Ryzen 5");
+  });
   it("applies CPU brand and family filters to typeahead options", async () => {
     renderWithBuilder({
       cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
@@ -827,9 +1564,67 @@ describe("[plan 014] Builder flow", () => {
     expect(options[0].textContent).toContain("Intel Core i7-14700K");
   });
 
-  it("apply builder to quote inserts selection rows [plan 014]");
-  it.todo("duplicate builder selection creates new quote [plan 014]");
-  it.todo("apply builder empty selection shows alert [plan 014]");
+  it("apply builder to quote inserts selection rows [plan 014]", async () => {
+    localStorageWithQuote({ rows: [] });
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "mobo-1", ramId: "ram-1", gpuId: "gpu-1", psuId: "psu-1", caseId: "case-1",
+      useIntegratedGpu: false,
+    });
+    expect(screen.getAllByPlaceholderText("Modelo exacto")).toHaveLength(1);
+
+    fireEvent.click(screen.getByText("Aplicar selección a la cotización"));
+
+    await waitFor(() => expect(screen.getAllByPlaceholderText("Modelo exacto")).toHaveLength(6));
+    const quotes = JSON.parse(localStorage.getItem("pcqb:quotes:v1"));
+    const active = quotes.find((q) => q.id === "test-quote-1");
+    expect(active.rows.map((row) => row.itemId)).toEqual([
+      "cpu-1", "mobo-1", "ram-1", "gpu-1", "psu-1", "case-1",
+    ]);
+    expect(active.rows.map((row) => row.product)).toEqual([
+      "Intel Core i5-13600K", "ASUS Z790-P", "Corsair Vengeance 32GB",
+      "NVIDIA GeForce RTX 4060", "Corsair RM750x", "NZXT H510 Flow",
+    ]);
+    expect(active.rows.map((row) => row.category)).toEqual([
+      "Procesador", "Placa madre", "RAM", "Tarjeta de video", "Fuente de poder", "Gabinete",
+    ]);
+  });
+
+  it("duplicate builder selection creates new quote [plan 014]", async () => {
+    renderWithBuilder({
+      cpuId: "cpu-1", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+
+    fireEvent.click(screen.getByText("⧉ Duplicar selección como nueva cotización"));
+
+    await waitFor(() => expect(document.querySelector(".quote-tab.active").textContent).toBe("Mi PC actual variante"));
+    expect(screen.getByLabelText("Nombre de la cotización").value).toBe("Mi PC actual variante");
+    const quotes = JSON.parse(localStorage.getItem("pcqb:quotes:v1"));
+    expect(quotes).toHaveLength(2);
+    const created = quotes[1];
+    expect(created.priceUpdatedAt).toBe("");
+    expect(created.rows).toHaveLength(1);
+    expect(created.rows[0].itemId).toBe("cpu-1");
+    expect(created.rows[0].product).toBe("Intel Core i5-13600K");
+    expect(screen.getAllByPlaceholderText("Modelo exacto")).toHaveLength(1);
+  });
+
+  it("apply builder empty selection shows alert [plan 014]", async () => {
+    localStorageWithQuote({ rows: [] });
+    renderWithBuilder({
+      cpuId: "", moboId: "", ramId: "", gpuId: "", psuId: "", caseId: "",
+      useIntegratedGpu: false,
+    });
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+
+    fireEvent.click(screen.getByText("Aplicar selección a la cotización"));
+
+    expect(alertSpy).toHaveBeenCalledWith("Selecciona al menos un componente en el builder.");
+    const quotes = JSON.parse(localStorage.getItem("pcqb:quotes:v1"));
+    expect(quotes[0].rows).toHaveLength(1);
+    expect(quotes[0].rows[0].product).toBe("");
+    alertSpy.mockRestore();
+  });
 });
 
 // ─────[plan 015] File boundaries — future work ──────────────────────────
@@ -906,6 +1701,30 @@ describe("[plan 015] File boundaries — import and export", () => {
     await waitFor(() => {
       expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se pudo importar/i));
     });
+    alertSpy.mockRestore();
+  });
+
+  it("rejects an empty JSON array import with error [plan 044]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    await importFile("[]", "empty.json");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se pudo importar/i));
+    });
+    expect(alertSpy).not.toHaveBeenCalledWith(expect.stringMatching(/éxito/i));
+    expect(JSON.parse(localStorage.getItem("pcqb:quotes:v1"))).toHaveLength(1);
+    alertSpy.mockRestore();
+  });
+
+  it("rejects an empty quotes object import with error [plan 044]", async () => {
+    await renderWithQuote();
+    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+    await importFile(JSON.stringify({ quotes: [] }), "empty-quotes.json");
+    await waitFor(() => {
+      expect(alertSpy).toHaveBeenCalledWith(expect.stringMatching(/no se pudo importar/i));
+    });
+    expect(alertSpy).not.toHaveBeenCalledWith(expect.stringMatching(/éxito/i));
+    expect(JSON.parse(localStorage.getItem("pcqb:quotes:v1"))).toHaveLength(1);
     alertSpy.mockRestore();
   });
 
@@ -1085,5 +1904,205 @@ describe("[plan 015] File boundaries — import and export", () => {
       const importPriceBtn = within(drawer).getByText("Importar precios (por id)");
       expect(importPriceBtn).toBeTruthy();
     });
+  });
+});
+
+// ─────[plan 032] Workspace navigation ────────────────────────────────────
+
+describe("[plan 032] Workspace navigation", () => {
+  function analyzerHidden() {
+    return document.querySelector(".analyzer-workspace")?.classList.contains("hidden") ?? true;
+  }
+
+  function builderHidden() {
+    return document.querySelector(".builder-section")?.classList.contains("hidden") ?? true;
+  }
+
+  it("defaults to the Analyzer workspace", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Analizar cotización" }).getAttribute("aria-pressed")).toBe("true");
+    expect(builderHidden()).toBe(true);
+    expect(analyzerHidden()).toBe(false);
+  });
+
+  it("switches to the Expert Builder and back", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Constructor experto" }).getAttribute("aria-pressed")).toBe("true");
+    expect(builderHidden()).toBe(false);
+    expect(analyzerHidden()).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(builderHidden()).toBe(true);
+    expect(analyzerHidden()).toBe(false);
+  });
+
+  it("restores the mode from the URL query on load", async () => {
+    localStorageWithQuote();
+    window.history.replaceState({}, "", "/?modo=experto");
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    expect(builderHidden()).toBe(false);
+    expect(analyzerHidden()).toBe(true);
+  });
+
+  it("falls back to the Analyzer for an invalid mode", async () => {
+    localStorageWithQuote();
+    window.history.replaceState({}, "", "/?modo=banana");
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(analyzerHidden()).toBe(false);
+  });
+
+  it("pushes the mode into the URL and honors back/forward", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(window.location.search).toContain("modo=experto"));
+
+    window.history.back();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Analizar cotización" }).getAttribute("aria-pressed")).toBe("true")
+    );
+    expect(screen.getByText("Cotización a evaluar")).toBeTruthy();
+  });
+
+  it("keeps Analyzer context when toggling workspaces", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Resolución objetivo"), { target: { value: "1440p" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(screen.getByLabelText("Resolución objetivo").value).toBe("1440p");
+  });
+});
+
+// ─────[plan 032] Analyzer workspace in App ───────────────────────────────
+
+describe("[plan 032] Analyzer workspace", () => {
+  function quoteWithExactIds(overrides = {}) {
+    return {
+      id: "analyzer-quote-1",
+      name: "Quote Analyzable",
+      currency: "CLP",
+      priceUpdatedAt: "2026-07-29T00:00:00.000Z",
+      rows: [
+        { id: "a-row-cpu", category: "Procesador", product: "Intel Core i5-13600K", itemId: "cpu-1", offerPrice: "280000", regularPrice: "290000" },
+        { id: "a-row-mobo", category: "Placa madre", product: "ASUS Z790-P", itemId: "mobo-1", offerPrice: "180000", regularPrice: "190000" },
+        { id: "a-row-ram", category: "RAM", product: "Corsair Vengeance 32GB", itemId: "ram-1", offerPrice: "90000", regularPrice: "95000" },
+        { id: "a-row-gpu", category: "Tarjeta de video", product: "AMD Radeon RX 7800 XT", itemId: "gpu-2", offerPrice: "550000", regularPrice: "580000" },
+        { id: "a-row-psu", category: "Fuente de poder", product: "Corsair RM750x", itemId: "psu-1", offerPrice: "120000", regularPrice: "125000" },
+        { id: "a-row-case", category: "Gabinete", product: "NZXT H510 Flow", itemId: "case-1", offerPrice: "80000", regularPrice: "85000" },
+      ],
+      ...overrides,
+    };
+  }
+
+  function renderWithRichCatalog(extra = {}, catalogOverrides = {}) {
+    localStorage.setItem("pcqb:quotes:v1", JSON.stringify([quoteWithExactIds()]));
+    localStorage.setItem("pcqb:activeQuoteId:v1", "analyzer-quote-1");
+    mockUseCatalog.mockReturnValue({
+      catalog: buildRichCatalog(),
+      compatMeta: buildCompatMeta(),
+      tierMaps: buildRichTierMaps(),
+      socketSet: new Set(),
+      loading: false,
+      error: "",
+      fallbackUsed: false,
+      categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+      assessmentCoverage: null,
+      assessmentCoverageFailed: false,
+      ...catalogOverrides,
+    });
+    return render(<App {...extra} />);
+  }
+
+  async function completeContextAndAnalyze() {
+    fireEvent.change(screen.getByLabelText("Resolución objetivo"), { target: { value: "1080p" } });
+    fireEvent.click(screen.getByLabelText("Usaré una GPU dedicada (o la incluyo en la cotización)"));
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización activa" }));
+  }
+
+  it("runs the full analysis flow inside the App", async () => {
+    renderWithRichCatalog();
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+  });
+
+  it("shows the coverage-unavailable hint in the verdict", async () => {
+    renderWithRichCatalog({}, { assessmentCoverageFailed: true });
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(/La cobertura de reglas del catálogo no está disponible/)
+      ).toBeTruthy()
+    );
+    expect(screen.getByText(/Veredicto/)).toBeTruthy();
+  });
+
+  it("invalidates the analysis when Expert edits change the quote", async () => {
+    renderWithRichCatalog();
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    const productInput = screen.getAllByPlaceholderText("Modelo exacto")[0];
+    fireEvent.change(productInput, { target: { value: "Intel Core i5-13600KF" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText(/La cotización o el contexto cambiaron/)).toBeTruthy());
+  });
+
+  it("emits product_start once and input events per analysis", async () => {
+    const sink = createInMemorySink();
+    const measurement = createMeasurement({ sink: sink.sink, sessionToken: "app-test-session", sequenceStart: 0 });
+    renderWithRichCatalog({ measurement });
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+
+    const starts = sink.events.filter((e) => e.name === "product_start");
+    const inputs = sink.events.filter((e) => e.name === "quote_input_completed");
+    expect(starts).toHaveLength(1);
+    expect(inputs).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    fireEvent.change(screen.getAllByPlaceholderText("Modelo exacto")[0], { target: { value: "Intel Core i5-13600KF" } });
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText(/La cotización o el contexto cambiaron/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Re-analizar ahora" }));
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+
+    expect(sink.events.filter((e) => e.name === "product_start")).toHaveLength(1);
+    expect(sink.events.filter((e) => e.name === "quote_input_completed")).toHaveLength(2);
   });
 });

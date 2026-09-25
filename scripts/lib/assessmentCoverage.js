@@ -473,7 +473,7 @@ export function validateAssessmentCoverage(manifest) {
         errors.push(`categories contains unknown component ${component}`);
       }
     }
-    for (const [component, arrayKey] of Object.entries(CATEGORY_ARRAY_KEYS)) {
+    for (const component of Object.keys(CATEGORY_ARRAY_KEYS)) {
       const counts = manifest.categories[component];
       if (!isPlainObject(counts)) {
         errors.push(`categories must include ${component}`);

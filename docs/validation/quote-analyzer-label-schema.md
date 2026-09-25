@@ -23,5 +23,6 @@ El contrato vigente está en
   reproducibles.
 
 Los archivos o tests existentes que aún mencionen `reviewerId`, `labels` o
-`adjudication` pertenecen a la implementación histórica de Plan 029. No deben
-usarse para afirmar acuerdo experto mientras Plan 035 no complete la migración.
+`adjudication` pertenecen a la implementación histórica de Plan 029. Plan 035
+está DONE; estos artefactos de Plan 029 son históricos y no deben usarse para
+afirmar acuerdo experto.

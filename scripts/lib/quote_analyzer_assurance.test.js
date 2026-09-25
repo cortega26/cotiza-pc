@@ -19,12 +19,8 @@ import {
   ASSURANCE_RULE_IDS,
   HAZARD_CLASSES,
   CASE_CLASSES,
-  EXPECTED_STATUSES,
-  RECRUITMENT_SOURCES,
   IDENTITY_FACTS,
   FACT_UNITS,
-  CONFORMANCE_SCHEMA_VERSION,
-  CONTROL_SCHEMA_VERSION,
   COVERAGE_SCHEMA_VERSION,
   REPORT_SCHEMA_VERSION,
   IDENTITY_RESOLUTION_THRESHOLD,
@@ -42,7 +38,6 @@ import {
   evaluateConformance,
   computeCoverageMetrics,
   evaluateGates,
-  buildAssuranceReport,
   runAssurance,
   parseCliArgs,
   USAGE,
@@ -314,7 +309,7 @@ describe("coverage-case schema validation", () => {
 
   it("rejects missing sampling, unsupported recruitment source, and malformed input", () => {
     const valid = coverageCase("COVERAGE-VALID", loadFixtureSuite().cases[0].analyzerInput);
-    const { sampling, ...noSampling } = valid;
+    const { sampling: _sampling, ...noSampling } = valid;
     expect(validateCoverageCase(noSampling).join(";")).toContain("sampling");
     expect(validateCoverageCase({ ...valid, recruitmentSource: "crowd" }).join(";")).toContain("recruitmentSource");
     expect(validateCoverageCase({ ...valid, caseId: "C-1" }).join(";")).toContain("COVERAGE-");
@@ -440,7 +435,7 @@ describe("black-box conformance execution (Steps 2-3)", () => {
   it("accepts a missing dimension verdict for unknown-class cases (unknown admits null)", () => {
     const suite = loadFixtureSuite();
     const unknownCase = caseById(suite, "CONF-CPU-SOCKET-UNKNOWN-001");
-    const silent = (input) => ({
+    const silent = (_input) => ({
       verdict: { overall: "unknown" },
       dimensions: {},
       findings: [{ id: "compat-cpu-mobo-socket" }],
@@ -565,8 +560,6 @@ describe("negative controls (Step 4)", () => {
 });
 
 describe("coverage corpus (Step 6)", () => {
-  const suiteCases = () => loadFixtureSuite().cases;
-
   it("loads an empty corpus without error and reports null rates", () => {
     withTempDir((dir) => {
       const cases = loadCoverageCorpus(dir);

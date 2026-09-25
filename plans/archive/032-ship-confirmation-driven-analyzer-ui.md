@@ -18,6 +18,11 @@
 
 ## Status
 
+**DONE — archived 2026-09-25.** Public enablement applies the owner-approved
+waiver recorded in the completion summary below: the Plan 035 real-input
+coverage gate is not yet evaluable, so shipped copy stays bounded-assurance and
+no universal-safety claim is made.
+
 - **Priority**: P1
 - **Effort**: L
 - **Risk**: HIGH
@@ -336,3 +341,54 @@ adapters must end at the same explicit confirmation boundary. Maintainers and
 automated UI tests should scrutinize mapping resets, top-finding ordering,
 unknown language, event deduplication, assurance-claim copy, and whether the
 default workflow still matches the canonical product sequence.
+
+---
+
+## Completion — 2026-09-25
+
+Branch: `advisor/b1-cotiza-verify` (032 commits `a75c304`, `b72599e`,
+`9c9b6dd`, `ed17e26`). Plan archived on completion.
+
+### What was done
+
+- Conservative structured-paste adapter (`src/lib/quotePasteParser.js`) and
+  dependency-free `?modo=analizar|experto` helpers, with tests.
+- Analyzer workspace components: context form, intake (active quote, CSV/JSON
+  import, paste review, manual editing, per-category catalog status), explicit
+  identity review (exact/ambiguous/unmatched/unsupported; no auto-confirmation;
+  duplicate-component warnings; mapping reset on quote/catalog changes), and
+  verdict rendering with seven dimensions, top-three finding ordering,
+  expandable evidence, coverage notes, and decision actions.
+- App integration: Analyzer is the default workspace, the picker is relabeled
+  `Constructor experto`, Expert edits invalidate prior verdicts, and Plan 031
+  events are emitted through the injected provider-neutral adapter.
+- Accessibility: stage transitions move focus to the review/verdict region;
+  keyboard typeahead selection and `aria-expanded` evidence disclosure covered
+  by tests.
+
+### Owner-approved waiver (public enablement)
+
+Plan 035's full launch gate requires at least 30 real coverage cases and ≥80%
+required-component identity resolution. No authorized private corpus exists
+(0 observable real quotations), so the gate is unevaluable. The project owner
+explicitly approved shipping the Analyzer publicly with a documented waiver on
+2026-09-25. Consequences:
+
+- The product ships bounded-assurance copy only; it must not claim expert
+  validation, a universal false-negative rate, or guaranteed safety.
+- Missing/conflicting evidence still resolves to `unknown`, never `ok`.
+- The real-input coverage gate becomes a later validation item, not a launch
+  blocker; it must be re-evaluated before any assurance claim or monetization
+  discussion.
+
+This waiver is task-specific and does not amend `docs/PRODUCT_VISION.md`.
+
+### Verification
+
+- `npm run check` — lint 0 errors (2 pre-existing warnings), 928 tests passed,
+  27 todo, disposable Vite build OK.
+- `bash scripts/verify.sh` — `scripts/lib` suite plus 43 artifact/post-build
+  contract tests passed.
+- `git diff --check` — clean.
+- `App.test.jsx` analyzer invalidations and measurement-event tests now pass;
+  `QuoteAnalyzer.test.jsx` covers focus movement after explicit submit.

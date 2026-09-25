@@ -17,36 +17,6 @@ export const EMPTY_BUILDER = {
   useIntegratedGpu: false,
 };
 
-export const SELECT = "SELECT";
-export const TOGGLE_INTEGRATED_GPU = "TOGGLE_INTEGRATED_GPU";
-export const CLEAR = "CLEAR";
-export const LOAD = "LOAD";
-export const SET_STEP = "SET_STEP";
-
-export function builderReducer(state, action) {
-  switch (action.type) {
-    case SELECT:
-      return { ...state, builder: { ...state.builder, [action.key]: action.value || "" } };
-    case TOGGLE_INTEGRATED_GPU:
-      return {
-        ...state,
-        builder: {
-          ...state.builder,
-          useIntegratedGpu: action.checked,
-          gpuId: action.checked ? "" : state.builder.gpuId,
-        },
-      };
-    case CLEAR:
-      return { ...state, builder: { ...EMPTY_BUILDER }, step: 0 };
-    case LOAD:
-      return { ...state, builder: { ...EMPTY_BUILDER, ...action.builder } };
-    case SET_STEP:
-      return { ...state, step: Math.max(0, Math.min(action.step, BUILDER_STEPS.length - 1)) };
-    default:
-      return state;
-  }
-}
-
 export function getNextStep(currentStep, key, hasValue) {
   const idx = BUILDER_STEPS.findIndex((s) => s.key === key);
   if (hasValue && idx === currentStep && currentStep < BUILDER_STEPS.length - 1) {

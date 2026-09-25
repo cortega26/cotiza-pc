@@ -88,6 +88,45 @@ describe("useCatalog", () => {
     expect(loadCalls).toContain("motherboards");
   });
 
+  it("requests category and compatibility loads without caching the raw parse", async () => {
+    loadCategoryFile.mockResolvedValue([]);
+    loadCompatibilityFile.mockResolvedValue(null);
+
+    renderHook(() => useCatalog(0, ["cpus"]));
+
+    await waitFor(() => expect(loadCompatibilityFile).toHaveBeenCalled());
+    expect(loadCategoryFile).toHaveBeenCalledWith(
+      expect.any(String),
+      "cpus",
+      expect.objectContaining({ noCache: true })
+    );
+    expect(loadCompatibilityFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ noCache: true })
+    );
+    expect(loadAssessmentCoverageFile).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.not.objectContaining({ noCache: true })
+    );
+  });
+
+  it("does not refetch loaded files on ordinary re-renders", async () => {
+    loadCategoryFile.mockResolvedValue([]);
+    loadCompatibilityFile.mockResolvedValue(null);
+
+    const { rerender } = renderHook(({ cats }) => useCatalog(0, cats), {
+      initialProps: { cats: ["cpus"] },
+    });
+    await waitFor(() => expect(loadCategoryFile).toHaveBeenCalledTimes(1));
+    const compatCalls = loadCompatibilityFile.mock.calls.length;
+
+    rerender({ cats: ["cpus"] });
+    rerender({ cats: ["cpus"] });
+
+    expect(loadCategoryFile).toHaveBeenCalledTimes(1);
+    expect(loadCompatibilityFile).toHaveBeenCalledTimes(compatCalls);
+  });
+
   it("falls back to local catalog on load failure and exposes the error", async () => {
     loadCategoryFile.mockRejectedValue(new Error("Network failure"));
     loadCompatibilityFile.mockRejectedValue(new Error("Compat failure"));
@@ -98,6 +137,44 @@ describe("useCatalog", () => {
     expect(result.current.error).toBe("Network failure");
     expect(result.current.fallbackUsed).toBe(true);
     expect(result.current.catalog.cpus.length).toBeGreaterThan(0);
+  });
+
+  it("surfaces a compatibility failure without marking categories as fallback", async () => {
+    loadCategoryFile.mockResolvedValue([{ id: "cpu1" }]);
+    loadCompatibilityFile.mockRejectedValue(new Error("compat offline"));
+
+    const { result } = renderHook(() => useCatalog(0, ["cpus"]));
+    const bundledCompat = result.current.compatMeta;
+
+    await waitFor(() => expect(result.current.compatFailed).toBe(true));
+
+    expect(result.current.fallbackUsed).toBe(false);
+    expect(result.current.error).toBe("");
+    expect(result.current.categoryStates.cpus).toBe("loaded");
+    expect(result.current.compatMeta).toBe(bundledCompat);
+  });
+
+  it("reload resets the compatibility failure flag and refetches", async () => {
+    let attempts = 0;
+    loadCategoryFile.mockResolvedValue([]);
+    loadCompatibilityFile.mockImplementation(() => {
+      attempts += 1;
+      return attempts === 1 ? Promise.reject(new Error("compat down")) : Promise.resolve(null);
+    });
+
+    const { result, rerender } = renderHook(
+      ({ reloadToken, cats }) => useCatalog(reloadToken, cats),
+      { initialProps: { reloadToken: 0, cats: ["cpus"] } }
+    );
+
+    await waitFor(() => expect(result.current.compatFailed).toBe(true));
+
+    rerender({ reloadToken: 1, cats: ["cpus"] });
+
+    await waitFor(() => {
+      expect(result.current.compatFailed).toBe(false);
+      expect(attempts).toBe(2);
+    });
   });
 
   it("ignores stale responses when reloadToken changes mid-flight", async () => {

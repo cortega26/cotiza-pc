@@ -13,7 +13,7 @@ import {
   ramDdr5_2,
   caseAtx,
 } from "../../test/fixtures";
-import { findCandidates, resolveRow, resolveRows } from "./resolver";
+import { buildCatalogIndex, findCandidates, MAX_CANDIDATES, resolveRow, resolveRows } from "./resolver";
 
 const richCatalog = {
   cpus: [cpuIntel, cpuAmd, cpuIntelHigh],
@@ -208,5 +208,113 @@ describe("quoteAnalyzer resolver", () => {
     expect(findCandidates("", richCatalog.cpus)).toEqual([]);
     expect(findCandidates(null, richCatalog.cpus)).toEqual([]);
     expect(findCandidates("Ryzen", null)).toEqual([]);
+  });
+});
+
+describe("buildCatalogIndex", () => {
+  it("indexes every catalog list by string id and tolerates malformed catalogs", () => {
+    const sparseCatalog = {
+      ...richCatalog,
+      cpus: [null, undefined, cpuIntel],
+      gpus: "not-an-array",
+    };
+    const index = buildCatalogIndex(sparseCatalog);
+    expect(index.byId.cpu.get("cpu-1")).toBe(cpuIntel);
+    expect(index.byId.cpu.size).toBe(1);
+    expect(index.byId.gpu.size).toBe(0);
+    expect(buildCatalogIndex(null).byId.cpu.size).toBe(0);
+    expect(buildCatalogIndex(undefined).byId.mobo.size).toBe(0);
+  });
+
+  it("preserves resolution output for every resolver fixture", () => {
+    const catalogIndex = buildCatalogIndex(richCatalog);
+    const inputs = [
+      [row(), {}],
+      [row({ itemId: "cpu-legacy-1" }), { aliases: { "cpu-legacy-1": "cpu-1" } }],
+      [row({ itemId: "cpu-legacy-1" }), { aliases: { "cpu-legacy-1": "cpu-ghost" } }],
+      [row({ category: "Placa madre", product: moboLga.name, itemId: "old-mobo" }), { aliases: { "old-mobo": "mobo-1" } }],
+      [row({ itemId: "" }), { explicitMappings: { "r-1": "cpu-2" } }],
+      [row({ itemId: "" }), { explicitMappings: { "r-1": "cpu-legacy-2" }, aliases: { "cpu-legacy-2": "cpu-2" } }],
+      [row({ itemId: "" }), { explicitMappings: { "r-1": "cpu-ghost" } }],
+      [row({ itemId: "", product: "Ryzen 5 7600" }), {}],
+      [row({ itemId: "", product: "Intel Core" }), {}],
+      [row({ category: "Gabinete", product: "Gabinete marca rara" }), {}],
+      [row({ category: "Cooler", product: "Ventilador X" }), {}],
+      [row({ category: "", product: "", itemId: "" }), {}],
+      [null, {}],
+    ];
+    for (const [fixtureRow, options] of inputs) {
+      expect(resolveRow(fixtureRow, richCatalog, { ...options, index: catalogIndex })).toEqual(
+        resolveRow(fixtureRow, richCatalog, options)
+      );
+    }
+  });
+
+  it("preserves resolution output on sparse catalogs", () => {
+    const sparseCatalog = {
+      ...richCatalog,
+      cpus: [null, undefined, cpuIntel],
+      gpus: [null],
+    };
+    const catalogIndex = buildCatalogIndex(sparseCatalog);
+    const inputs = [
+      row({ itemId: "cpu-1" }),
+      row({ category: "Tarjeta de video", itemId: "gpu-1" }),
+      row({ category: "Tarjeta de video", product: "RTX 4060" }),
+    ];
+    for (const fixtureRow of inputs) {
+      expect(resolveRow(fixtureRow, sparseCatalog, { index: catalogIndex })).toEqual(
+        resolveRow(fixtureRow, sparseCatalog)
+      );
+    }
+  });
+
+  it("resolveRows accepts a prebuilt index without changing the result", () => {
+    const rows = [
+      row({ id: "r-1" }),
+      row({ id: "r-2", category: "Tarjeta de video", itemId: "gpu-1" }),
+      row({ id: "r-3", category: "RAM", itemId: "", product: "Corsair" }),
+    ];
+    expect(resolveRows(rows, richCatalog, { index: buildCatalogIndex(richCatalog) })).toEqual(
+      resolveRows(rows, richCatalog)
+    );
+  });
+});
+
+describe("resolveRow candidate cap", () => {
+  const manyCpus = Array.from({ length: 25 }, (_, i) => ({
+    id: `cpu-${i + 10}`,
+    name: `Intel Core i5 Test ${i}`,
+  }));
+
+  it("caps advisory candidates at MAX_CANDIDATES and reports the true count", () => {
+    const result = resolveRow(row({ itemId: "", product: "Intel Core" }), {
+      ...richCatalog,
+      cpus: manyCpus,
+    });
+    expect(MAX_CANDIDATES).toBe(20);
+    expect(result.state).toBe("ambiguous");
+    expect(result.candidates).toHaveLength(MAX_CANDIDATES);
+    expect(result.candidates.map((candidate) => candidate.id)).toEqual(
+      manyCpus.slice(0, MAX_CANDIDATES).map((candidate) => candidate.id)
+    );
+    expect(result.candidateCount).toBe(25);
+    expect(result.candidatesTruncated).toBe(true);
+  });
+
+  it("does not flag small candidate sets as truncated", () => {
+    const result = resolveRow(row({ itemId: "", product: "Intel Core" }), richCatalog);
+    expect(result.candidates).toHaveLength(2);
+    expect(result.candidateCount).toBe(2);
+    expect(result.candidatesTruncated).toBe(false);
+  });
+
+  it("caps candidates identically when an index is supplied", () => {
+    const cappedCatalog = { ...richCatalog, cpus: manyCpus };
+    expect(
+      resolveRow(row({ itemId: "", product: "Intel Core" }), cappedCatalog, {
+        index: buildCatalogIndex(cappedCatalog),
+      })
+    ).toEqual(resolveRow(row({ itemId: "", product: "Intel Core" }), cappedCatalog));
   });
 });

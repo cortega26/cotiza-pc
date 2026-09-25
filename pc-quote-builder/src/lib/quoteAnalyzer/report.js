@@ -33,6 +33,7 @@ import {
   checkRamMoboCompatibility,
 } from "../compatibility";
 import { normalizeCurrency, parsePrice } from "../money";
+import { isRowEmpty } from "../quoteModel";
 
 const DAY_MS = 86_400_000;
 const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2 };
@@ -282,7 +283,7 @@ export function buildReport(context) {
     const result = checkMoboCaseCompatibility(selection.mobo, selection.pcCase);
     caseFitStatuses.push(result.status);
     if (result.status === "fail") {
-      const fieldInferred = (selection.pcCase.formFactorEvidence ?? "unknown") === "unknown";
+      const fieldInferred = (selection.pcCase.formFactorEvidence ?? "unknown") !== "explicit";
       const { source, confidence } = evidenceFor(["mobo", "pcCase"], userMappedKeys, "catalog", fieldInferred);
       pushFinding({
         id: "compat-mobo-case-ff",
@@ -526,7 +527,7 @@ export function buildReport(context) {
 
   // ---- price findings -------------------------------------------------------
 
-  const rows = Array.isArray(quote?.rows) ? quote.rows : [];
+  const rows = (Array.isArray(quote?.rows) ? quote.rows : []).filter((row) => !isRowEmpty(row));
   const unpricedRowIds = [];
   rows.forEach((row, index) => {
     const hasOffer = parsePrice(row?.offerPrice, currency).status === "valid";
