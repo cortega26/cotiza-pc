@@ -302,3 +302,11 @@ Stop and report back (do not improvise) if:
   product-decision record and Step 1). Resume from the WIP commit, apply the
   three guards, and extend the tests with the three missing-data no-clear
   cases; the notice WIP otherwise stands.
+- **Completion (2026-09-25)**: resumed from `4e82726`, applied the four
+  evidence guards (CPU socket, RAM type on both comparison paths, case
+  form-factor presence), added the three missing-data no-clear cases, and
+  committed `bdcec9b`; reviewed and merged as `0f51b58`. The five
+  real-conflict clears still announce, the plan-040 characterization tests are
+  unchanged and green, and the integration branch reports 1068 passing / 1
+  todo with `npm run check` exit 0 (zero lint warnings), assurance 44/44, and
+  `verify.sh` green.
