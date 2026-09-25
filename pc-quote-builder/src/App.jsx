@@ -80,6 +80,7 @@ function App({ measurement: measurementProp }) {
   const productStartedRef = useRef(false);
   const measurement = useMemo(() => measurementProp || createMeasurement(), [measurementProp]);
   const [builderStep, setBuilderStep] = useState(0);
+  const [builderNotice, setBuilderNotice] = useState("");
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
   const importInputRef = useRef(null);
@@ -332,39 +333,50 @@ function App({ measurement: measurementProp }) {
       const byId = catalogIndex.byId[componentKey];
       return byId.get(String(id)) || byId.get(String(resolveCatalogId(id, compatMeta?.aliases || {})));
     };
-    setBuilder((prev) => {
-      const next = { ...prev, [key]: cleanValue };
-      if (key === "cpuId") {
-        const selectedCpu = findInList("cpu", cleanValue);
-        if (selectedCpu) {
-          setCpuBrand(selectedCpu.brand || "");
-          setCpuFamily(selectedCpu.family || "");
-        }
-        const cpu = findInList("cpu", cleanValue);
-        const mobo = findInList("mobo", next.moboId);
-        const ram = findInList("ram", next.ramId);
-        if (mobo && cpu && mobo.socket !== cpu.socket) next.moboId = "";
-        if (ram && cpu && cpu.memoryTypeExplicit && ram.type !== cpu.memoryType) next.ramId = "";
+    const next = { ...builder, [key]: cleanValue };
+    const builderNotices = [];
+    if (key === "cpuId") {
+      const selectedCpu = findInList("cpu", cleanValue);
+      if (selectedCpu) {
+        setCpuBrand(selectedCpu.brand || "");
+        setCpuFamily(selectedCpu.family || "");
       }
-      if (key === "moboId") {
-        const mobo = findInList("mobo", cleanValue);
-        const ram = findInList("ram", next.ramId);
-        if (mobo && ram && mobo.memoryTypeExplicit && ram.type !== mobo.memoryType) next.ramId = "";
-        const currentCase = findInList("pcCase", next.caseId);
-        if (mobo && currentCase && !currentCase.formFactors?.includes(mobo.formFactor)) {
-          next.caseId = "";
-        }
+      const cpu = findInList("cpu", cleanValue);
+      const mobo = findInList("mobo", next.moboId);
+      const ram = findInList("ram", next.ramId);
+      if (mobo && cpu && cpu.socket && mobo.socket && mobo.socket !== cpu.socket) {
+        next.moboId = "";
+        builderNotices.push("Se quitó la placa madre porque su socket no coincide con el CPU seleccionado.");
       }
-      if (key === "gpuId") {
-        next.useIntegratedGpu = false;
-        const gpu = findInList("gpu", cleanValue);
-        const currentCase = findInList("pcCase", next.caseId);
-        if (gpu && currentCase && gpu.length > currentCase.maxGpuLength) {
-          next.caseId = "";
-        }
+      if (ram && cpu && cpu.memoryTypeExplicit && ram.type && ram.type !== cpu.memoryType) {
+        next.ramId = "";
+        builderNotices.push("Se quitó la RAM porque su tipo no coincide con el CPU seleccionado.");
       }
-      return next;
-    });
+    }
+    if (key === "moboId") {
+      const mobo = findInList("mobo", cleanValue);
+      const ram = findInList("ram", next.ramId);
+      if (mobo && ram && mobo.memoryTypeExplicit && ram.type && ram.type !== mobo.memoryType) {
+        next.ramId = "";
+        builderNotices.push("Se quitó la RAM porque su tipo no coincide con la placa madre seleccionada.");
+      }
+      const currentCase = findInList("pcCase", next.caseId);
+      if (mobo && currentCase && mobo.formFactor && currentCase.formFactors?.length && !currentCase.formFactors.includes(mobo.formFactor)) {
+        next.caseId = "";
+        builderNotices.push("Se quitó el gabinete porque no admite el factor de forma de la placa madre seleccionada.");
+      }
+    }
+    if (key === "gpuId") {
+      next.useIntegratedGpu = false;
+      const gpu = findInList("gpu", cleanValue);
+      const currentCase = findInList("pcCase", next.caseId);
+      if (gpu && currentCase && gpu.length > currentCase.maxGpuLength) {
+        next.caseId = "";
+        builderNotices.push("Se quitó el gabinete porque la GPU seleccionada es más larga que el espacio disponible.");
+      }
+    }
+    setBuilder(next);
+    if (builderNotices.length) setBuilderNotice(builderNotices.join(" "));
 
     const nextStep = getNextStep(builderStep, key, !!cleanValue);
     if (nextStep !== builderStep) {
@@ -553,6 +565,7 @@ function App({ measurement: measurementProp }) {
   const handleClearBuilder = () => {
     setBuilder({ ...EMPTY_BUILDER });
     setBuilderStep(0);
+    setBuilderNotice("");
   };
 
   const handleReloadCatalog = () => {
@@ -841,6 +854,15 @@ function App({ measurement: measurementProp }) {
               </button>
             </div>
           </div>
+
+          {builderNotice && (
+            <div className="warning-panel" role="status">
+              <span>{builderNotice}</span>{" "}
+              <button className="link-btn" onClick={() => setBuilderNotice("")} aria-label="Cerrar aviso">
+                Cerrar
+              </button>
+            </div>
+          )}
 
           <div className="stepper">
             {BUILDER_STEPS.map((step, index) => (
