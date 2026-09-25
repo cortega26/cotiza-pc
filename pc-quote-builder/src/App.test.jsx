@@ -3,6 +3,7 @@
 import { describe, expect, it, vi, afterEach, beforeEach } from "vitest";
 import { cleanup, render, screen, waitFor, fireEvent, within } from "@testing-library/react";
 import App from "./App";
+import { createInMemorySink, createMeasurement } from "./lib/measurement/measurement";
 import {
   buildDefaultCatalog, buildRichCatalog, buildRichTierMaps, buildDefaultTierMaps, buildCompatMeta,
 } from "./test/fixtures";
@@ -23,6 +24,8 @@ function defaultMock() {
     error: "",
     fallbackUsed: false,
     categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+    assessmentCoverage: null,
+    assessmentCoverageFailed: false,
   };
 }
 
@@ -30,6 +33,7 @@ afterEach(() => {
   cleanup();
   mockUseCatalog.mockReset();
   localStorage.clear();
+  window.history.replaceState({}, "", "/");
 });
 
 beforeEach(() => {
@@ -58,6 +62,10 @@ function localStorageWithQuote(overrides = {}) {
 async function renderApp() {
   render(<App />);
   await waitFor(() => expect(screen.getByText("Mi PC actual")).toBeTruthy());
+}
+
+async function switchToExpert() {
+  fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
 }
 
 // ───── Existing startup tests ────────────────────────────────────────────
@@ -288,6 +296,7 @@ describe("Builder assessment and compatibility display", () => {
       ...mockOverrides,
     });
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
   }
 
   it("shows builder summary metrics when builder state has selections", async () => {
@@ -360,7 +369,7 @@ describe("Builder assessment and compatibility display", () => {
       useIntegratedGpu: false,
     });
     await waitFor(() => {
-      expect(screen.getByText(/CPU:/)).toBeTruthy();
+      expect(screen.getAllByText(/CPU:/).length).toBeGreaterThan(0);
     });
   });
 
@@ -582,6 +591,7 @@ describe("Staged catalog demand and reload", () => {
     });
     render(<App />);
     // Advance to step 1 so both cpus and motherboards are needed
+    switchToExpert();
     fireEvent.click(screen.getByText("Siguiente →"));
     await waitFor(() => {
       expect(screen.getByText("Catálogo parcial (2 categorías fallback)")).toBeTruthy();
@@ -691,7 +701,7 @@ describe("Currency input and draft behavior", () => {
 
   it("updates currency input on preset click", async () => {
     render(<App />);
-    await waitFor(() => expect(screen.getByText("USD")).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole("radio", { name: "USD" })).toBeTruthy());
     const radioInput = screen.getByRole("radio", { name: "USD" });
     fireEvent.click(radioInput);
     await waitFor(() => {
@@ -733,6 +743,7 @@ describe("[plan 014] Builder flow", () => {
       ...mockOverrides,
     });
     render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
   }
 
   it.todo("navigates forward through steps [plan 014]");
@@ -1085,5 +1096,190 @@ describe("[plan 015] File boundaries — import and export", () => {
       const importPriceBtn = within(drawer).getByText("Importar precios (por id)");
       expect(importPriceBtn).toBeTruthy();
     });
+  });
+});
+
+// ─────[plan 032] Workspace navigation ────────────────────────────────────
+
+describe("[plan 032] Workspace navigation", () => {
+  function analyzerHidden() {
+    return document.querySelector(".analyzer-workspace")?.classList.contains("hidden") ?? true;
+  }
+
+  function builderHidden() {
+    return document.querySelector(".builder-section")?.classList.contains("hidden") ?? true;
+  }
+
+  it("defaults to the Analyzer workspace", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Analizar cotización" }).getAttribute("aria-pressed")).toBe("true");
+    expect(builderHidden()).toBe(true);
+    expect(analyzerHidden()).toBe(false);
+  });
+
+  it("switches to the Expert Builder and back", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "Constructor experto" }).getAttribute("aria-pressed")).toBe("true");
+    expect(builderHidden()).toBe(false);
+    expect(analyzerHidden()).toBe(true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(builderHidden()).toBe(true);
+    expect(analyzerHidden()).toBe(false);
+  });
+
+  it("restores the mode from the URL query on load", async () => {
+    localStorageWithQuote();
+    window.history.replaceState({}, "", "/?modo=experto");
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    expect(builderHidden()).toBe(false);
+    expect(analyzerHidden()).toBe(true);
+  });
+
+  it("falls back to the Analyzer for an invalid mode", async () => {
+    localStorageWithQuote();
+    window.history.replaceState({}, "", "/?modo=banana");
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(analyzerHidden()).toBe(false);
+  });
+
+  it("pushes the mode into the URL and honors back/forward", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(window.location.search).toContain("modo=experto"));
+
+    window.history.back();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Analizar cotización" }).getAttribute("aria-pressed")).toBe("true")
+    );
+    expect(screen.getByText("Cotización a evaluar")).toBeTruthy();
+  });
+
+  it("keeps Analyzer context when toggling workspaces", async () => {
+    localStorageWithQuote();
+    render(<App />);
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    fireEvent.change(screen.getByLabelText("Resolución objetivo"), { target: { value: "1440p" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText("Cotización a evaluar")).toBeTruthy());
+    expect(screen.getByLabelText("Resolución objetivo").value).toBe("1440p");
+  });
+});
+
+// ─────[plan 032] Analyzer workspace in App ───────────────────────────────
+
+describe("[plan 032] Analyzer workspace", () => {
+  function quoteWithExactIds(overrides = {}) {
+    return {
+      id: "analyzer-quote-1",
+      name: "Quote Analyzable",
+      currency: "CLP",
+      priceUpdatedAt: "2026-07-29T00:00:00.000Z",
+      rows: [
+        { id: "a-row-cpu", category: "Procesador", product: "Intel Core i5-13600K", itemId: "cpu-1", offerPrice: "280000", regularPrice: "290000" },
+        { id: "a-row-mobo", category: "Placa madre", product: "ASUS Z790-P", itemId: "mobo-1", offerPrice: "180000", regularPrice: "190000" },
+        { id: "a-row-ram", category: "RAM", product: "Corsair Vengeance 32GB", itemId: "ram-1", offerPrice: "90000", regularPrice: "95000" },
+        { id: "a-row-gpu", category: "Tarjeta de video", product: "AMD Radeon RX 7800 XT", itemId: "gpu-2", offerPrice: "550000", regularPrice: "580000" },
+        { id: "a-row-psu", category: "Fuente de poder", product: "Corsair RM750x", itemId: "psu-1", offerPrice: "120000", regularPrice: "125000" },
+        { id: "a-row-case", category: "Gabinete", product: "NZXT H510 Flow", itemId: "case-1", offerPrice: "80000", regularPrice: "85000" },
+      ],
+      ...overrides,
+    };
+  }
+
+  function renderWithRichCatalog(extra = {}) {
+    localStorage.setItem("pcqb:quotes:v1", JSON.stringify([quoteWithExactIds()]));
+    localStorage.setItem("pcqb:activeQuoteId:v1", "analyzer-quote-1");
+    mockUseCatalog.mockReturnValue({
+      catalog: buildRichCatalog(),
+      compatMeta: buildCompatMeta(),
+      tierMaps: buildRichTierMaps(),
+      socketSet: new Set(),
+      loading: false,
+      error: "",
+      fallbackUsed: false,
+      categoryStates: { cpus: "loaded", motherboards: "loaded", ram: "loaded", gpus: "loaded", psus: "loaded", cases: "loaded" },
+      assessmentCoverage: null,
+      assessmentCoverageFailed: false,
+    });
+    return render(<App {...extra} />);
+  }
+
+  async function completeContextAndAnalyze() {
+    fireEvent.change(screen.getByLabelText("Resolución objetivo"), { target: { value: "1080p" } });
+    fireEvent.click(screen.getByLabelText("Usaré una GPU dedicada (o la incluyo en la cotización)"));
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización activa" }));
+  }
+
+  it("runs the full analysis flow inside the App", async () => {
+    renderWithRichCatalog();
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+  });
+
+  it("invalidates the analysis when Expert edits change the quote", async () => {
+    renderWithRichCatalog();
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    const productInput = screen.getAllByPlaceholderText("Modelo exacto")[0];
+    fireEvent.change(productInput, { target: { value: "Intel Core i5-13600KF" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText(/La cotización o el contexto cambiaron/)).toBeTruthy());
+  });
+
+  it("emits product_start once and input events per analysis", async () => {
+    const sink = createInMemorySink();
+    const measurement = createMeasurement({ sink: sink.sink, sessionToken: "app-test-session", sequenceStart: 0 });
+    renderWithRichCatalog({ measurement });
+    await waitFor(() => expect(screen.getByText("Quote Analyzable")).toBeTruthy());
+    await completeContextAndAnalyze();
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+
+    const starts = sink.events.filter((e) => e.name === "product_start");
+    const inputs = sink.events.filter((e) => e.name === "quote_input_completed");
+    expect(starts).toHaveLength(1);
+    expect(inputs).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Constructor experto" }));
+    await waitFor(() => expect(screen.getByText("Selecciona piezas compatibles paso a paso")).toBeTruthy());
+    fireEvent.change(screen.getAllByPlaceholderText("Modelo exacto")[0], { target: { value: "Intel Core i5-13600KF" } });
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización" }));
+    await waitFor(() => expect(screen.getByText(/La cotización o el contexto cambiaron/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Re-analizar ahora" }));
+    await waitFor(() => expect(screen.getByText(/Componentes requeridos resueltos: 6\/6/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await waitFor(() => expect(screen.getByText(/Veredicto/)).toBeTruthy());
+
+    expect(sink.events.filter((e) => e.name === "product_start")).toHaveLength(1);
+    expect(sink.events.filter((e) => e.name === "quote_input_completed")).toHaveLength(2);
   });
 });

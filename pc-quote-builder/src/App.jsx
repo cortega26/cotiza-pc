@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import TypeaheadSelect from "./components/TypeaheadSelect";
 import QuoteEditor from "./components/QuoteEditor";
+import QuoteAnalyzer from "./components/QuoteAnalyzer/QuoteAnalyzer";
 import { useCatalog } from "./hooks/useCatalog";
 import { usePersistence } from "./hooks/usePersistence";
+import { useWorkspaceMode } from "./hooks/useWorkspaceMode";
+import { createMeasurement } from "./lib/measurement/measurement";
 import { evaluateSelection } from "./lib/selectionEvaluation";
 import { parsePrice, computeTotals, normalizeCurrency } from "./lib/money";
 import { resolveCatalogId } from "./lib/catalogMapper";
@@ -13,6 +16,7 @@ import {
   isStepDone,
   builderComplete as isBuilderComplete,
 } from "./lib/builderReducer";
+import { ANALYZER_CATEGORIES } from "./components/QuoteAnalyzer/session";
 import {
   createId,
   createEmptyRow,
@@ -69,8 +73,11 @@ function getOptionsForStep(key, selection, catalog) {
   }
 }
 
-function App() {
+function App({ measurement: measurementProp }) {
   const { quotes, setQuotes, activeQuoteId, setActiveQuoteId, builder, setBuilder, currencyDraft, setCurrencyDraft } = usePersistence();
+  const [mode, setMode] = useWorkspaceMode();
+  const productStartedRef = useRef(false);
+  const measurement = useMemo(() => measurementProp || createMeasurement(), [measurementProp]);
   const [builderStep, setBuilderStep] = useState(0);
   const [cpuBrand, setCpuBrand] = useState("");
   const [cpuFamily, setCpuFamily] = useState("");
@@ -81,6 +88,7 @@ function App() {
   const drawerRef = useRef(null);
   const [reloadToken, setReloadToken] = useState(0);
   const neededCategories = useMemo(() => {
+    if (mode === "analizar") return ANALYZER_CATEGORIES;
     const step = builderStep;
     const cats = ["cpus"];
     if (step >= 1) cats.push("motherboards");
@@ -89,10 +97,15 @@ function App() {
     if (step >= 4) cats.push("psus");
     if (step >= 5) cats.push("cases");
     return cats;
-  }, [builderStep]);
+  }, [mode, builderStep]);
 
-  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed, categoryStates } =
+  const { catalog, compatMeta, tierMaps, loading: catalogLoading, error: catalogError, fallbackUsed, categoryStates, assessmentCoverage } =
     useCatalog(reloadToken, neededCategories);
+
+  const catalogSignature = useMemo(
+    () => compatMeta?.generatedAt || String(compatMeta?.schemaVersion ?? "") || "unknown",
+    [compatMeta]
+  );
 
   const activeQuote = useMemo(
     () => quotes.find((q) => q.id === activeQuoteId),
@@ -532,6 +545,29 @@ function App() {
     setReloadToken((t) => t + 1);
   };
 
+  const handleAnalyzerQuoteStart = useCallback(() => {
+    if (productStartedRef.current) return;
+    productStartedRef.current = true;
+    try {
+      measurement.track("product_start", {
+        acquisitionClass: "unknown",
+        catalogVersion: catalogSignature,
+        timestamp: new Date().toISOString(),
+      });
+    } catch {
+      // Analytics failure must never affect the assessment.
+    }
+  }, [measurement, catalogSignature]);
+
+  const handleApplyQuoteData = useCallback(
+    ({ rows, currency, name }) => {
+      if (!activeQuote) return;
+      updateActiveQuote(() => ({ rows, currency, name }));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- updateActiveQuote is recreated per render but only reads refs
+    [activeQuote]
+  );
+
   const toggleMobileMenu = useCallback(() => {
     setMobileMenuOpen((prev) => !prev);
   }, []);
@@ -733,6 +769,23 @@ function App() {
       )}
 
       <main className="main">
+        <nav className="workspace-tabs" aria-label="Espacio de trabajo">
+          <button
+            className={"workspace-tab" + (mode === "analizar" ? " active" : "")}
+            onClick={() => setMode("analizar")}
+            aria-pressed={mode === "analizar"}
+          >
+            Analizar cotización
+          </button>
+          <button
+            className={"workspace-tab" + (mode === "experto" ? " active" : "")}
+            onClick={() => setMode("experto")}
+            aria-pressed={mode === "experto"}
+          >
+            Constructor experto
+          </button>
+        </nav>
+
         {(catalogError || fallbackUsed) && (
           <div className="warning-panel" style={{ marginBottom: "0.75rem" }}>
             <strong>{fallbackUsed ? "Usando catálogo local" : "Aviso de catálogo"}:</strong>{" "}
@@ -742,10 +795,10 @@ function App() {
           </div>
         )}
 
-        <section className="builder-section">
+        <section className={"builder-section" + (mode === "experto" ? "" : " hidden")} aria-hidden={mode !== "experto"}>
           <div className="builder-head">
             <div>
-              <p className="kicker">Builder guiado</p>
+              <p className="kicker">Constructor experto</p>
               <h2>Selecciona piezas compatibles paso a paso</h2>
               <p className="muted">Filtra por socket, RAM, potencia y espacio. Aplica el build a tu cotización con un clic.</p>
             </div>
@@ -1066,6 +1119,23 @@ function App() {
               </button>
             </div>
           </div>
+        </section>
+
+        <section className={"analyzer-workspace" + (mode === "analizar" ? "" : " hidden")} aria-hidden={mode !== "analizar"} aria-label="Analizar cotización">
+          <QuoteAnalyzer
+            quote={activeQuote}
+            catalog={catalog}
+            compatMeta={compatMeta}
+            catalogSignature={catalogSignature}
+            catalogLoading={catalogLoading}
+            catalogError={catalogError}
+            fallbackUsed={fallbackUsed}
+            categoryStates={categoryStates}
+            assessmentCoverage={assessmentCoverage}
+            onApplyQuoteData={handleApplyQuoteData}
+            onQuoteStart={handleAnalyzerQuoteStart}
+            measurement={measurement}
+          />
         </section>
 
         <QuoteEditor
