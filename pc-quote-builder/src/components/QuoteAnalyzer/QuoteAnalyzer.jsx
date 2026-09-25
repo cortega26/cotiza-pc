@@ -24,6 +24,7 @@ import AnalyzerContextForm from "./AnalyzerContextForm";
 import AnalyzerIntake from "./AnalyzerIntake";
 import AnalyzerResolutionReview from "./AnalyzerResolutionReview";
 import AnalyzerVerdict from "./AnalyzerVerdict";
+import CoverageCaseExport from "./CoverageCaseExport";
 
 const EVENT_CURRENCIES = ["CLP", "USD", "EUR"];
 
@@ -110,8 +111,8 @@ function QuoteAnalyzer({
         (resolution.state === "exact-id" || resolution.state === "user-mapped")
     );
 
-  const report = useMemo(() => {
-    if (stage !== "verdict" || !isCurrent || !analysisStart) return null;
+  const analyzerInput = useMemo(() => {
+    if (!analysisStart) return null;
     const rawBudget = context.budget;
     const budget =
       rawBudget && rawBudget.amount
@@ -120,7 +121,7 @@ function QuoteAnalyzer({
             currency: rawBudget.currency || "CLP",
           }
         : null;
-    const input = {
+    return {
       schemaVersion: SCHEMA_VERSION_INPUT,
       evaluatedAt: analysisStart.evaluatedAt,
       quote: { ...quote, rows: analysisRows },
@@ -137,12 +138,16 @@ function QuoteAnalyzer({
       explicitMappings,
       rulesVersion: RULES_VERSION,
     };
+  }, [analysisStart, quote, analysisRows, context, catalog, compatMeta, aliases, explicitMappings]);
+
+  const report = useMemo(() => {
+    if (stage !== "verdict" || !isCurrent || !analyzerInput) return null;
     try {
-      return analyzeQuote(input);
+      return analyzeQuote(analyzerInput);
     } catch (err) {
       return { error: err?.message || "No se pudo evaluar la cotización." };
     }
-  }, [stage, isCurrent, analysisStart, quote, analysisRows, context, catalog, compatMeta, aliases, explicitMappings]);
+  }, [stage, isCurrent, analyzerInput]);
 
   const emit = useCallback(
     (name, payload) => {
@@ -368,6 +373,10 @@ function QuoteAnalyzer({
             onConfirm={confirmResolutions}
             integratedGpu={integratedGpu}
           />
+          <CoverageCaseExport
+            analyzerInput={analyzerInput}
+            sampledAt={analysisStart.evaluatedAt}
+          />
         </div>
       )}
 
@@ -406,14 +415,20 @@ function QuoteAnalyzer({
           )}
 
           {isCurrent && report && !report.error && (
-            <AnalyzerVerdict
-              report={report}
-              manifest={assessmentCoverage}
-              onExpandEvidence={handleExpandEvidence}
-              onDecisionAction={handleDecisionAction}
-              actionRecorded={actionRecorded}
-              onBackToReview={() => setStage("resolve")}
-            />
+            <>
+              <AnalyzerVerdict
+                report={report}
+                manifest={assessmentCoverage}
+                onExpandEvidence={handleExpandEvidence}
+                onDecisionAction={handleDecisionAction}
+                actionRecorded={actionRecorded}
+                onBackToReview={() => setStage("resolve")}
+              />
+              <CoverageCaseExport
+                analyzerInput={analyzerInput}
+                sampledAt={analysisStart.evaluatedAt}
+              />
+            </>
           )}
 
           {isCurrent && !report && <p className="field-hint">Preparando el veredicto...</p>}

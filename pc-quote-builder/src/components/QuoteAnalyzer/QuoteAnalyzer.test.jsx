@@ -2,11 +2,23 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { validateCoverageCase } from "../../../../scripts/lib/quote_analyzer_assurance.js";
 import QuoteAnalyzer from "./QuoteAnalyzer";
 import { createInMemorySink, createMeasurement } from "../../lib/measurement/measurement";
+import { downloadFile } from "../../lib/fileIO";
+import { resolveRows } from "../../lib/quoteAnalyzer/resolver";
 import { buildRichCatalog, buildCompatMeta, cpuIntel, gpuHigh, moboLga, psu500, caseAtx, ramDdr5_1 } from "../../test/fixtures";
 
-afterEach(() => cleanup());
+vi.mock("../../lib/fileIO", async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, downloadFile: vi.fn() };
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+});
 
 const CATEGORY_STATES = {
   cpus: "loaded",
@@ -103,6 +115,49 @@ describe("QuoteAnalyzer", () => {
     const viewed = sink.events.find((e) => e.name === "evidence_qualified_verdict_viewed");
     expect(["ok", "warning", "fail", "unknown", "incomplete"]).toContain(viewed.verdictOverall);
     expect(viewed.identityResolutionCoveragePercent).toBe(100);
+  });
+
+  it("exports a valid minimized case without changing resolved component keys", async () => {
+    vi.stubGlobal("crypto", {
+      randomUUID: vi.fn(() => "12345678-1234-4234-8234-123456789abc"),
+    });
+    const { sink } = renderAnalyzer();
+    const fullCatalog = buildRichCatalog();
+
+    await completeContext();
+    fireEvent.click(screen.getByRole("button", { name: "Analizar cotización activa" }));
+    expect(
+      screen.getByRole("button", { name: "Descargar caso anónimo" })
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar al veredicto" }));
+    await screen.findByText(/Veredicto/);
+    expect(
+      screen.getByRole("button", { name: "Descargar caso anónimo" })
+    ).toBeTruthy();
+    const eventCountBeforeExport = sink.events.length;
+
+    fireEvent.click(screen.getByRole("button", { name: "Descargar caso anónimo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Descargar archivo" }));
+
+    expect(downloadFile).toHaveBeenCalledTimes(1);
+    const coverageCase = JSON.parse(downloadFile.mock.calls[0][0]);
+    expect(validateCoverageCase(coverageCase)).toEqual([]);
+    const fullResolutions = resolveRows(makeQuote().rows, fullCatalog).resolutions;
+    const minimizedResolutions = resolveRows(
+      coverageCase.analyzerInput.quote.rows,
+      coverageCase.analyzerInput.catalog,
+      {
+        aliases: coverageCase.analyzerInput.aliases,
+        explicitMappings: coverageCase.analyzerInput.explicitMappings,
+      }
+    ).resolutions;
+    expect(minimizedResolutions.map((resolution) => resolution.componentKey)).toEqual(
+      fullResolutions.map((resolution) => resolution.componentKey)
+    );
+    expect(minimizedResolutions.map((resolution) => resolution.state)).toEqual(
+      fullResolutions.map((resolution) => resolution.state)
+    );
+    expect(sink.events).toHaveLength(eventCountBeforeExport);
   });
 
   it("emits the verdict event only once per analysis", async () => {
