@@ -9,6 +9,7 @@ import {
   validMappingsFor,
 } from "./session";
 import { cpuIntel, gpuLow } from "../../test/fixtures";
+import { buildCatalogIndex } from "../../lib/quoteAnalyzer/resolver";
 
 const catalog = {
   cpus: [cpuIntel],
@@ -83,6 +84,38 @@ describe("validMappingsFor", () => {
     expect(validMappingsFor(rows, { ghost: { itemId: "cpu-1" } }, catalog)).toEqual({});
     expect(validMappingsFor(rows, null, catalog)).toEqual({});
     expect(validMappingsFor(null, {}, catalog)).toEqual({});
+  });
+
+  it("yields the same map with and without a prebuilt catalog index", () => {
+    const indexedRows = [
+      ...rows,
+      { id: "r3", category: "Procesador", product: "Intel Xeon", itemId: "" },
+    ];
+    const mappings = {
+      r1: { itemId: "cpu-1", product: "Intel i5", category: "Procesador", componentKey: "cpu" },
+      r2: { itemId: "vanished", product: "Intel i7", category: "Procesador", componentKey: "cpu" },
+      r3: { itemId: "cpu-1", product: "Intel Xeon", category: "Procesador", componentKey: "ghost" },
+    };
+    const index = buildCatalogIndex(catalog);
+    const withIndex = validMappingsFor(indexedRows, mappings, catalog, index);
+    const withoutIndex = validMappingsFor(indexedRows, mappings, catalog);
+    expect(withIndex).toEqual(withoutIndex);
+    expect(withIndex.r1.itemId).toBe("cpu-1");
+    expect(withIndex.r2).toBeUndefined();
+    expect(withIndex.r3).toBeUndefined();
+  });
+
+  it("validates indexed mappings against sparse catalog lists", () => {
+    const sparseCatalog = { ...catalog, cpus: [null, undefined, cpuIntel] };
+    const mappings = {
+      r1: { itemId: "cpu-1", product: "Intel i5", category: "Procesador", componentKey: "cpu" },
+    };
+    expect(validMappingsFor(rows, mappings, sparseCatalog, buildCatalogIndex(sparseCatalog))).toEqual(
+      validMappingsFor(rows, mappings, sparseCatalog)
+    );
+    expect(
+      validMappingsFor(rows, mappings, sparseCatalog, buildCatalogIndex(sparseCatalog)).r1.itemId
+    ).toBe("cpu-1");
   });
 });
 

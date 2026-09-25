@@ -17,6 +17,7 @@ import {
   builderComplete as isBuilderComplete,
 } from "./lib/builderReducer";
 import { ANALYZER_CATEGORIES } from "./components/QuoteAnalyzer/session";
+import { buildCatalogIndex } from "./lib/quoteAnalyzer/resolver";
 import {
   createId,
   createEmptyRow,
@@ -151,18 +152,23 @@ function App({ measurement: measurementProp }) {
     return map;
   }, [cpus]);
 
+  const catalogIndex = useMemo(() => buildCatalogIndex(catalog), [catalog]);
+
   const selection = useMemo(() => {
-    const aliases = compatMeta?.aliases || {};
-    const findOrAlias = (list, id) => list.find((item) => item.id === id) || list.find((item) => item.id === resolveCatalogId(id, aliases));
-    return {
-      cpu: findOrAlias(cpus, builder.cpuId),
-      mobo: findOrAlias(motherboards, builder.moboId),
-      ram: findOrAlias(ramKits, builder.ramId),
-      gpu: findOrAlias(gpus, builder.gpuId),
-      psu: findOrAlias(psus, builder.psuId),
-      pcCase: findOrAlias(pcCases, builder.caseId),
+    const findOrAlias = (componentKey, id) => {
+      if (!id) return undefined;
+      const byId = catalogIndex.byId[componentKey];
+      return byId.get(String(id)) || byId.get(String(resolveCatalogId(id, compatMeta?.aliases || {})));
     };
-  }, [builder, cpus, motherboards, ramKits, gpus, psus, pcCases, compatMeta?.aliases]);
+    return {
+      cpu: findOrAlias("cpu", builder.cpuId),
+      mobo: findOrAlias("mobo", builder.moboId),
+      ram: findOrAlias("ram", builder.ramId),
+      gpu: findOrAlias("gpu", builder.gpuId),
+      psu: findOrAlias("psu", builder.psuId),
+      pcCase: findOrAlias("pcCase", builder.caseId),
+    };
+  }, [builder, catalogIndex, compatMeta?.aliases]);
 
   const optionsByStep = useMemo(() => {
     const options = {};
@@ -325,35 +331,38 @@ function App({ measurement: measurementProp }) {
 
   const handleBuilderChange = (key, value) => {
     const cleanValue = value || "";
-    const aliasMap = compatMeta?.aliases || {};
-    const findInList = (list, id) => list.find((item) => item.id === id) || list.find((item) => item.id === resolveCatalogId(id, aliasMap));
+    const findInList = (componentKey, id) => {
+      if (!id) return undefined;
+      const byId = catalogIndex.byId[componentKey];
+      return byId.get(String(id)) || byId.get(String(resolveCatalogId(id, compatMeta?.aliases || {})));
+    };
     setBuilder((prev) => {
       const next = { ...prev, [key]: cleanValue };
       if (key === "cpuId") {
-        const selectedCpu = findInList(cpus, cleanValue);
+        const selectedCpu = findInList("cpu", cleanValue);
         if (selectedCpu) {
           setCpuBrand(selectedCpu.brand || "");
           setCpuFamily(selectedCpu.family || "");
         }
-        const cpu = findInList(cpus, cleanValue);
-        const mobo = findInList(motherboards, next.moboId);
-        const ram = findInList(ramKits, next.ramId);
+        const cpu = findInList("cpu", cleanValue);
+        const mobo = findInList("mobo", next.moboId);
+        const ram = findInList("ram", next.ramId);
         if (mobo && cpu && mobo.socket !== cpu.socket) next.moboId = "";
         if (ram && cpu && cpu.memoryTypeExplicit && ram.type !== cpu.memoryType) next.ramId = "";
       }
       if (key === "moboId") {
-        const mobo = findInList(motherboards, cleanValue);
-        const ram = findInList(ramKits, next.ramId);
+        const mobo = findInList("mobo", cleanValue);
+        const ram = findInList("ram", next.ramId);
         if (mobo && ram && mobo.memoryTypeExplicit && ram.type !== mobo.memoryType) next.ramId = "";
-        const currentCase = findInList(pcCases, next.caseId);
+        const currentCase = findInList("pcCase", next.caseId);
         if (mobo && currentCase && !currentCase.formFactors?.includes(mobo.formFactor)) {
           next.caseId = "";
         }
       }
       if (key === "gpuId") {
         next.useIntegratedGpu = false;
-        const gpu = findInList(gpus, cleanValue);
-        const currentCase = findInList(pcCases, next.caseId);
+        const gpu = findInList("gpu", cleanValue);
+        const currentCase = findInList("pcCase", next.caseId);
         if (gpu && currentCase && gpu.length > currentCase.maxGpuLength) {
           next.caseId = "";
         }

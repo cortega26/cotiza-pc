@@ -5,7 +5,7 @@ import {
   SCHEMA_VERSION_INPUT,
   SCHEMA_VERSION_OUTPUT,
 } from "../../lib/quoteAnalyzer/contracts";
-import { resolveRows } from "../../lib/quoteAnalyzer/resolver";
+import { buildCatalogIndex, resolveRows } from "../../lib/quoteAnalyzer/resolver";
 import { normalizeCurrency } from "../../lib/money";
 import { isRowEmpty, normalizeQuote, normalizeRow } from "../../lib/quoteModel";
 import { parseCsvToQuote } from "../../lib/csvParser";
@@ -66,10 +66,11 @@ function QuoteAnalyzer({
     compatMeta?.generatedAt || String(compatMeta?.schemaVersion ?? "") || "unknown";
 
   const rows = Array.isArray(quote?.rows) ? quote.rows : [];
+  const catalogIndex = useMemo(() => buildCatalogIndex(catalog), [catalog]);
 
   const validMappings = useMemo(
-    () => validMappingsFor(rows, mappings, catalog),
-    [rows, mappings, catalog]
+    () => validMappingsFor(rows, mappings, catalog, catalogIndex),
+    [rows, mappings, catalog, catalogIndex]
   );
   const excludedSet = useMemo(() => new Set(excludedRowIds), [excludedRowIds]);
 
@@ -99,8 +100,8 @@ function QuoteAnalyzer({
   }, [validMappings]);
 
   const resolutions = useMemo(
-    () => resolveRows(analysisRows, catalog, { aliases, explicitMappings }).resolutions,
-    [analysisRows, catalog, aliases, explicitMappings]
+    () => resolveRows(analysisRows, catalog, { aliases, explicitMappings, index: catalogIndex }).resolutions,
+    [analysisRows, catalog, aliases, explicitMappings, catalogIndex]
   );
 
   const integratedGpu =
