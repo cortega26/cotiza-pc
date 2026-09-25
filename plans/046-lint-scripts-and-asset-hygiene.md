@@ -172,12 +172,20 @@ rg -o 'assets/[A-Za-z0-9_.-]+' docs/index.html | sort -u
 
 2. In `pc-quote-builder/package.json`, add:
    ```json
-   "lint:scripts": "eslint --config ../eslint.config.js ../scripts"
+   "lint:scripts": "cd .. && eslint --config eslint.config.js scripts"
    ```
+   The `cd ..` is required: under ESLint 10, passing `--config` makes the
+   lint base path the process cwd, so running from `pc-quote-builder/` with
+   `../scripts` fails as "outside of base path" (verified 2026-09-25 on
+   ESLint 10.11.0). Running from the repository root with `--config
+   eslint.config.js scripts` works and the config's relative imports into
+   `pc-quote-builder/node_modules` still resolve. Do not add a root
+   manifest or install root dependencies.
 3. Run `npm run lint:scripts` from `pc-quote-builder/`. Expected 16 errors
    (Step 2). If ESLint reports that the files are outside the base path or
-   cannot resolve the config, STOP and report the exact error — do not add a
-   root `package.json` or install root dependencies.
+   cannot resolve the config with the amended invocation, STOP and report the
+   exact error — do not add a root `package.json` or install root
+   dependencies.
 
 ### Step 2: Remove the 16 unused bindings
 
@@ -326,7 +334,9 @@ Stop and report back (do not improvise) if:
 - The root ESLint config is ESM and uses relative imports into
   `pc-quote-builder/node_modules`. If the toolchain is ever hoisted or a root
   manifest is reintroduced, simplify those imports; if `@eslint/js`'s internal
-  path changes on a future major, update the specifier.
+  path changes on a future major, update the specifier. The `lint:scripts`
+  script must run with the repository root as cwd (hence `cd .. &&`) because
+  ESLint's base path follows the cwd when `--config` is passed.
 - `npm run check` now fails on any app warning; add targeted
   `eslint-disable-next-line` only with a comment explaining why the warning is
   intentional.
@@ -334,3 +344,13 @@ Stop and report back (do not improvise) if:
   scoped to `docs/assets/`. Do not generalize it.
 - **Deferred**: linting Python (`download_pc_datasets.py` has only a
   help-text test) and adding a formatter remain out of scope.
+- **Completion (2026-09-25)**: implemented `3e80934`, reviewed and merged as
+  `93dd68d`. The first run correctly STOPPED: under ESLint 10 `--config`
+  forces the base path to cwd, so the original `../scripts` invocation could
+  never work; the plan was amended to `cd .. && eslint --config
+  eslint.config.js scripts` and the same executor resumed. Exactly the 16
+  listed bindings were removed (two renamed to `_`-prefixed to preserve
+  rest-sibling semantics); `isIsoDate` was an unused date-only validator,
+  `isIsoDateTime` remains. App lint is now warning-free; 5 stale bundles
+  pruned so `docs/assets` equals the `docs/index.html` set; the cron workflow
+  runs `lint:scripts` and `prune:assets`. Branch suite: 1057 passing / 1 todo.

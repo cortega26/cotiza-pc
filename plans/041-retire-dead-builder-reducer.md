@@ -180,3 +180,8 @@ Stop and report back (do not improvise) if:
   transition behavior; plan 050 adds explicit user notices there.
 - Reviewer should scrutinize: only import paths changed in production files;
   no cascade, filtering, or copy change.
+- **Completion (2026-09-25)**: implemented `b49f7a9`, reviewed and merged as
+  `7d562f7`. `builderReducer.js` → `builderHelpers.js` with the five dead
+  exports removed; tests renamed/trimmed with focused coverage for the three
+  retained helpers; suite 1052 passing / 1 todo (9 deleted reducer tests);
+  `rg builderReducer src` empty; lint/assurance green.

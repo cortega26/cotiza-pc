@@ -229,3 +229,28 @@ Stop and report back (do not improvise) if:
   natural place to host the action; do not build it now.
 - Reviewer should scrutinize: exactly the five existing clear conditions fire
   notices, and no compatibility rule changed.
+- **STOPPED (2026-09-25)**: implementation complete on branch
+  `advisor/041-050-builder-cleanups` (WIP commit `4e82726`, unmerged) — five
+  notices, seven tests, StrictMode single-notice test, suite green (1060
+  passing / 1 todo) — but the STOP condition "a notice would fire for an
+  unknown/missing-data case" is real and was verified against the shipped
+  catalog:
+  - `mobo && cpu && mobo.socket !== cpu.socket` is true when `cpu.socket` is
+    missing; 549 of 1,255 shipped CPUs have no `socket` in the raw artifact
+    (some are inferred by the mapper, but unknown-socket CPUs remain
+    selectable), so the mobo is cleared and the notice would claim a socket
+    mismatch that was never established.
+  - `!currentCase.formFactors?.includes(mobo.formFactor)` is true when
+    `formFactors` is empty; 120 of 7,914 shipped cases have no
+    `supported_mobo_form_factors`, so the case is cleared and the notice would
+    claim a form-factor mismatch.
+  - `mobo.formFactor` missing would do the same for the mobo→case path (0
+    occurrences in the shipped catalog, but possible with degraded data).
+  The clears themselves are pre-existing and "changing any clearing condition"
+  is out of this plan's scope, so per the STOP the work stops here rather than
+  announcing unverified conflicts (violates the vision's
+  unknown-never-fails rule). **Owner decision required**: (a) fix the clear
+  conditions so missing data never clears (behavior change — needs a
+  product-decision record), then finish 050; or (b) keep clears unchanged and
+  announce only the clears whose conditions are fully evidenced (residual
+  silent clears remain). Recorded in ROADMAP §7.

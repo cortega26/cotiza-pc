@@ -81,16 +81,16 @@ The 2026-07-30 vision amendment establishes outcome-based milestones and an expl
 | [038](038-truthful-psu-and-connector-outcomes.md) | Report power and connector outcomes truthfully when data is missing | P1 | M | 037 | DONE — reviewed 2026-09-25 (commits `994e39a`, `6b1b882`); merged to `advisor/b1-cotiza-verify` as `05e9ca8`; missing TDP → unknown, 6/16-pin parsed, fabricated `recommended_psu_w` gone from 3,552 records |
 | [039](039-quote-quality-defects.md) | Fix analyzer quote-quality defects (blank rows, price CSV, inferred evidence, signature) | P1 | S | 038 | DONE — reviewed 2026-09-25 (commit `d066a91`); merged to `advisor/b1-cotiza-verify` as `ca11b8e`; blank rows ignored, exact price-CSV id column, inferred case FF → medium, signature includes currency/priceUpdatedAt; assurance 44/44 |
 | [040](040-characterize-app-quote-flows.md) | Characterize App quote CRUD, cascades, and export boundaries | P1 | M | — | DONE — reviewed 2026-09-25 (commit `e3c9e53`); merged to `advisor/b1-cotiza-verify` as `5d13de7`; App suite 121 passed / 1 todo (retained `it.todo` documents an unreachable alert branch: delete button is disabled for the last quote); real `escapeCsvField` in export tests |
-| [041](041-retire-dead-builder-reducer.md) | Retire the unused builder reducer API | P2 | S | 040 | TODO |
+| [041](041-retire-dead-builder-reducer.md) | Retire the unused builder reducer API | P2 | S | 040 | DONE — reviewed 2026-09-25 (commit `b49f7a9`); merged to `advisor/b1-cotiza-verify` as `7d562f7`; module renamed to `builderHelpers.js`, dead reducer API gone, helper tests retained/added |
 | [042](042-resolver-performance.md) | Make analyzer row resolution cheap, bounded, and lazy | P1 | M | — | DONE — reviewed 2026-09-25 (commits `6bff8c9`…`b184520`); merged to `advisor/b1-cotiza-verify` as `a3e88ab`; O(1) id index, 20-candidate cap + manual search, `active` laziness, raw parse no longer retained; resolution parity tests + assurance 44/44 |
 | [043](043-analyzer-context-and-failure-surfacing.md) | Allow context edits after analysis; surface degraded catalog data | P1 | S | 042 | DONE — reviewed 2026-09-25 (commit `90ba921`); merged to `advisor/b1-cotiza-verify` as `0de4e23`; "Editar contexto" reopens intake preserving mappings, `compatFailed` and coverage-unavailable hints surfaced without changing verdicts |
 | [044](044-harden-import-persistence-workspace.md) | Harden persistence, imports, export filenames, mapper, history | P2 | S-M | 042, 043 | DONE — reviewed 2026-09-25 (commit `67acba0`); merged to `advisor/b1-cotiza-verify` as `b5d7381`; per-entry recovery with backup + StrictMode-safe first-write skip, unified import detection, slugified filenames, mapper guard, single `pushState` |
 | [045](045-docs-truth-up.md) | Reconcile design/validation docs with shipped state | P2 | S | — | TODO |
-| [046](046-lint-scripts-and-asset-hygiene.md) | Lint the pipeline, strict app lint, prune stale deployed assets | P2 | S-M | 037 (shared surfaces) | TODO |
+| [046](046-lint-scripts-and-asset-hygiene.md) | Lint the pipeline, strict app lint, prune stale deployed assets | P2 | S-M | 037 | DONE — reviewed 2026-09-25 (commit `3e80934`); merged to `advisor/b1-cotiza-verify` as `93dd68d`; scripts linted (16 dead bindings removed), `--max-warnings 0`, workflow gates, 5 stale bundles pruned; plan amended to fix the ESLint 10 base-path invocation |
 | [047](047-pipeline-symlink-rejection.md) | Reject symlinked dataset files in pipeline readers | P2 | S | — | DONE — reviewed 2026-09-25 (commit `52e63dd`); merged to `advisor/b1-cotiza-verify` as `4c4e349`; guard fail-closed in every dataset read path; 5 new io tests |
 | [048](048-coverage-case-contribution-design.md) | Design a privacy-reviewed coverage-case contribution path | P2 | S | — | DONE — reviewed 2026-09-25 (commit `fe1053a`); merged to `advisor/b1-cotiza-verify` as `f5fcf04`; owner checklist resolved 2026-09-25 (corpus adopt, trust-first); implementation shipped as 052 |
-| [049](049-content-inventory-pages-4-12.md) | Author the pages 4-12 rule-backed content inventory | P2 | S | — | TODO — design only; no pages, deploy, or submission |
-| [050](050-non-destructive-conflict-notices.md) | Announce builder clears caused by conflicts | P2 | S | 040 | TODO |
+| [049](049-content-inventory-pages-4-12.md) | Author the pages 4-12 rule-backed content inventory | P2 | S | — | DONE — reviewed 2026-09-25 (commit `5bfbc10`); merged to `advisor/b1-cotiza-verify` as `0236a7a`; 9 rows, all rule IDs verified against the registry, page 5 deferred (coverage absent), design-only — authorizes no pages, deploy, or submission |
+| [050](050-non-destructive-conflict-notices.md) | Announce builder clears caused by conflicts | P2 | S | 040 | BLOCKED — STOP on missing-data conflation: empty CPU socket / empty case `formFactors` satisfy the clear conditions, so notices would claim a mismatch where data is missing (120 shipped cases have empty form factors; 549 CPUs lack a socket). Changing clear conditions is out of scope; WIP preserved on `advisor/041-050-builder-cleanups` (`4e82726`); owner decision needed |
 | [051](051-measurement-enabling-decision.md) | Produce the measurement-enabling decision packet | P2 | S | — | DONE — reviewed 2026-09-25 (commit `78669d5`); merged to `advisor/b1-cotiza-verify` as `12a900b`; no sink or collection authorized; measurement stays no-op until M1 traffic and owner re-approval |
 | [052](052-coverage-case-export.md) | Add the local, privacy-minimized coverage-case export (corpus flywheel, layer 1) | P1 | M | 048, 037 | DONE — reviewed 2026-09-25 against real validator (commits `021d9b8`, `081af99`); merged to `advisor/b1-cotiza-verify` as `4ff321d`; one revision (retain user-confirmed rows); no network, no event |
 
@@ -225,6 +225,10 @@ into the integration branch and the moat slice was executed and reviewed:
 | 042 resolver performance | APPROVE | `6bff8c9`…`b184520` | `a3e88ab` |
 | 043 context + degraded data | APPROVE | `90ba921` | `0de4e23` |
 | 044 persistence/import hardening | APPROVE | `67acba0` | `b5d7381` |
+| 041 retire builder reducer | APPROVE | `b49f7a9` | `7d562f7` |
+| 050 conflict notices | STOPPED (BLOCKED) | WIP `4e82726` | not merged |
+| 046 lint + asset hygiene | APPROVE (plan amended for ESLint 10 base path) | `3e80934` | `93dd68d` |
+| 049 pages 4-12 inventory | APPROVE | `5bfbc10` | `0236a7a` |
 
 - 052's review caught a real corpus-killing defect: a user-confirmed row keeps
   its original (usually empty) `itemId`, so the first builder dropped exactly
@@ -262,10 +266,30 @@ into the integration branch and the moat slice was executed and reviewed:
   double-invoked mount effect would otherwise overwrite the corrupt blob on
   the second pass; the executor proved the failure and the tests now cover
   StrictMode explicitly.
-- Integration branch post-merge: `npm run check` exits 0 (lint 0 errors / 2
-  pre-existing warnings, 43 test files, 1061 passed / 1 todo), `npm run
-  test:assurance` passes.
-- Next: Wave 4 batch, plans 041 + 050 (both small `App.jsx` edits).
+- 050's executor correctly hit its STOP condition and the reviewer verified it
+  against the shipped catalog: `mobo.socket !== cpu.socket` is true when the
+  CPU socket is missing, and `!currentCase.formFactors?.includes(...)` is true
+  when a case has no form-factor data, so the planned notices would emit false
+  compatibility claims. The clears themselves are pre-existing behavior and
+  out of 050's scope; the full WIP (five notices, seven tests, StrictMode
+  coverage) is preserved at `4e82726` unmerged. Owner decision required —
+  see ROADMAP §7.
+- 046's first run correctly stopped on a plan-authoring error: under ESLint 10
+  `--config` makes the lint base path the process cwd, so the planned
+  `eslint --config ../eslint.config.js ../scripts` can never lint the
+  pipeline. The reviewer amended the plan to
+  `cd .. && eslint --config eslint.config.js scripts` and resumed the same
+  executor; it then removed exactly the 16 unused bindings (two renamed to
+  `_`-prefixed bindings to preserve rest-sibling semantics), made app lint
+  warning-free (`--max-warnings 0`), and pruned 5 stale bundles
+  (`docs/assets` now equals the `docs/index.html` set).
+- 049's inventory defers page 5 (RAM↔motherboard speed) because
+  `compat-mobo-ram-memory` coverage is absent (0%); the document states its
+  thresholds and authorizes no page work.
+- Integration branch post-merge: `npm run check` exits 0 (0 errors, 0
+  warnings, 44 test files, 1057 passed / 1 todo), `npm run test:assurance`
+  passes, `verify.sh` passes.
+- Next: Wave 5 plan 045 (docs truth-up); 050 waits on the owner decision.
 
 ### 2026-09-25 batch notes
 

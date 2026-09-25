@@ -195,3 +195,11 @@ Stop and report back (do not improvise) if:
   refresh the coverage states whenever the catalog pin is refreshed.
 - **Deferred**: indexing, sitemap, robots, and Search Console work are separate
   operator-authorized actions (Plan 033 and Milestone 1).
+- **Completion (2026-09-25)**: implemented `5bfbc10`, reviewed and merged as
+  `0236a7a`. Nine rows authored from the live registry and coverage manifest
+  with stated thresholds; all 7 cited rule IDs verified against
+  `ASSURANCE_RULE_IDS`; page 5 (RAM↔motherboard speed) is marked
+  `(deferida)` because `compat-mobo-ram-memory` coverage is 0%. The document
+  authorizes no page authoring, deployment, or external submission. Owner
+  decisions remain open in `## Decisiones pendientes del propietario` and
+  ROADMAP §7.
