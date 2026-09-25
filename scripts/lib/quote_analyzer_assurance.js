@@ -174,12 +174,6 @@ const isPlainObject = (value) =>
 
 const isNonEmptyString = (value) => typeof value === "string" && value.trim() !== "";
 
-const isIsoDate = (value) => {
-  if (!isNonEmptyString(value)) return false;
-  if (!/^\d{4}-\d{2}-\d{2}/.test(value.trim())) return false;
-  return !Number.isNaN(Date.parse(value));
-};
-
 const isIsoDateTime = (value) => {
   if (!isNonEmptyString(value)) return false;
   if (!/^\d{4}-\d{2}-\d{2}/.test(value.trim())) return false;
@@ -461,7 +455,6 @@ export function loadConformanceSuite(dir) {
       throw new Error(`unexpected schemaVersion in assurance directory (case ${caseId})`);
     }
   }
-  const caseIds = cases.map((c) => c.caseId);
   for (const control of controls) {
     const errors = validateNegativeControl(control, cases);
     if (errors.length > 0) {
@@ -675,7 +668,7 @@ export function computeCoverageMetrics(cases, analyze) {
       if (SUPPORTED_STATES.includes(state)) supportedRows += 1;
       if (RESOLVED_STATES.includes(state)) resolvedRows += 1;
     }
-    for (const [dimension, entry] of Object.entries(report?.dimensions ?? {})) {
+    for (const entry of Object.values(report?.dimensions ?? {})) {
       const status = entry?.status ?? null;
       if (status !== null) evidenceAssessed += 1;
       evidenceTotal += 1;

@@ -3,8 +3,6 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
-const SOURCE_TAGS = { BUILDCORES: "buildcores", DBGPU: "dbgpu", PCPART: "pcpart" };
-
 function writeJson(dir, file, data) {
   const fullPath = path.join(dir, file);
   fs.mkdirSync(path.dirname(fullPath), { recursive: true });
