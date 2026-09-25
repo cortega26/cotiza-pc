@@ -23,6 +23,7 @@ All commands run from `pc-quote-builder/` unless noted.
 | `npm run lint` | ESLint (flat config) |
 | `npm test` | Vitest suite (jsdom) |
 | `npm run check` | **Required gate** — lint + test + disposable build |
+| `npm run test:assurance` | Plan 035 analyzer conformance suite (synthetic fixtures; no private corpus) |
 | `npm run build` | Production build → `../docs/` (GitHub Pages) |
 | `npm run build:check` | Build to `/tmp/pc-check-build` (disposable, non-mutating) |
 

@@ -20,6 +20,7 @@
     "pc-data:all": "npm run download:pc-data && npm run build:pc-data && npm run sync:pc-data",
     "test": "vitest run --exclude src/lib/postBuildAssertion.test.js",
     "test:artifacts": "vitest run src/lib/artifactContract.test.js",
+    "test:assurance": "node ../scripts/quote_analyzer_assurance.js --conformance-dir ../scripts/fixtures/quote-analyzer-assurance --out /tmp/cotiza-pc-assurance.json",
     "test:contract": "vitest run src/lib/artifactContract.test.js src/lib/postBuildAssertion.test.js"
   },
   "dependencies": {

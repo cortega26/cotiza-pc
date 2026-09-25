@@ -120,6 +120,7 @@ También es posible ejecutar pasos individuales:
 | Sincronización | `npm run sync:pc-data` | Copia `data/processed/` → `public/data/` |
 | Validación (pre-build) | `npm run test:artifacts` | Verifica contratos de artefactos en `public/data/` |
 | Validación (post-build) | `npx vitest run src/lib/postBuildAssertion.test.js` | Verifica que `docs/data/` coincide byte a byte con `public/data/` |
+| Validación (conformidad del análisis) | `npm run test:assurance` | Verifica la conformidad del motor de análisis con la suite sintética del Plan 035 |
 | Validación (contratos) | `npm run test:contract` (en `pc-quote-builder/`) / `bash scripts/verify.sh` (raíz) | Artefactos + post-build juntos; `verify.sh` suma `scripts/lib` sin manifest raíz |
 
 ### Fuentes de datos
